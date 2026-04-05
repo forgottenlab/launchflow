@@ -1,0 +1,77 @@
+# =========================
+# Python
+# =========================
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# =========================
+# Build / Packaging
+# =========================
+build/
+dist/
+*.spec
+*.egg-info/
+pip-wheel-metadata/
+
+# PyInstaller cache / analysis artifacts
+*.toc
+*.pkg
+*.pyz
+xref-*.html
+warn-*.txt
+
+# =========================
+# Logs
+# =========================
+logs/
+*.log
+
+# =========================
+# Runtime / Local data
+# =========================
+data/build_cache/
+data/user_plans/
+data/app_templates.json
+data/public_key.pem
+
+# =========================
+# License / Activation artifacts
+# =========================
+generated_licenses/
+licenses/
+
+# 私钥绝不能上传
+private/
+
+# =========================
+# Local temp runtime files
+# =========================
+*.bat
+
+# =========================
+# IDE / Editor
+# =========================
+.idea/
+.vscode/
+*.iml
+
+# =========================
+# OS
+# =========================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# =========================
+# Keep tracked docs
+# =========================
+!README.md
+!CHANGELOG.md
+!LICENSE
