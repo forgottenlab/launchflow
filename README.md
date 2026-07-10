@@ -5,6 +5,10 @@
 LaunchFlow 是一个面向 Windows 的可视化启动流程编排工具。  
 你可以通过图形界面自由组合“应用、网页、命令、等待”等步骤，并进行试运行、保存方案以及导出独立启动包。
 
+## English Summary
+
+LaunchFlow is a Windows desktop app for visually composing startup workflows. It can launch local apps and scripts, open URLs, wait between steps, save plans as JSON, and export a plan as a standalone launcher EXE for small-scale distribution.
+
 ---
 
 ## 项目简介
@@ -36,7 +40,7 @@ LaunchFlow 旨在解决这样一类场景：
   - 等待步骤
 - 支持本地保存与加载方案
 - 支持试运行当前方案
-- 支持导出单文件 EXE
+- 支持导出单文件 EXE，并自动携带可复制的本地应用启动文件
 - 支持离线激活（Beta 测试版）
 
 ---
@@ -100,6 +104,19 @@ dist/VisualLauncher.exe
 
 > 后续如果你将代码中的 `APP_NAME` 与输出名称同步更新为 `LaunchFlow`，则输出文件名也可以一起调整。
 
+### 导出用户启动包
+
+工作台中的 **导出 EXE** 会将当前方案封装为一个独立启动包。
+
+- 开发版优先使用当前 Python 环境中的 PyInstaller。
+- 发布版内导出依赖目标机器存在可用的 PyInstaller 构建器；程序会尝试使用系统 `PATH` 中的 `pyinstaller`、`python -m PyInstaller` 或 `py -m PyInstaller`。
+- 本地应用步骤中的 `.exe`、`.bat`、`.cmd`、`.com`、`.ps1` 文件会自动随包携带，并在启动包运行时优先从包内启动。
+- `.lnk` 快捷方式不建议作为随包资产分发，因为它通常指向当前机器上的绝对路径。
+- 如果被携带的应用依赖外部 DLL、配置文件或数据目录，目标电脑仍需具备对应环境。
+- 导出只携带启动文件本身，不会自动扫描或复制目标程序的完整安装目录。
+
+Export behavior in short: `.exe`, `.bat`, `.cmd`, `.com`, and `.ps1` app steps are bundled as launcher assets; `.lnk` shortcuts and external dependencies are not bundled automatically.
+
 ---
 
 ## 项目结构
@@ -146,6 +163,22 @@ data/            本地模板、设置与运行数据
 - PyInstaller
 - cryptography
 
+## 开发与验证命令
+
+```bash
+python tools/check_ui_spinbox_contract.py
+python tools/check_editor_gui_smoke.py
+python tools/validate_export_smoke.py
+python tools/validate_release_smoke.py
+```
+
+说明：
+
+- `check_editor_gui_smoke.py` 会创建临时项目根并用 Qt offscreen 模式实例化主窗口，不依赖真实 license。
+- `validate_export_smoke.py` 会真实构建并运行一个最小导出启动器。
+- `validate_release_smoke.py` 会构建 `dist/LaunchFlow.exe`，检查发布目录中没有私钥或真实 `.lic`，并短暂启动发布版确认能进入启动流程。
+- 人工验证请参考 [GUI Smoke Checklist](docs/gui-smoke-checklist.md)。
+
 ---
 
 ## 内测申请
@@ -181,6 +214,27 @@ data/            本地模板、设置与运行数据
 - **私钥文件不会开源**
 - 已签发给测试用户的授权文件不会公开
 - 发布版用户无需接触授权生成逻辑
+- `private/private_key.pem` 永不分发
+- `generated_licenses/` 下的真实 `.lic` 文件不得进入公开发布包
+
+## 当前测试状态
+
+已验证：
+
+- Python 语法结构检查
+- 导出资产收集逻辑不会修改原始 plan
+- 最小真实 PyInstaller 导出 smoke：`.cmd` 与 `.ps1` 测试启动项均从 `_MEI.../launchflow_assets/` 解包目录执行
+- GUI smoke：主窗口可实例化，等待/延迟 spinbox 可找到，QtTest 可点击等待秒数上下区域
+- 发布版 smoke：`dist/LaunchFlow.exe` 已完成一次构建和短启动验证，发布目录未发现私钥或真实 `.lic`
+- `git diff --check` 无空白错误
+
+仍需注意：
+
+- 发布版内导出依赖用户机器上存在可用 PyInstaller 构建器
+- 重新构建发布版前请确认没有正在运行的 `dist/LaunchFlow.exe`，否则 Windows 会锁定文件导致 PyInstaller 无法覆盖
+- 随包携带的是启动文件，不是完整应用依赖树
+- 真实鼠标点击、授权导入成功路径和不同 Windows 机器上的显示效果仍建议按 GUI checklist 人工确认
+- 当前测试版仍不建议用于关键生产环境
 
 ---
 

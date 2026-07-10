@@ -23,11 +23,17 @@ build_single_exe.py
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 import sys
 import tempfile
+from copy import deepcopy
 from pathlib import Path
+
+
+ASSET_DIR_NAME = "launchflow_assets"
+PACKABLE_APP_SUFFIXES = {".exe", ".bat", ".cmd", ".com", ".ps1"}
 
 
 EMBEDDED_TEMPLATE = r'''
@@ -56,6 +62,12 @@ def get_base_dir() -> Path:
     if getattr(sys, "frozen", False):
         return Path(sys.executable).resolve().parent
     return Path(__file__).resolve().parent
+
+
+def get_asset_base_dir() -> Path:
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        return Path(sys._MEIPASS)
+    return get_base_dir()
 
 
 def ensure_dir(path: Path) -> None:
@@ -106,6 +118,16 @@ def show_error(title: str, message: str) -> None:
 
 def run_app_step(step: dict) -> None:
     path = str(step.get("path", "")).strip()
+    embedded_asset = str(step.get("_embedded_asset", "")).strip()
+
+    if embedded_asset:
+        embedded_path = get_asset_base_dir() / embedded_asset
+        if embedded_path.exists():
+            path = str(embedded_path)
+        else:
+            log(f"[失败] 内置启动文件不存在: {embedded_path}")
+            return
+
     if not path:
         log("[失败] 应用路径为空")
         return
@@ -125,6 +147,8 @@ def run_app_step(step: dict) -> None:
         args = []
 
     working_dir = step.get("working_dir") or None
+    if embedded_asset and not working_dir:
+        working_dir = str(Path(path).parent)
     start_minimized = bool(step.get("start_minimized", False))
 
     startupinfo = None
@@ -132,6 +156,15 @@ def run_app_step(step: dict) -> None:
         startupinfo = subprocess.STARTUPINFO()
         startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
         startupinfo.wShowWindow = 6
+
+    if ext == ".ps1":
+        subprocess.Popen(
+            ["powershell", "-ExecutionPolicy", "Bypass", "-File", path] + list(args),
+            cwd=working_dir,
+            startupinfo=startupinfo,
+        )
+        log(f"[成功] 已启动 PowerShell 脚本: {step.get('name', '应用')}")
+        return
 
     subprocess.Popen([path] + list(args), cwd=working_dir, startupinfo=startupinfo)
     log(f"[成功] 已启动应用: {step.get('name', '应用')}")
@@ -265,6 +298,92 @@ if __name__ == "__main__":
 '''
 
 
+def _safe_asset_name(index: int, path: Path) -> str:
+    """
+    为随包携带的本地启动文件生成稳定、安全的文件名。
+    """
+    stem = "".join(ch if ch.isalnum() or ch in {"-", "_"} else "_" for ch in path.stem)
+    stem = stem.strip("_") or "app"
+    return f"app_{index}_{stem}{path.suffix.lower()}"
+
+
+def _prepare_embedded_plan_and_assets(plan_dict: dict) -> tuple[dict, list[tuple[Path, str]]]:
+    """
+    复制一份用于打包的方案数据，并收集可随包携带的本地应用文件。
+
+    原始方案不被修改。当前只自动携带明确存在的本地文件型应用入口，
+    例如 exe / bat / cmd / com / ps1。快捷方式和浏览器路径仍按原路径执行，
+    避免把系统级或第三方浏览器误打进用户启动包。
+    """
+    embedded_plan = deepcopy(plan_dict)
+    assets: list[tuple[Path, str]] = []
+    seen_sources: dict[Path, str] = {}
+
+    steps = embedded_plan.get("steps", [])
+    if not isinstance(steps, list):
+        return embedded_plan, assets
+
+    for index, step in enumerate(steps, start=1):
+        if not isinstance(step, dict) or step.get("type") != "app":
+            continue
+
+        raw_path = str(step.get("path", "")).strip()
+        if not raw_path:
+            continue
+
+        source_path = Path(raw_path)
+        if source_path.suffix.lower() not in PACKABLE_APP_SUFFIXES:
+            continue
+
+        if not source_path.is_file():
+            continue
+
+        source_path = source_path.resolve()
+        asset_name = seen_sources.get(source_path)
+        if asset_name is None:
+            asset_name = _safe_asset_name(len(seen_sources) + 1, source_path)
+            seen_sources[source_path] = asset_name
+            assets.append((source_path, asset_name))
+
+        step["_embedded_asset"] = f"{ASSET_DIR_NAME}/{asset_name}"
+
+    return embedded_plan, assets
+
+
+def _get_pyinstaller_command() -> list[str]:
+    """
+    获取可用的 PyInstaller 调用命令。
+
+    源码模式优先使用当前 Python 环境；发布版 EXE 模式下不能再通过
+    `sys.executable -m PyInstaller` 调用，因此改为寻找系统 PATH 中的
+    pyinstaller 或 python。
+    """
+    if getattr(sys, "frozen", False):
+        pyinstaller_exe = shutil.which("pyinstaller")
+        if pyinstaller_exe:
+            return [pyinstaller_exe]
+
+        python_exe = shutil.which("python")
+        if python_exe:
+            return [python_exe, "-m", "PyInstaller"]
+
+        py_launcher = shutil.which("py")
+        if py_launcher:
+            return [py_launcher, "-m", "PyInstaller"]
+
+        raise RuntimeError(
+            "发布版导出需要系统 PATH 中存在 pyinstaller，"
+            "或存在已安装 PyInstaller 的 python/py 命令。"
+        )
+
+    try:
+        __import__("PyInstaller")
+    except ImportError:
+        subprocess.run([sys.executable, "-m", "pip", "install", "pyinstaller"], check=True)
+
+    return [sys.executable, "-m", "PyInstaller"]
+
+
 def build_single_file_exe(plan_dict: dict, output_exe_path: Path) -> Path:
     """
     将方案字典封装为单文件 EXE。
@@ -285,20 +404,24 @@ def build_single_file_exe(plan_dict: dict, output_exe_path: Path) -> Path:
     """
     output_exe_path.parent.mkdir(parents=True, exist_ok=True)
 
-    try:
-        __import__("PyInstaller")
-    except ImportError:
-        subprocess.run([sys.executable, "-m", "pip", "install", "pyinstaller"], check=True)
+    pyinstaller_command = _get_pyinstaller_command()
 
     with tempfile.TemporaryDirectory() as tmp_dir_str:
         tmp_dir = Path(tmp_dir_str)
         script_path = tmp_dir / "embedded_launcher.py"
+        staged_assets_dir = tmp_dir / ASSET_DIR_NAME
+
+        embedded_plan, assets = _prepare_embedded_plan_and_assets(plan_dict)
+        if assets:
+            staged_assets_dir.mkdir(parents=True, exist_ok=True)
+            for source_path, asset_name in assets:
+                shutil.copy2(source_path, staged_assets_dir / asset_name)
 
         # 这里使用 repr 而不是 json.dumps，
         # 是为了直接生成可嵌入 Python 源码的字典字面量，避免字符串转义层级更复杂。
         script_content = EMBEDDED_TEMPLATE.replace(
             "__PLAN_DATA__",
-            repr(plan_dict),
+            repr(embedded_plan),
         )
         script_path.write_text(script_content, encoding="utf-8")
 
@@ -310,9 +433,7 @@ def build_single_file_exe(plan_dict: dict, output_exe_path: Path) -> Path:
         build_dir = tmp_dir / "build"
 
         command = [
-            sys.executable,
-            "-m",
-            "PyInstaller",
+            *pyinstaller_command,
             "--noconfirm",
             "--clean",
             "--onefile",
@@ -323,8 +444,18 @@ def build_single_file_exe(plan_dict: dict, output_exe_path: Path) -> Path:
             str(dist_dir),
             "--workpath",
             str(build_dir),
-            str(script_path),
+            "--specpath",
+            str(tmp_dir),
         ]
+
+        for _, asset_name in assets:
+            staged_asset = staged_assets_dir / asset_name
+            command.extend([
+                "--add-data",
+                f"{staged_asset}{os.pathsep}{ASSET_DIR_NAME}",
+            ])
+
+        command.append(str(script_path))
 
         subprocess.run(command, check=True)
 

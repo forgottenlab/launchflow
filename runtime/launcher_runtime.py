@@ -144,6 +144,15 @@ class RuntimeExecutor:
             startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
             startupinfo.wShowWindow = 6
 
+        if ext == ".ps1":
+            subprocess.Popen(
+                ["powershell", "-ExecutionPolicy", "Bypass", "-File", step.path] + list(step.args),
+                cwd=step.working_dir or None,
+                startupinfo=startupinfo,
+            )
+            self.log(f"[成功] 已启动 PowerShell 脚本: {step.name}")
+            return
+
         subprocess.Popen(
             command,
             cwd=step.working_dir or None,

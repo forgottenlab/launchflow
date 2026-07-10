@@ -46,6 +46,7 @@ data/public_key.pem
 # =========================
 generated_licenses/
 licenses/
+*.lic
 
 # 私钥绝不能上传
 private/
@@ -53,6 +54,8 @@ private/
 # =========================
 # Local temp runtime files
 # =========================
+.tmp/
+.gui-smoke-tmp/
 *.bat
 
 # =========================

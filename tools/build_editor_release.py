@@ -113,6 +113,8 @@ def build_editor_release(project_root: Path, exe_name: str = "LaunchFlow") -> Pa
         str(dist_dir),
         "--workpath",
         str(build_dir),
+        "--specpath",
+        str(build_dir),
         "--paths",
         str(project_root),
         str(entry_script),

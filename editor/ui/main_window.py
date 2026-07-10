@@ -21,7 +21,7 @@ main_window.py
 
 注意事项：
 - 该模块是编辑器层的核心交互入口，包含较多 UI 与业务协调逻辑；
-- 发布版中试运行直接执行当前方案，导出功能默认禁用；
+- 发布版中试运行直接执行当前方案，导出功能依赖本机可用的 PyInstaller 构建器；
 - 部分路径与缓存逻辑依赖 project_root，必须保证入口层正确传入。
 """
 
@@ -54,6 +54,7 @@ from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
     QDoubleSpinBox,
+    QAbstractSpinBox,
     QFileDialog,
     QFormLayout,
     QFrame,
@@ -75,7 +76,7 @@ from PySide6.QtWidgets import (
 from shared.models import Plan, AppStep, UrlStep, CommandStep, WaitStep
 from shared.plan_schema import validate_plan_dict
 from editor.services.plan_service import PlanService
-from tools.build_single_exe import build_single_file_exe
+from tools.build_single_exe import PACKABLE_APP_SUFFIXES, build_single_file_exe
 
 
 class ThemeManager:
@@ -168,10 +169,38 @@ class ThemeManager:
         border-top: 1px solid;
     }
 
-    QLineEdit, QTextEdit, QComboBox, QDoubleSpinBox {
+    QLineEdit, QTextEdit, QComboBox {
         border: 1px solid;
         border-radius: 8px;
         padding: 7px 10px;
+    }
+
+    QDoubleSpinBox {
+        border: 1px solid;
+        border-radius: 8px;
+        min-height: 36px;
+        padding: 0px 30px 0px 10px;
+    }
+
+    QDoubleSpinBox::up-button {
+        subcontrol-origin: border;
+        subcontrol-position: top right;
+        width: 26px;
+        height: 18px;
+        border-left: 1px solid;
+        border-bottom: 1px solid;
+        border-top-right-radius: 8px;
+        margin: 0px;
+    }
+
+    QDoubleSpinBox::down-button {
+        subcontrol-origin: border;
+        subcontrol-position: bottom right;
+        width: 26px;
+        height: 18px;
+        border-left: 1px solid;
+        border-bottom-right-radius: 8px;
+        margin: 0px;
     }
 
     QListWidget#HistoryList {
@@ -343,6 +372,17 @@ class ThemeManager:
         color: #F8FAFC;
     }
 
+    QDoubleSpinBox::up-button,
+    QDoubleSpinBox::down-button {
+        background: #111827;
+        border-color: #334155;
+    }
+
+    QDoubleSpinBox::up-button:hover,
+    QDoubleSpinBox::down-button:hover {
+        background: #1E293B;
+    }
+
     QListWidget#HistoryList {
         background: transparent;
         color: #E2E8F0;
@@ -492,6 +532,17 @@ class ThemeManager:
         background: #F8FAFC;
         border-color: #D1D5DB;
         color: #111827;
+    }
+
+    QDoubleSpinBox::up-button,
+    QDoubleSpinBox::down-button {
+        background: #F3F4F6;
+        border-color: #D1D5DB;
+    }
+
+    QDoubleSpinBox::up-button:hover,
+    QDoubleSpinBox::down-button:hover {
+        background: #E5E7EB;
     }
 
     QListWidget#HistoryList {
@@ -1291,6 +1342,21 @@ class MainWindow(QMainWindow):
         right_layout.addLayout(status_bar_layout)
         content_layout.addWidget(right_container, 1)
 
+    def _configure_seconds_spinbox(self, spinbox: QDoubleSpinBox, *, decimals: int = 1) -> None:
+        """
+        统一配置秒数/延迟输入框。
+
+        QDoubleSpinBox 的上下箭头是 Qt subcontrol。这里保持固定高度、
+        足够右侧内边距和原生 Up/Down 按钮，避免 QSS 泛用输入框 padding
+        把视觉按钮和实际可点击区域拉偏。
+        """
+        spinbox.setRange(0, 9999)
+        spinbox.setDecimals(decimals)
+        spinbox.setSingleStep(1.0)
+        spinbox.setFixedHeight(38)
+        spinbox.setMinimumWidth(150)
+        spinbox.setButtonSymbols(QAbstractSpinBox.ButtonSymbols.UpDownArrows)
+
     def _build_property_editors(self) -> None:
         """
         构建右侧属性编辑区的各类页面。
@@ -1309,9 +1375,11 @@ class MainWindow(QMainWindow):
         self.app_name_in = QLineEdit()
         self.app_path_in = QLineEdit()
         self.app_args_in = QTextEdit()
+        self.app_path_in.setPlaceholderText("选择或粘贴 .exe / .bat / .cmd / .ps1 路径")
+        self.app_args_in.setPlaceholderText("可选：按空格分隔启动参数")
+        self.app_args_in.setMaximumHeight(82)
         self.app_delay_in = QDoubleSpinBox()
-        self.app_delay_in.setRange(0, 9999)
-        self.app_delay_in.setDecimals(1)
+        self._configure_seconds_spinbox(self.app_delay_in)
         app_form.addRow("步骤名称", self.app_name_in)
         app_form.addRow("程序路径", self.app_path_in)
         app_form.addRow("启动参数", self.app_args_in)
@@ -1323,8 +1391,7 @@ class MainWindow(QMainWindow):
         self.url_name_in = QLineEdit()
         self.url_in = QLineEdit()
         self.url_delay_in = QDoubleSpinBox()
-        self.url_delay_in.setRange(0, 9999)
-        self.url_delay_in.setDecimals(1)
+        self._configure_seconds_spinbox(self.url_delay_in)
         url_form.addRow("步骤名称", self.url_name_in)
         url_form.addRow("网址 URL", self.url_in)
         url_form.addRow("后续延迟(秒)", self.url_delay_in)
@@ -1334,11 +1401,11 @@ class MainWindow(QMainWindow):
         cmd_form = QFormLayout(self.page_cmd)
         self.cmd_name_in = QLineEdit()
         self.cmd_in = QTextEdit()
+        self.cmd_in.setMaximumHeight(120)
         self.cmd_shell_in = QComboBox()
         self.cmd_shell_in.addItems(["cmd", "powershell"])
         self.cmd_delay_in = QDoubleSpinBox()
-        self.cmd_delay_in.setRange(0, 9999)
-        self.cmd_delay_in.setDecimals(1)
+        self._configure_seconds_spinbox(self.cmd_delay_in)
         cmd_form.addRow("步骤名称", self.cmd_name_in)
         cmd_form.addRow("执行命令", self.cmd_in)
         cmd_form.addRow("Shell 类型", self.cmd_shell_in)
@@ -1349,8 +1416,7 @@ class MainWindow(QMainWindow):
         wait_form = QFormLayout(self.page_wait)
         self.wait_name_in = QLineEdit()
         self.wait_seconds_in = QDoubleSpinBox()
-        self.wait_seconds_in.setRange(0, 9999)
-        self.wait_seconds_in.setDecimals(1)
+        self._configure_seconds_spinbox(self.wait_seconds_in)
         wait_form.addRow("步骤名称", self.wait_name_in)
         wait_form.addRow("等待时间(秒)", self.wait_seconds_in)
         self.editor_stack.addWidget(self.page_wait)
@@ -1938,14 +2004,14 @@ class MainWindow(QMainWindow):
         通过文件选择框添加一个应用步骤。
 
         说明：
-        - 当前支持 exe / bat / lnk 三类常见启动入口；
+        - 当前支持 exe / bat / cmd / ps1 / lnk 等常见启动入口；
         - 选择成功后会立即将步骤加入当前方案并刷新界面。
         """
         file_path, _ = QFileDialog.getOpenFileName(
             self,
             "选择应用程序",
             "",
-            "Applications (*.exe *.bat *.lnk)"
+            "Applications (*.exe *.bat *.cmd *.ps1 *.lnk)"
         )
         if not file_path:
             return
@@ -2187,18 +2253,11 @@ class MainWindow(QMainWindow):
         将当前方案导出为独立 exe。
 
         说明：
-        - 发布版编辑器默认不内置打包环境；
-        - 只有开发版环境才允许执行完整导出。
+        - 开发版优先使用当前 Python 环境中的 PyInstaller；
+        - 发布版会尝试使用系统 PATH 中的 pyinstaller 或 python -m PyInstaller。
         """
         if not self.current_plan.steps:
             self._error("无法导出", "当前没有任何步骤。")
-            return
-
-        if getattr(sys, "frozen", False):
-            self._error(
-                "当前版本不支持导出",
-                "发布版编辑器不内置打包环境。\n\n请使用开发版运行项目后再导出 EXE。"
-            )
             return
 
         target_path_str, _ = QFileDialog.getSaveFileName(
@@ -2211,6 +2270,25 @@ class MainWindow(QMainWindow):
             return
 
         target_path = Path(target_path_str)
+        packable_count = sum(
+            1
+            for step in self.current_plan.steps
+            if isinstance(step, AppStep)
+            and Path(step.path).suffix.lower() in PACKABLE_APP_SUFFIXES
+            and Path(step.path).is_file()
+        )
+
+        if packable_count > 0:
+            message = (
+                f"检测到 {packable_count} 个本地应用启动文件。\n\n"
+                "导出时会自动把这些文件随包携带，并在启动包运行时优先从包内启动。\n"
+                "如果这些应用依赖外部 DLL、配置文件或数据目录，请确保目标电脑也具备对应环境。"
+            )
+            if not self._confirm("确认导出", message, "继续导出"):
+                return
+
+        if getattr(sys, "frozen", False):
+            self._log("发布版导出将使用系统 PATH 中的 PyInstaller 构建器。")
 
         self._create_progress_dialog("正在导出", "正在封装独立 EXE，请稍候...")
 
