@@ -29,11 +29,16 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+import shutil
+import sys
 from typing import Any, Dict, Optional
 
 from shared.utils import read_json, write_json, ensure_dir
+from shared.app_paths import ensure_app_directories, get_license_dir
+from shared.app_info import APP_VERSION
 from licensing.crypto import verify_signature
 from licensing.hwid import get_machine_id
+from licensing.license_schema import app_version_allowed, is_expired, validate_new_license_shape
 
 
 @dataclass
@@ -74,11 +79,14 @@ class LicenseManager:
         """
         self.project_root = project_root
         self.data_dir = self.project_root / "data"
-        self.licenses_dir = self.project_root / "licenses"
+        ensure_app_directories()
+        self.licenses_dir = get_license_dir()
         self.license_path = self.licenses_dir / "license.lic"
-        self.public_key_path = self.data_dir / "public_key.pem"
+        if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+            self.public_key_path = Path(sys._MEIPASS) / "data" / "public_key.pem"
+        else:
+            self.public_key_path = self.data_dir / "public_key.pem"
 
-        ensure_dir(self.data_dir)
         ensure_dir(self.licenses_dir)
 
     def get_license_path(self) -> Path:
@@ -101,6 +109,14 @@ class LicenseManager:
         - license_data: 授权文件对应的字典数据。
         """
         write_json(self.license_path, license_data)
+
+    def import_license_file(self, source_path: Path) -> None:
+        """Validate JSON readability, then copy a selected license to fixed storage."""
+        read_json(source_path)
+        if source_path.resolve() == self.license_path.resolve():
+            return
+        ensure_dir(self.licenses_dir)
+        shutil.copy2(source_path, self.license_path)
 
     def load_license(self) -> Dict[str, Any]:
         """
@@ -177,15 +193,36 @@ class LicenseManager:
         3. 当前机器码是否与授权绑定一致；
         4. 授权是否已过期。
         """
-        required_fields = [
-            "license_id",
-            "tester_name",
-            "machine_id",
-            "edition",
-            "expire_at",
-            "created_at",
-            "signature",
-        ]
+        schema = license_data.get("schema")
+        if schema not in (None, "", "lflic-1"):
+            return LicenseCheckResult(
+                is_valid=False,
+                code="unsupported_license_schema",
+                message=f"不支持的 license schema: {schema}",
+                license_data=license_data,
+            )
+        is_new_schema = schema == "lflic-1"
+        if is_new_schema:
+            try:
+                validate_new_license_shape(license_data)
+            except (TypeError, ValueError) as exc:
+                return LicenseCheckResult(
+                    is_valid=False,
+                    code="license_schema_invalid",
+                    message=str(exc),
+                    license_data=license_data,
+                )
+            required_fields = []
+        else:
+            required_fields = [
+                "license_id",
+                "tester_name",
+                "machine_id",
+                "edition",
+                "expire_at",
+                "created_at",
+                "signature",
+            ]
         for field in required_fields:
             if field not in license_data:
                 return LicenseCheckResult(
@@ -216,18 +253,37 @@ class LicenseManager:
                 license_data=license_data,
             )
 
-        expire_text = str(license_data.get("expire_at", "")).strip()
-        try:
-            expire_at = datetime.strptime(expire_text, "%Y-%m-%d %H:%M:%S")
-        except ValueError:
-            return LicenseCheckResult(
-                is_valid=False,
-                code="invalid_expire_format",
-                message="授权到期时间格式错误，应为 YYYY-MM-DD HH:MM:SS",
-                license_data=license_data,
-            )
+        if is_new_schema:
+            try:
+                expired = is_expired(str(license_data["expires_at"]))
+                compatible = app_version_allowed(
+                    APP_VERSION,
+                    str(license_data["min_app_version"]),
+                    license_data.get("max_app_version"),
+                )
+            except ValueError as exc:
+                return LicenseCheckResult(False, "license_schema_invalid", str(exc), license_data)
+            if not compatible:
+                return LicenseCheckResult(
+                    False,
+                    "app_version_not_allowed",
+                    f"当前版本 {APP_VERSION} 不在授权允许范围内",
+                    license_data,
+                )
+        else:
+            expire_text = str(license_data.get("expire_at", "")).strip()
+            try:
+                expire_at = datetime.strptime(expire_text, "%Y-%m-%d %H:%M:%S")
+            except ValueError:
+                return LicenseCheckResult(
+                    is_valid=False,
+                    code="invalid_expire_format",
+                    message="授权到期时间格式错误，应为 YYYY-MM-DD HH:MM:SS",
+                    license_data=license_data,
+                )
+            expired = datetime.now() > expire_at
 
-        if datetime.now() > expire_at:
+        if expired:
             return LicenseCheckResult(
                 is_valid=False,
                 code="license_expired",

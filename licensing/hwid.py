@@ -28,9 +28,10 @@ import hashlib
 import os
 import platform
 import socket
-import subprocess
 import sys
 from typing import Dict
+
+from runtime.command_runner import execute_command
 
 
 def _read_windows_machine_guid() -> str:
@@ -92,14 +93,7 @@ def _read_volume_serial() -> str:
         return ""
 
     try:
-        cmd = r"vol C:"
-        result = subprocess.run(
-            ["cmd", "/c", cmd],
-            capture_output=True,
-            text=True,
-            encoding="gbk",
-            errors="ignore",
-        )
+        result = execute_command(r"vol C:", "cmd")
         text = result.stdout or ""
         return text.strip()
     except Exception:

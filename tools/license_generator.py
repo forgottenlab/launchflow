@@ -42,6 +42,7 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding
 
 from shared.utils import write_json
+from licensing.request_token import parse_request_token
 
 
 def canonical_json_bytes(data: Dict[str, Any]) -> bytes:
@@ -147,8 +148,7 @@ def parse_request_code(request_code: str) -> Dict[str, Any]:
     返回值：
     - 申请码中包含的原始字典数据。
     """
-    raw = base64.urlsafe_b64decode(request_code.encode("utf-8"))
-    return json.loads(raw.decode("utf-8"))
+    return parse_request_token(request_code)
 
 
 def prompt_input(prompt: str, default: str = "") -> str:

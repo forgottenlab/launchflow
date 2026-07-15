@@ -29,10 +29,29 @@ import time
 from pathlib import Path
 from typing import Callable, Optional
 
+from runtime.command_runner import CommandResult, execute_command, friendly_command_error
 from shared.models import Plan, AppStep, UrlStep, CommandStep, WaitStep
 
 
 LogCallback = Optional[Callable[[str], None]]
+
+
+def application_popen_options(start_minimized: bool = False) -> dict:
+    """Return fire-and-forget Application process options isolated from the editor console."""
+
+    options = {
+        "stdin": subprocess.DEVNULL,
+        "stdout": subprocess.DEVNULL,
+        "stderr": subprocess.DEVNULL,
+    }
+    if os.name == "nt":
+        options["creationflags"] = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+        if start_minimized:
+            startupinfo = subprocess.STARTUPINFO()
+            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+            startupinfo.wShowWindow = 6
+            options["startupinfo"] = startupinfo
+    return options
 
 
 class RuntimeExecutor:
@@ -136,19 +155,13 @@ class RuntimeExecutor:
 
         command = [step.path] + list(step.args)
 
-        startupinfo = None
-        if os.name == "nt" and step.start_minimized:
-            # 仅在 Windows 下处理最小化启动，
-            # 避免其他平台无对应 STARTUPINFO 时产生兼容性问题。
-            startupinfo = subprocess.STARTUPINFO()
-            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-            startupinfo.wShowWindow = 6
+        popen_options = application_popen_options(step.start_minimized)
 
         if ext == ".ps1":
             subprocess.Popen(
                 ["powershell", "-ExecutionPolicy", "Bypass", "-File", step.path] + list(step.args),
                 cwd=step.working_dir or None,
-                startupinfo=startupinfo,
+                **popen_options,
             )
             self.log(f"[成功] 已启动 PowerShell 脚本: {step.name}")
             return
@@ -156,7 +169,7 @@ class RuntimeExecutor:
         subprocess.Popen(
             command,
             cwd=step.working_dir or None,
-            startupinfo=startupinfo,
+            **popen_options,
         )
         self.log(f"[成功] 已启动应用: {step.name}")
 
@@ -183,7 +196,7 @@ class RuntimeExecutor:
 
         self.log(f"[成功] 已打开网址: {step.url}")
 
-    def run_command_step(self, step: CommandStep) -> None:
+    def run_command_step(self, step: CommandStep) -> CommandResult:
         """
         执行命令步骤。
 
@@ -193,34 +206,23 @@ class RuntimeExecutor:
         异常：
         - ValueError: 当命令内容为空时抛出。
         """
-        if not step.command.strip():
-            raise ValueError("命令为空")
+        self.log(f"[命令] {step.command}")
+        result = execute_command(step.command, step.shell, step.working_dir)
 
-        cwd = step.working_dir or None
+        for line in result.stdout.rstrip().splitlines():
+            self.log(f"[输出] {line}")
+        stderr_label = "[标准错误]" if result.succeeded else "[错误]"
+        for line in result.stderr.rstrip().splitlines():
+            self.log(f"{stderr_label} {line}")
 
-        if os.name == "nt":
-            if step.shell.lower() == "powershell":
-                if step.new_window:
-                    subprocess.Popen(
-                        ["powershell", "-NoExit", "-Command", step.command],
-                        cwd=cwd,
-                        creationflags=subprocess.CREATE_NEW_CONSOLE,
-                    )
-                else:
-                    subprocess.Popen(["powershell", "-Command", step.command], cwd=cwd)
-            else:
-                if step.new_window:
-                    subprocess.Popen(
-                        ["cmd", "/k", step.command],
-                        cwd=cwd,
-                        creationflags=subprocess.CREATE_NEW_CONSOLE,
-                    )
-                else:
-                    subprocess.Popen(["cmd", "/c", step.command], cwd=cwd)
-        else:
-            subprocess.Popen(step.command, cwd=cwd, shell=True)
+        self.log(f"[退出码] {result.returncode}")
+        if not result.succeeded:
+            self.log("[失败] 命令执行失败")
+            self.log(f"[提示] {friendly_command_error(result)}")
+            return result
 
-        self.log(f"[成功] 已执行命令: {step.command}")
+        self.log("[成功] 命令执行完成")
+        return result
 
     def run_wait_step(self, step: WaitStep) -> None:
         """

@@ -118,10 +118,15 @@ def verify_signature(public_key_path: Optional[Path], payload: Dict[str, Any], s
     - False: 签名无效或校验过程发生异常。
     """
     public_key = load_public_key(public_key_path)
+    return verify_signature_with_key(public_key, payload, signature_b64)
+
+
+def verify_signature_with_key(public_key, payload: Dict[str, Any], signature_b64: str) -> bool:
+    """Verify a signature with an already loaded public key object."""
     message = canonical_json_bytes(payload)
-    signature = base64.b64decode(signature_b64.encode("utf-8"))
 
     try:
+        signature = base64.b64decode(signature_b64.encode("utf-8"), validate=True)
         public_key.verify(
             signature,
             message,

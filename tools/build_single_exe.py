@@ -28,7 +28,9 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import uuid
 from copy import deepcopy
+from contextlib import contextmanager
 from pathlib import Path
 
 
@@ -36,23 +38,32 @@ ASSET_DIR_NAME = "launchflow_assets"
 PACKABLE_APP_SUFFIXES = {".exe", ".bat", ".cmd", ".com", ".ps1"}
 
 
+@contextmanager
+def writable_temporary_directory(prefix: str, parent: Path | None = None):
+    """Create a writable temp directory without Python 3.13 TemporaryDirectory ACL issues."""
+    base_dir = parent or Path(tempfile.gettempdir())
+    base_dir.mkdir(parents=True, exist_ok=True)
+    path = base_dir / f"{prefix}{os.getpid()}-{uuid.uuid4().hex}"
+    path.mkdir(parents=True)
+    try:
+        yield path
+    finally:
+        shutil.rmtree(path, ignore_errors=True)
+
+
 EMBEDDED_TEMPLATE = r'''
 from __future__ import annotations
 
+import ctypes
 import os
+import locale
 import sys
 import time
 import traceback
 import subprocess
+import uuid
 from pathlib import Path
 from datetime import datetime
-
-try:
-    import tkinter as tk
-    from tkinter import messagebox
-except Exception:
-    tk = None
-    messagebox = None
 
 
 EMBEDDED_PLAN = __PLAN_DATA__
@@ -75,14 +86,35 @@ def ensure_dir(path: Path) -> None:
 
 
 def get_logs_dir() -> Path:
-    logs_dir = get_base_dir() / "logs"
+    override = os.environ.get("LAUNCHFLOW_DATA_DIR", "").strip()
+    if override and Path(os.path.expandvars(override)).expanduser().is_absolute():
+        app_data_dir = Path(os.path.expandvars(override)).expanduser()
+    else:
+        local_app_data = os.environ.get("LOCALAPPDATA", "").strip()
+        app_data_dir = (
+            Path(local_app_data) / "LaunchFlow"
+            if local_app_data
+            else Path.home() / "AppData" / "Local" / "LaunchFlow"
+        )
+    launcher_name = Path(sys.executable).stem if getattr(sys, "frozen", False) else "source-launcher"
+    logs_dir = app_data_dir / "logs" / "launchers" / launcher_name
     ensure_dir(logs_dir)
     return logs_dir
 
 
-def get_log_path() -> Path:
-    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-    return get_logs_dir() / f"runtime_{ts}.log"
+def get_log_path():
+    try:
+        logs_dir = get_logs_dir()
+        old_logs = sorted(logs_dir.glob("runtime_*.log"), key=lambda item: item.stat().st_mtime, reverse=True)
+        for stale_log in old_logs[20:]:
+            try:
+                stale_log.unlink()
+            except OSError:
+                pass
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        return logs_dir / f"runtime_{ts}.log"
+    except OSError:
+        return None
 
 
 LOG_PATH = get_log_path()
@@ -90,30 +122,45 @@ LOG_PATH = get_log_path()
 
 def log(message: str) -> None:
     line = f"[{datetime.now().strftime('%H:%M:%S')}] {message}"
-    with LOG_PATH.open("a", encoding="utf-8") as f:
-        f.write(line + "\\n")
+    if LOG_PATH is None:
+        return
+    try:
+        with LOG_PATH.open("a", encoding="utf-8") as f:
+            f.write(line + "\\n")
+    except OSError:
+        pass
 
 
 def show_info(title: str, message: str) -> None:
-    try:
-        if tk and messagebox:
-            root = tk.Tk()
-            root.withdraw()
-            messagebox.showinfo(title, message)
-            root.destroy()
-    except Exception:
-        pass
+    if os.name == "nt":
+        try:
+            ctypes.windll.user32.MessageBoxW(None, message, title, 0x40)
+        except (AttributeError, OSError):
+            pass
 
 
 def show_error(title: str, message: str) -> None:
-    try:
-        if tk and messagebox:
-            root = tk.Tk()
-            root.withdraw()
-            messagebox.showerror(title, message)
-            root.destroy()
-    except Exception:
-        pass
+    if os.name == "nt":
+        try:
+            ctypes.windll.user32.MessageBoxW(None, message, title, 0x10)
+        except (AttributeError, OSError):
+            pass
+
+
+def application_popen_options(start_minimized: bool = False) -> dict:
+    options = {
+        "stdin": subprocess.DEVNULL,
+        "stdout": subprocess.DEVNULL,
+        "stderr": subprocess.DEVNULL,
+    }
+    if os.name == "nt":
+        options["creationflags"] = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+        if start_minimized:
+            startupinfo = subprocess.STARTUPINFO()
+            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+            startupinfo.wShowWindow = 6
+            options["startupinfo"] = startupinfo
+    return options
 
 
 def run_app_step(step: dict) -> None:
@@ -151,22 +198,18 @@ def run_app_step(step: dict) -> None:
         working_dir = str(Path(path).parent)
     start_minimized = bool(step.get("start_minimized", False))
 
-    startupinfo = None
-    if os.name == "nt" and start_minimized:
-        startupinfo = subprocess.STARTUPINFO()
-        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-        startupinfo.wShowWindow = 6
+    popen_options = application_popen_options(start_minimized)
 
     if ext == ".ps1":
         subprocess.Popen(
             ["powershell", "-ExecutionPolicy", "Bypass", "-File", path] + list(args),
             cwd=working_dir,
-            startupinfo=startupinfo,
+            **popen_options,
         )
         log(f"[成功] 已启动 PowerShell 脚本: {step.get('name', '应用')}")
         return
 
-    subprocess.Popen([path] + list(args), cwd=working_dir, startupinfo=startupinfo)
+    subprocess.Popen([path] + list(args), cwd=working_dir, **popen_options)
     log(f"[成功] 已启动应用: {step.get('name', '应用')}")
 
 
@@ -193,35 +236,102 @@ def run_command_step(step: dict) -> None:
     command = str(step.get("command", "")).strip()
     shell = str(step.get("shell", "cmd")).lower()
     working_dir = step.get("working_dir") or None
-    new_window = bool(step.get("new_window", True))
-
     if not command:
-        log("[失败] 命令为空")
-        return
+        raise ValueError("命令为空")
 
     if os.name == "nt":
         if shell == "powershell":
-            if new_window:
-                subprocess.Popen(
-                    ["powershell", "-NoExit", "-Command", command],
-                    cwd=working_dir,
-                    creationflags=subprocess.CREATE_NEW_CONSOLE,
-                )
-            else:
-                subprocess.Popen(["powershell", "-Command", command], cwd=working_dir)
+            command_args = [
+                "powershell.exe",
+                "-NoLogo",
+                "-NoProfile",
+                "-NonInteractive",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-Command",
+                command,
+            ]
         else:
-            if new_window:
-                subprocess.Popen(
-                    ["cmd", "/k", command],
-                    cwd=working_dir,
-                    creationflags=subprocess.CREATE_NEW_CONSOLE,
-                )
-            else:
-                subprocess.Popen(["cmd", "/c", command], cwd=working_dir)
+            command_args = ["cmd.exe", "/d", "/s", "/c", command]
+        startupinfo = subprocess.STARTUPINFO()
+        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        startupinfo.wShowWindow = subprocess.SW_HIDE
+        process_options = {
+            "creationflags": subprocess.CREATE_NO_WINDOW,
+            "startupinfo": startupinfo,
+        }
     else:
-        subprocess.Popen(command, cwd=working_dir, shell=True)
+        command_args = ["/bin/sh", "-c", command]
+        process_options = {}
 
-    log(f"[成功] 已执行命令: {command}")
+    process_args = command_args
+    process_env = None
+    if os.name == "nt" and shell != "powershell" and '"' in command:
+        quote_variable = f"__LAUNCHFLOW_DQ_{uuid.uuid4().hex.upper()}"
+        while f"%{quote_variable}%" in command:
+            quote_variable = f"__LAUNCHFLOW_DQ_{uuid.uuid4().hex.upper()}"
+        process_args = [*command_args[:4], command.replace('"', f"%{quote_variable}%")]
+        process_env = os.environ.copy()
+        process_env[quote_variable] = '"'
+    try:
+        process = subprocess.Popen(
+            process_args,
+            cwd=working_dir,
+            env=process_env,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            shell=False,
+            **process_options,
+        )
+        stdout_bytes, stderr_bytes = process.communicate()
+        returncode = process.returncode
+    except FileNotFoundError as exc:
+        log(f"[错误] 无法启动命令: {exc}")
+        log("[退出码] -1")
+        log("[失败] 命令执行失败")
+        log("[提示] 找不到目标文件，请检查路径。")
+        return
+    except PermissionError as exc:
+        log(f"[错误] 无法启动命令: {exc}")
+        log("[退出码] -1")
+        log("[失败] 命令执行失败")
+        log("[提示] 没有权限执行该操作。")
+        return
+    except OSError as exc:
+        log(f"[错误] 无法启动命令: {exc}")
+        log("[退出码] -1")
+        log("[失败] 命令执行失败")
+        winerror = getattr(exc, "winerror", None)
+        errno = getattr(exc, "errno", None)
+        if winerror in {2, 3, 267} or errno == 2:
+            log("[提示] 找不到目标文件，请检查路径。")
+        elif winerror == 5 or errno == 13:
+            log("[提示] 没有权限执行该操作。")
+        else:
+            log("[提示] 命令执行失败，请查看退出码和错误输出。")
+        return
+    encoding = locale.getpreferredencoding(False) or "utf-8"
+    stdout = stdout_bytes.decode(encoding, errors="replace")
+    stderr = stderr_bytes.decode(encoding, errors="replace")
+
+    log(f"[命令] {command}")
+    for line in stdout.rstrip().splitlines():
+        log(f"[输出] {line}")
+    stderr_label = "[标准错误]" if returncode == 0 else "[错误]"
+    for line in stderr.rstrip().splitlines():
+        log(f"{stderr_label} {line}")
+    log(f"[退出码] {returncode}")
+
+    if returncode != 0:
+        log("[失败] 命令执行失败")
+        if returncode == 9009:
+            log("[提示] 未找到可执行命令，请检查程序是否安装或是否加入 PATH。")
+        else:
+            log("[提示] 命令执行失败，请查看退出码和错误输出。")
+        return
+
+    log("[成功] 命令执行完成")
 
 
 def run_wait_step(step: dict) -> None:
@@ -276,7 +386,8 @@ def main() -> None:
         log("=" * 60)
         log("方案执行完成")
         log("=" * 60)
-        show_info("执行完成", f"方案执行完成。\\n\\n日志位置：\\n{LOG_PATH}")
+        log_location = str(LOG_PATH) if LOG_PATH else "日志目录不可写，本次未保存磁盘日志"
+        show_info("执行完成", f"方案执行完成。\\n\\n日志位置：\\n{log_location}")
 
     except Exception:
         tb = traceback.format_exc()
@@ -289,7 +400,7 @@ def main() -> None:
         show_error(
             "启动失败",
             "程序运行出现异常。\\n\\n"
-            "请查看同目录 logs 文件夹中的日志。"
+            "请查看 LaunchFlow 用户数据目录中的启动器日志。"
         )
 
 
@@ -406,8 +517,7 @@ def build_single_file_exe(plan_dict: dict, output_exe_path: Path) -> Path:
 
     pyinstaller_command = _get_pyinstaller_command()
 
-    with tempfile.TemporaryDirectory() as tmp_dir_str:
-        tmp_dir = Path(tmp_dir_str)
+    with writable_temporary_directory("launchflow-build-") as tmp_dir:
         script_path = tmp_dir / "embedded_launcher.py"
         staged_assets_dir = tmp_dir / ASSET_DIR_NAME
 

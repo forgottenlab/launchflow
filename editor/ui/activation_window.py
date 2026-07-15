@@ -53,6 +53,7 @@ from PySide6.QtWidgets import (
 
 from licensing.activation_service import ActivationService
 from licensing.license_manager import LicenseManager, LicenseCheckResult
+from shared.app_icon import apply_window_icon, load_app_icon
 
 
 class WindowControlButton(QPushButton):
@@ -211,8 +212,7 @@ class ActivationWindow(QDialog):
         self.setModal(True)
         self.setAcceptDrops(True)
 
-        self.app_icon = self._create_app_icon()
-        self.setWindowIcon(self.app_icon)
+        self.app_icon = apply_window_icon(self, project_root)
 
         self._build_ui()
         self._load_request_info()
@@ -284,57 +284,8 @@ class ActivationWindow(QDialog):
             self._refresh_license_status()
 
     def _create_app_icon(self) -> QIcon:
-        """
-        动态绘制应用图标。
-
-        设计目标：
-        - 与主工作台使用统一风格的图标语言；
-        - 避免额外依赖外部图标资源文件；
-        - 便于发布版直接内置使用。
-        """
-        size = 128
-        pix = QPixmap(size, size)
-        pix.fill(Qt.GlobalColor.transparent)
-
-        p = QPainter(pix)
-        p.setRenderHint(QPainter.RenderHint.Antialiasing)
-
-        outer = QPainterPath()
-        outer.addRoundedRect(10, 10, 108, 108, 26, 26)
-
-        outer_grad = QLinearGradient(10, 10, 118, 118)
-        outer_grad.setColorAt(0.0, QColor(96, 165, 250, 235))
-        outer_grad.setColorAt(1.0, QColor(37, 99, 235, 245))
-        p.fillPath(outer, outer_grad)
-
-        p.setPen(QPen(QColor(255, 255, 255, 150), 2))
-        p.drawPath(outer)
-
-        panel = QPainterPath()
-        panel.addRoundedRect(24, 24, 80, 80, 18, 18)
-        p.fillPath(panel, QColor("#F8FAFC"))
-
-        p.setPen(QPen(QColor("#D6E4FF"), 1.6))
-        p.drawPath(panel)
-
-        p.fillRect(34, 34, 60, 10, QColor("#DBEAFE"))
-
-        colors = ["#60A5FA", "#93C5FD", "#BFDBFE", "#A78BFA", "#C4B5FD", "#DDD6FE"]
-        positions = [(36, 52), (56, 52), (76, 52), (36, 70), (56, 70), (76, 70)]
-        for (x, y), c in zip(positions, colors):
-            p.fillRect(x, y, 12, 12, QColor(c))
-
-        p.setBrush(QColor("#10B981"))
-        p.setPen(Qt.PenStyle.NoPen)
-        arrow = QPolygonF([
-            QPointF(56, 92),
-            QPointF(56, 104),
-            QPointF(70, 98),
-        ])
-        p.drawPolygon(arrow)
-
-        p.end()
-        return QIcon(pix)
+        """Return the same packaged ICO used by QApplication and the editor window."""
+        return load_app_icon(self.project_root)
 
     def _build_ui(self) -> None:
         """
@@ -620,9 +571,9 @@ class ActivationWindow(QDialog):
             self.btn_enter.setEnabled(True)
 
             license_data = result.license_data or {}
-            tester_name = str(license_data.get("tester_name", "未知用户"))
+            tester_name = str(license_data.get("customer") or license_data.get("tester_name", "未知用户"))
             license_id = str(license_data.get("license_id", "未知编号"))
-            expire_at = str(license_data.get("expire_at", "未知时间"))
+            expire_at = str(license_data.get("expires_at") or license_data.get("expire_at", "未知时间"))
             self.status_detail_label.setText(
                 f"测试用户：{tester_name}\n授权编号：{license_id}\n到期时间：{expire_at}"
             )

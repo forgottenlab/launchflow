@@ -1,243 +1,232 @@
-# LaunchFlow
+# 🚀 LaunchFlow
 
-> A visual launch workflow builder for Windows.
+**[简体中文](./README.md)** | [English](./README_EN.md)
 
-LaunchFlow 是一个面向 Windows 的可视化启动流程编排工具。  
-你可以通过图形界面自由组合“应用、网页、命令、等待”等步骤，并进行试运行、保存方案以及导出独立启动包。
+> 面向 Windows 的通用可视化流程编排工具：把“打开应用、访问网页、执行命令、等待”组合成可保存、可运行、可导出的工作流。
 
-## English Summary
-
-LaunchFlow is a Windows desktop app for visually composing startup workflows. It can launch local apps and scripts, open URLs, wait between steps, save plans as JSON, and export a plan as a standalone launcher EXE for small-scale distribution.
+[查看更新日志](./CHANGELOG.md)
 
 ---
 
-## 项目简介
+LaunchFlow 为每天都要重复执行的一组启动操作提供一个直观的桌面工作台。你不必先写批处理脚本，也不需要为某种编程语言安装专用插件；只要按顺序添加步骤、填写参数并点击运行，就能建立自己的工作环境、演示流程或交付启动器。
 
-LaunchFlow 旨在解决这样一类场景：
+项目当前处于 **Beta** 阶段。最新完成验证的检查点是 **`v0.1.0-beta.2`**；应用内部版本仍为 **`0.1.0-beta`**。前者用于标记本轮发布验证和归档，后者是当前程序显示与运行时使用的版本号。LaunchFlow 已通过真实 Windows 桌面交互、Release onefile、数据隔离和导出 onefile 验证，但尚未达到稳定版承诺。
 
-- 每次开机后都要手动打开多款固定软件
-- 不同工作流需要不同的启动顺序
-- 希望把常用启动方案保存下来并反复复用
-- 希望为其他用户生成一个无需配置的独立启动程序
+![LaunchFlow 深色工作台](docs/images/launchflow-workbench-dark.png)
 
-相较于传统的批处理脚本或手写命令，LaunchFlow 更强调：
+## ✨ 为什么做 LaunchFlow
 
-- 可视化
-- 低门槛
-- 可维护
-- 可复用
-- 可导出
+很多工作并不复杂，只是重复：先打开编辑器，再启动辅助工具，然后打开项目网页，执行一条准备命令，最后等待服务就绪。脚本可以解决这类问题，却往往把路径、Shell 和错误处理隐藏在文本里；临时用户很难确认执行顺序，也不容易安全地修改其中一个环节。
 
----
+LaunchFlow 把这些操作呈现为有顺序的步骤卡片。列表负责表达流程，右侧属性区负责编辑当前步骤，底部日志负责解释发生了什么。方案以可读的 JSON 保存；需要交给其他 Windows 用户时，还可以导出专用启动器 EXE。
 
-## 核心功能
+它的定位是通用流程编排，而不是 Python、Java、Node 或任何特定运行环境的前端。运行某个外部工具时，目标电脑仍需具备该工具及其依赖；LaunchFlow 负责组织与调用，不伪装成依赖管理器。
 
-- 可视化编辑启动方案
-- 支持以下步骤类型：
-  - 应用启动
-  - 网页打开
-  - 命令执行
-  - 等待步骤
-- 支持本地保存与加载方案
-- 支持试运行当前方案
-- 支持导出单文件 EXE，并自动携带可复制的本地应用启动文件
-- 支持离线激活（Beta 测试版）
+## 🌟 核心能力
 
----
+- 使用桌面图形界面创建、编辑、排序和删除步骤。
+- 新增步骤后立即自动选中，并直接打开可编辑属性区。
+- 保存当前方案、另存为新方案、加载方案和查看最近方案。
+- 在导出前试运行完整方案，实时查看每一步的结果。
+- 捕获 Command 的 `command`、`returncode`、`stdout` 和 `stderr`，同时给出普通用户可理解的错误说明。
+- 在深色与浅色主题之间切换，常用编辑控件保持一致的边框和可读性。
+- 将方案导出为 Windows 单文件 EXE；符合条件的本地应用文件可随启动器携带。
+- 使用离线请求码和签名许可完成 Beta 授权，不依赖在线账户系统。
+- 把可变数据集中写入用户本地应用数据目录，避免污染 EXE 所在目录。
 
-## 界面预览
+## 🧩 四种步骤类型
 
-![主界面](docs/images/main-window.png)
+LaunchFlow 有意保持小而通用的步骤模型。当前只提供以下四种类型：
 
----
+| 界面名称 | 模型类型 | 用途 | 主要参数 |
+| --- | --- | --- | --- |
+| 应用 | `application` / `app` | 启动本地应用或可执行文件 | 路径、启动参数、后续延迟 |
+| 网页 | `url` | 使用系统默认浏览器打开地址 | URL、后续延迟 |
+| 命令 | `command` | 通过选定 Shell 执行通用命令 | 命令内容、Shell 类型、后续延迟 |
+| 等待 | `wait` | 在流程中明确暂停一段时间 | 等待秒数 |
 
-## 适用场景
+项目不会为 Python、Java、Node 等语言增加专用步骤。需要时，把对应工具作为普通 Command 使用即可。这样可以保持方案格式稳定，也让同一个编辑器适用于开发、办公、设计和教学等不同环境。
 
-LaunchFlow 适用于：
+## 🖥️ 工作台
 
-- 程序员 / 开发者工作环境快速初始化
-- 设计、办公、学习等多应用组合启动
-- 固定工作流的一键执行
-- 小范围工具分发与个性化启动方案封装
+工作台由方案标题区、步骤列表、属性编辑区和运行日志组成。选中卡片后，右侧会显示当前步骤的名称与参数；新增步骤会立即进入同样的编辑状态，不需要再点一次列表。浅色主题保留相同的信息架构和操作位置。
 
----
+![LaunchFlow 浅色工作台](docs/images/launchflow-workbench-light.png)
 
-## 快速开始
+常用键盘操作与菜单、按钮共享同一处理函数，因此不会出现“按钮能保存、快捷键却走另一套逻辑”的差异：
 
-### 方式一：直接使用发布版
+| 操作 | 快捷键 |
+| --- | --- |
+| 保存当前方案 | `Ctrl+S` |
+| 另存为 | `Ctrl+Shift+S` |
+| 运行当前方案 | `Ctrl+R` |
+| 导出 EXE | `Ctrl+E` |
+| 删除当前步骤 | `Delete` |
 
-下载发布的 `LaunchFlow.exe` 后直接运行即可。
+## 🔀 调整步骤顺序
 
-当前测试版本采用离线激活方式：
+拖动步骤卡片即可改变执行顺序。拖动过程中，工作台会显示源位置占位、单一卡片预览和明确的插入线，并提示松开后将放到第几位。首位与末位也有可投放区域。排序只改变现有步骤的顺序，不会转换步骤类型，也不会修改方案 schema。
 
-1. 启动程序
-2. 在激活页复制申请码
-3. 将申请码发送给作者
-4. 收到 `.lic` 授权文件后导入
-5. 激活成功后进入工作台
+![步骤拖拽排序](docs/images/launchflow-step-reorder.png)
 
-详细说明见：
+## 📜 运行与日志
 
-- [Beta Testing Guide](docs/beta-testing.md)
+点击“试运行”或按 `Ctrl+R` 后，LaunchFlow 按列表顺序执行方案。日志抽屉集中显示启动、执行、输出、等待、成功和失败状态；它可以折叠、恢复和清空，并在窗口高度有限时自动收纳右侧工具。
 
----
+![运行与输出日志](docs/images/launchflow-log-console.png)
 
-### 方式二：从源码运行
+Command 在后台以无控制台窗口方式运行，界面仍会保留原始诊断信息。若 Windows 返回 `9009`，日志会在保留退出码和 stderr 的同时提示“未找到可执行命令，请检查程序是否安装或是否加入 PATH。”；找不到目标文件或权限不足时也会显示对应的友好说明。原始 `command`、`returncode`、`stdout`、`stderr` 不会被隐藏。
 
-```bash
-python editor/main.py
+Application 步骤用于启动外部程序，本身不等待外部程序退出；后续延迟用于给应用留出启动时间。URL 使用系统默认浏览器。Wait 是流程中的显式暂停。若一个步骤失败，日志会明确标识失败位置，方便在编辑器中返回该步骤修正参数。
+
+## 🗂️ 方案、最近记录与备份
+
+方案以 JSON 文件保存，用户可以自由选择保存位置。菜单中的“最近方案”会列出最近打开或保存过的方案；单击条目即可打开，清理失效记录不会删除原始方案文件。
+
+![最近方案记录](docs/images/launchflow-plan-history.png)
+
+应用自身的设置、日志、许可和最近记录默认位于 `%LOCALAPPDATA%\LaunchFlow`。测试和自动化可以通过 `LAUNCHFLOW_DATA_DIR` 指向隔离目录。程序不会默认在源码目录、当前工作目录、桌面或 EXE 旁边创建可变数据文件夹。
+
+升级前建议备份自己保存的方案 JSON 和 `%LOCALAPPDATA%\LaunchFlow` 中需要保留的数据。LaunchFlow 的迁移策略以保守复制为主，不应覆盖更新的数据；显式选择的方案保存位置和导出位置始终由用户决定。
+
+## 📦 导出 Windows 启动器
+
+完成试运行后，可点击“导出 EXE”或按 `Ctrl+E`。导出对话框会展示输出目录、文件名、方案步骤摘要、携带文件检查以及构建状态。真正开始构建前，用户仍有机会返回编辑器修正方案。
+
+![导出工作流](docs/images/launchflow-export-workflow.png)
+
+导出的启动器是针对当前方案生成的 Windows onefile 程序。它包含 LaunchFlow 运行方案所需的启动器代码和方案数据，但不会自动捆绑所有第三方运行环境：
+
+- URL 仍依赖目标电脑的默认浏览器和网络条件。
+- Command 仍依赖目标电脑已安装的命令、Shell、PATH 和相关文件。
+- Application 只有在导出检查确认可携带时才会复制相应本地文件；复杂应用的 DLL、运行库、配置、驱动和注册表依赖不会被自动推断。
+- 导出成功只证明构建完成，不等于目标电脑的所有外部依赖都已满足。
+
+因此，导出前应先在编辑器内试运行；导出后应在干净的 Windows 测试目录中再次运行生成的 EXE，并确认它没有在自身目录旁产生意外数据。向他人分发前，还应检查第三方软件的许可条款。
+
+## ⚡ 快速开始
+
+### 使用发布包
+
+正式提供公开构建后，[GitHub Releases](https://github.com/forgottenlab/launchflow/releases) 页面将列出对应版本的资产与校验信息。当前项目处于 Beta 验证阶段；若页面尚未出现所需资产，请使用下面的源码方式，不要从非官方位置获取可执行文件。
+
+发布版的基本流程：
+
+1. 把 `LaunchFlow.exe` 放入普通用户可写目录并启动。
+2. 如授权页出现，复制离线请求码并交给许可管理员签发。
+3. 导入收到的 `.lic` 文件，完成本机校验。
+4. 新建方案，依次添加步骤并填写参数。
+5. 先试运行，确认日志无未解决错误。
+6. 保存方案；需要交付时再执行导出。
+
+### 从源码运行
+
+已验证的开发环境使用 Python 3.13.9、PySide6 6.9.3 和 PyInstaller 6.20.0。项目目前没有依赖清单文件，建议在独立虚拟环境中显式安装所需包：
+
+```powershell
+git clone https://github.com/forgottenlab/launchflow.git
+cd launchflow
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install "PySide6==6.9.3" "PyInstaller==6.20.0" cryptography
+python -m editor.main
 ```
 
----
+若 PowerShell 的执行策略阻止激活脚本，可以直接调用虚拟环境中的 Python，而不修改系统策略：
 
-## 打包发布版
-
-```bash
-python tools/build_editor_release.py
+```powershell
+.\.venv\Scripts\python.exe -m pip install "PySide6==6.9.3" "PyInstaller==6.20.0" cryptography
+.\.venv\Scripts\python.exe -m editor.main
 ```
 
-打包完成后，可执行文件通常位于：
+依赖版本记录的是当前验证基线，并不代表其他兼容版本一定不可用。构建导出功能需要 PyInstaller；只运行编辑器仍需要 PySide6 和用于许可验签的 cryptography。
+
+## 🔐 离线许可
+
+Beta 版使用机器绑定的离线许可流程。客户端生成以 `LFREQ1.` 开头的请求码；管理员根据请求签发 `.lic` 文件；客户端使用随程序发布的 RSA 公钥验证签名、机器绑定、产品、用途和有效期。
+
+请求码不是许可证，不能直接激活应用。签名私钥只属于管理员环境，不进入 Git、客户端、发布包或用户数据目录。客户端只需要公钥，冻结后的应用也必须能从打包资源中读取它。LaunchFlow 不提供跳过签名、机器码或有效期验证的开发后门；开发数据隔离只改变数据目录，不改变验证算法。
+
+请不要在 issue、截图或日志中公开完整请求码、许可签名或其他授权材料。需要反馈许可问题时，说明错误类型、应用版本和操作步骤即可，并对请求标识做脱敏处理。
+
+## 🛡️ 隐私与网络行为
+
+LaunchFlow 的核心编辑、保存、运行和离线授权流程在本地完成。它不会把方案内容自动上传到项目服务器，也不会因为缺少外部数据而伪造成功结果。URL 和用户主动配置的 Command 可能访问网络，实际行为由目标地址或命令决定。
+
+日志可能包含用户输入的命令、文件路径和外部程序输出。提交问题前请先检查并删除账号标识、令牌、内部地址等敏感内容。导出的方案也应在分享前审查，尤其是命令参数和本地文件路径。
+
+## 🏗️ 项目结构
 
 ```text
-dist/VisualLauncher.exe
+editor/        桌面编辑器与交互控件
+runtime/       方案执行与日志结果
+licensing/     客户端许可请求、离线激活与验签
+shared/        模型、路径与通用服务
+tools/         构建、导出、smoke 和文档验证脚本
+docs/          架构、测试说明与截图资源
+assets/        应用图标等只读发布资源
+data/          源码模式使用的只读默认资源
 ```
 
-> 后续如果你将代码中的 `APP_NAME` 与输出名称同步更新为 `LaunchFlow`，则输出文件名也可以一起调整。
+仓库没有独立的 `exporter/` 包；Windows 启动器的导出入口位于 `tools/build_single_exe.py`，相关运行逻辑复用 `runtime/`。授权代码统一位于 `licensing/`。
 
-### 导出用户启动包
+方案模型和发布格式属于兼容性边界。贡献代码时，不要在没有迁移设计和测试的情况下改变四种步骤、机器码算法、`LFREQ1` 格式、`lflic-1` schema 或 RSA 签名流程。
 
-工作台中的 **导出 EXE** 会将当前方案封装为一个独立启动包。
+## 🧪 验证
 
-- 开发版优先使用当前 Python 环境中的 PyInstaller。
-- 发布版内导出依赖目标机器存在可用的 PyInstaller 构建器；程序会尝试使用系统 `PATH` 中的 `pyinstaller`、`python -m PyInstaller` 或 `py -m PyInstaller`。
-- 本地应用步骤中的 `.exe`、`.bat`、`.cmd`、`.com`、`.ps1` 文件会自动随包携带，并在启动包运行时优先从包内启动。
-- `.lnk` 快捷方式不建议作为随包资产分发，因为它通常指向当前机器上的绝对路径。
-- 如果被携带的应用依赖外部 DLL、配置文件或数据目录，目标电脑仍需具备对应环境。
-- 导出只携带启动文件本身，不会自动扫描或复制目标程序的完整安装目录。
+仓库提供独立 smoke 脚本，适合在 Windows 本机逐项运行。文档与截图合同可以这样检查：
 
-Export behavior in short: `.exe`, `.bat`, `.cmd`, `.com`, and `.ps1` app steps are bundled as launcher assets; `.lnk` shortcuts and external dependencies are not bundled automatically.
-
----
-
-## 项目结构
-
-```text
-editor/          图形界面与工作台逻辑
-editor/services/ 方案读写与路径管理服务
-
-licensing/       离线激活与授权校验相关模块
-
-runtime/         运行时执行器与调试入口
-shared/          通用模型、校验器、工具函数、项目信息
-
-tools/           打包工具、授权生成器、密钥生成脚本
-docs/            项目文档与截图资源
-data/            本地模板、设置与运行数据
-```
-
----
-
-## 文档导航
-
-- [Beta Testing Guide](docs/beta-testing.md)
-- [Architecture Overview](docs/architecture.md)
-
----
-
-## 当前状态
-
-当前项目处于 **Beta** 阶段，主要功能已经可用，后续将继续完善：
-
-- 交互细节优化
-- 文档补全
-- 导出体验优化
-- 主题与界面风格统一
-- 更完整的异常处理与日志呈现
-
----
-
-## 技术栈
-
-- Python
-- PySide6
-- PyInstaller
-- cryptography
-
-## 开发与验证命令
-
-```bash
-python tools/check_ui_spinbox_contract.py
+```powershell
+python tools/check_readme_docs_smoke.py
 python tools/check_editor_gui_smoke.py
+python tools/check_step_reorder_smoke.py
+python tools/check_log_presentation_smoke.py
+python tools/check_plan_history_single_click_smoke.py
+python tools/validate_release_data_isolation.py
 python tools/validate_export_smoke.py
-python tools/validate_release_smoke.py
 ```
 
-说明：
+真实截图可通过 `python tools/generate_readme_screenshots.py` 重新生成。该脚本实例化正式窗口和控件，使用隔离数据目录，不读取或创建许可证，并验证六个 PNG 均已成功写入。截图生成不能替代物理桌面的键盘、鼠标和缩放检查；发布检查仍应包含实际 Windows GUI 交互和打包 EXE 验证。
 
-- `check_editor_gui_smoke.py` 会创建临时项目根并用 Qt offscreen 模式实例化主窗口，不依赖真实 license。
-- `validate_export_smoke.py` 会真实构建并运行一个最小导出启动器。
-- `validate_release_smoke.py` 会构建 `dist/LaunchFlow.exe`，检查发布目录中没有私钥或真实 `.lic`，并短暂启动发布版确认能进入启动流程。
-- 人工验证请参考 [GUI Smoke Checklist](docs/gui-smoke-checklist.md)。
+## ⚠️ 当前限制
 
----
+- 仅面向 Windows 桌面；其他系统尚未作为发布目标验证。
+- 项目仍处于 Beta，界面细节和非兼容性较低的行为可能继续调整。
+- 只支持 Application、URL、Command、Wait 四种通用步骤，没有条件分支、循环或远程执行。
+- Application 采用启动后继续的模型，不负责监控外部程序生命周期。
+- Command 能捕获标准输出、错误输出与退出码，但无法替代外部工具自己的安装和配置诊断。
+- 导出器不能自动识别复杂应用的全部依赖，跨机器交付需要人工验证。
+- 当前授权为离线签名许可，不提供在线账户、自动续期或云端方案同步。
+- 源码当前采用保留所有权利的许可，尚未授予开源使用许可。
 
-## 内测申请
+## 🗺️ 路线图
 
-当前版本仍处于小范围测试阶段。
+Beta 后续工作会优先围绕可靠性和可理解性推进：
 
-如果你希望参与测试，请发送邮件至：
+1. 扩大真实 Windows 桌面、不同缩放比例和干净用户环境的回归覆盖。
+2. 继续改善导出前依赖检查、失败定位和面向普通用户的提示。
+3. 完善发布资产、校验信息、升级说明和可重复构建记录。
+4. 在不改变通用步骤定位的前提下优化方案组织、历史记录和可访问性。
+5. 评估未来在线授权设计，但不会削弱现有离线签名验证边界。
 
-**wangheran55@gmail.com**
+路线图不是稳定版承诺；具体内容会以验证结果和发布说明为准。
 
-邮件标题建议：
+## 💬 反馈与贡献
 
-```text
-[LaunchFlow Beta] 申请内测
-```
+欢迎通过 [GitHub Issues](https://github.com/forgottenlab/launchflow/issues) 提交可复现的问题。请包含 Windows 版本、LaunchFlow 版本、步骤类型、预期行为、实际行为和脱敏后的相关日志。若问题涉及导出，请同时说明是在编辑器试运行、构建阶段还是生成的 EXE 中发生。
 
-建议在邮件中附带以下信息：
+提交变更前请运行与修改范围对应的 smoke；涉及共享模型、许可、安全边界、数据目录或导出流程时，应运行更完整的验证集。不要提交真实许可证、请求码、密钥、用户方案、构建产物或包含个人路径的截图。
 
-- 你的系统版本（Windows 10 / 11）
-- 你的典型使用场景
-- 你希望重点体验的功能
-- 是否愿意反馈 bug、截图或录屏
+## 🙏 特别致谢
 
----
+感谢首批参与 LaunchFlow 测试的 **4 位同学**。你们愿意在项目仍处于早期 Beta 阶段时实际运行软件、尝试不同操作与真实流程，并把遇到的问题反馈回来。这些使用记录让 LaunchFlow 不只停留在开发环境和自动测试中，也让我能从普通用户的视角重新检查操作是否清楚、反馈是否容易理解。
 
-## 开源说明
+特别感谢 **ZTS** 和 **SYZ** 对本项目进行持续测试，并提供详细的错误反馈与改进建议。许多拖拽交互、步骤编辑同步、日志展示、主题适配和发布体验方面的问题，正是通过这些反馈才得以被发现和修复；其中一些细节仅靠自动测试很难完整暴露。
 
-本项目当前仍在持续整理与完善中。  
-在正式公开仓库前，部分信息与文档可能仍会调整。
+LaunchFlow 目前仍在继续完善。第一批测试者的耐心、测试记录和建议，为项目从“可以运行”走向“更容易理解和使用”提供了非常重要的帮助。
 
-请注意：
+## 📄 许可
 
-- **私钥文件不会开源**
-- 已签发给测试用户的授权文件不会公开
-- 发布版用户无需接触授权生成逻辑
-- `private/private_key.pem` 永不分发
-- `generated_licenses/` 下的真实 `.lic` 文件不得进入公开发布包
+Copyright © forgottenlab. All rights reserved.
 
-## 当前测试状态
-
-已验证：
-
-- Python 语法结构检查
-- 导出资产收集逻辑不会修改原始 plan
-- 最小真实 PyInstaller 导出 smoke：`.cmd` 与 `.ps1` 测试启动项均从 `_MEI.../launchflow_assets/` 解包目录执行
-- GUI smoke：主窗口可实例化，等待/延迟 spinbox 可找到，QtTest 可点击等待秒数上下区域
-- 发布版 smoke：`dist/LaunchFlow.exe` 已完成一次构建和短启动验证，发布目录未发现私钥或真实 `.lic`
-- `git diff --check` 无空白错误
-
-仍需注意：
-
-- 发布版内导出依赖用户机器上存在可用 PyInstaller 构建器
-- 重新构建发布版前请确认没有正在运行的 `dist/LaunchFlow.exe`，否则 Windows 会锁定文件导致 PyInstaller 无法覆盖
-- 随包携带的是启动文件，不是完整应用依赖树
-- 真实鼠标点击、授权导入成功路径和不同 Windows 机器上的显示效果仍建议按 GUI checklist 人工确认
-- 当前测试版仍不建议用于关键生产环境
-
----
-
-## License
-
-当前仓库的开源协议将在正式发布前补充。
+当前仓库可供查看和协作评估，但尚未授予开源软件许可。除非权利人另行书面授权，不得把源码或构建产物视为可自由复制、修改或再分发的软件。详情见 [LICENSE](./LICENSE)。

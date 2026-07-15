@@ -23,6 +23,7 @@ build_editor_release.py
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 import sys
@@ -81,6 +82,49 @@ def clean_old_build(base_dir: Path, exe_name: str) -> None:
                 print(f"[清理] 已删除文件: {path}")
 
 
+def build_editor_command(project_root: Path, exe_name: str = "LaunchFlow") -> list[str]:
+    """Build the authoritative PyInstaller command for the editor release."""
+    entry_script = project_root / "editor" / "main.py"
+    icon_path = project_root / "assets" / "launchflow.ico"
+    public_key_path = project_root / "data" / "public_key.pem"
+    if not entry_script.exists():
+        raise FileNotFoundError(f"未找到入口文件: {entry_script}")
+    if not icon_path.exists():
+        raise FileNotFoundError(f"未找到 Windows 图标: {icon_path}")
+
+    dist_dir = project_root / "dist"
+    build_dir = project_root / "build"
+    command = [
+        sys.executable,
+        "-m",
+        "PyInstaller",
+        "--noconfirm",
+        "--clean",
+        "--onefile",
+        "--windowed",
+        "--name",
+        exe_name,
+        "--icon",
+        str(icon_path),
+        "--add-data",
+        f"{icon_path}{os.pathsep}assets",
+    ]
+    if public_key_path.is_file():
+        command.extend(["--add-data", f"{public_key_path}{os.pathsep}data"])
+    command.extend([
+        "--distpath",
+        str(dist_dir),
+        "--workpath",
+        str(build_dir),
+        "--specpath",
+        str(build_dir),
+        "--paths",
+        str(project_root),
+        str(entry_script),
+    ])
+    return command
+
+
 def build_editor_release(project_root: Path, exe_name: str = "LaunchFlow") -> Path:
     """
     打包编辑器发布版。
@@ -92,33 +136,8 @@ def build_editor_release(project_root: Path, exe_name: str = "LaunchFlow") -> Pa
     返回值：
     - 生成后的 exe 文件路径。
     """
-    entry_script = project_root / "editor" / "main.py"
-    if not entry_script.exists():
-        raise FileNotFoundError(f"未找到入口文件: {entry_script}")
-
     dist_dir = project_root / "dist"
-    build_dir = project_root / "build"
-
-    command = [
-        sys.executable,
-        "-m",
-        "PyInstaller",
-        "--noconfirm",
-        "--clean",
-        "--onefile",
-        "--windowed",
-        "--name",
-        exe_name,
-        "--distpath",
-        str(dist_dir),
-        "--workpath",
-        str(build_dir),
-        "--specpath",
-        str(build_dir),
-        "--paths",
-        str(project_root),
-        str(entry_script),
-    ]
+    command = build_editor_command(project_root, exe_name)
 
     run_command(command, cwd=project_root)
 
@@ -130,58 +149,14 @@ def build_editor_release(project_root: Path, exe_name: str = "LaunchFlow") -> Pa
 
 
 def ensure_runtime_data(project_root: Path) -> None:
-    """
-    准备发布版运行所需的默认数据目录与配置文件。
-
-    参数：
-    - project_root: 项目根目录。
-
-    说明：
-    - 这里仅准备运行时必需的模板与设置文件；
-    - 公钥已通过内置方式提供，因此不再强依赖外部分发 public_key.pem。
-    """
-    data_dir = project_root / "data"
-    user_plans_dir = data_dir / "user_plans"
-    build_cache_dir = data_dir / "build_cache"
-    logs_dir = project_root / "logs"
-
-    data_dir.mkdir(parents=True, exist_ok=True)
-    user_plans_dir.mkdir(parents=True, exist_ok=True)
-    build_cache_dir.mkdir(parents=True, exist_ok=True)
-    logs_dir.mkdir(parents=True, exist_ok=True)
-
-    templates_path = data_dir / "app_templates.json"
-    if not templates_path.exists():
-        templates_path.write_text(
-            """[
-  {
-    "type": "url",
-    "name": "打开 GitHub",
-    "default_url": "https://github.com/",
-    "delay_after": 1.0
-  },
-  {
-    "type": "command",
-    "name": "查看 Python 版本",
-    "default_command": "python --version",
-    "default_shell": "cmd",
-    "delay_after": 1.0
-  },
-  {
-    "type": "wait",
-    "name": "等待",
-    "default_seconds": 1.0
-  }
-]""",
-            encoding="utf-8",
-        )
-
-    settings_path = data_dir / "settings.json"
-    if not settings_path.exists():
-        settings_path.write_text(
-            '{\n  "plans_dir": "data\\\\user_plans"\n}\n',
-            encoding="utf-8",
-        )
+    """Validate read-only release inputs without creating user data in source."""
+    required = [
+        project_root / "editor" / "main.py",
+        project_root / "assets" / "launchflow.ico",
+    ]
+    missing = [path for path in required if not path.is_file()]
+    if missing:
+        raise FileNotFoundError("发布资源缺失: " + ", ".join(str(path) for path in missing))
 
 
 def main() -> None:

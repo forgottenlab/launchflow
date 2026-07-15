@@ -29,19 +29,38 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
+import os
 import shutil
 import subprocess
 import sys
+from copy import deepcopy
+from dataclasses import dataclass
 from datetime import datetime
+from enum import Enum
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 from runtime.launcher_runtime import RuntimeExecutor
 
-from PySide6.QtCore import Qt, QThread, Signal, QPoint, QSize, QRectF, QPointF
+from PySide6.QtCore import (
+    Qt,
+    QByteArray,
+    QMimeData,
+    QThread,
+    QTimer,
+    Signal,
+    QPoint,
+    QSize,
+    QRect,
+    QRectF,
+    QPointF,
+)
 from PySide6.QtGui import (
+    QAction,
     QIcon,
     QKeyEvent,
+    QKeySequence,
     QColor,
     QPainter,
     QPainterPath,
@@ -49,11 +68,15 @@ from PySide6.QtGui import (
     QLinearGradient,
     QPolygonF,
     QPen,
+    QBrush,
+    QDrag,
 )
 from PySide6.QtWidgets import (
     QComboBox,
+    QApplication,
     QDialog,
     QDoubleSpinBox,
+    QAbstractItemView,
     QAbstractSpinBox,
     QFileDialog,
     QFormLayout,
@@ -64,10 +87,16 @@ from PySide6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QMainWindow,
+    QMenuBar,
+    QMessageBox,
     QProgressDialog,
     QPushButton,
     QSplitter,
     QStackedWidget,
+    QStyle,
+    QStyleOptionComboBox,
+    QStyleOptionSpinBox,
+    QSizePolicy,
     QTextEdit,
     QVBoxLayout,
     QWidget,
@@ -75,8 +104,684 @@ from PySide6.QtWidgets import (
 
 from shared.models import Plan, AppStep, UrlStep, CommandStep, WaitStep
 from shared.plan_schema import validate_plan_dict
+from shared.app_logging import get_app_logger
+from shared.app_icon import apply_window_icon, load_app_icon
+from shared.diagnostics import collect_diagnostics, open_logs_directory
 from editor.services.plan_service import PlanService
+from editor.ui.log_console import LogConsole, LogKind, infer_log_kind
 from tools.build_single_exe import PACKABLE_APP_SUFFIXES, build_single_file_exe
+
+
+SHORTCUTS = {
+    "save": "Ctrl+S",
+    "save_as": "Ctrl+Shift+S",
+    "trial_run": "Ctrl+R",
+    "export": "Ctrl+E",
+    "delete": "Delete",
+    "move_up": "Alt+Up",
+    "move_down": "Alt+Down",
+}
+
+
+def calculate_drop_target(
+    mouse_y: int,
+    item_rects: list[QRect],
+    viewport_height: int,
+    edge_zone: int = 20,
+) -> int:
+    """Return an insertion index from one shared, DPI-independent geometry rule."""
+
+    if not item_rects:
+        return 0
+    if mouse_y <= edge_zone:
+        return 0
+    if mouse_y >= max(0, viewport_height - edge_zone):
+        return len(item_rects)
+
+    for index, rect in enumerate(item_rects):
+        if mouse_y < rect.top() + rect.height() / 2:
+            return index
+        if mouse_y <= rect.bottom():
+            return index + 1
+    return len(item_rects)
+
+
+class PlanSwitchDecision(str, Enum):
+    SAVE = "save"
+    DISCARD = "discard"
+    CANCEL = "cancel"
+
+
+class PlanHistoryList(QListWidget):
+    """History list where Enter activates, while arrow keys only move selection."""
+
+    enterPressed = Signal(QListWidgetItem)
+
+    def keyPressEvent(self, event: QKeyEvent) -> None:
+        if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+            item = self.currentItem()
+            if item is not None:
+                self.enterPressed.emit(item)
+                event.accept()
+                return
+        super().keyPressEvent(event)
+
+
+class ElidedLabel(QLabel):
+    """Single-line label that keeps the complete status available as a tooltip."""
+
+    def __init__(self, text: str = "", parent: Optional[QWidget] = None) -> None:
+        self._full_text = ""
+        super().__init__("", parent)
+        self.setText(text)
+
+    @property
+    def full_text(self) -> str:
+        return self._full_text
+
+    def setText(self, text: str) -> None:  # noqa: N802 - Qt API name
+        self._full_text = text
+        self.setToolTip(text)
+        self._refresh_elision()
+
+    def _refresh_elision(self) -> None:
+        available = max(0, self.contentsRect().width())
+        elided = self.fontMetrics().elidedText(
+            self._full_text,
+            Qt.TextElideMode.ElideRight,
+            available,
+        )
+        super().setText(elided)
+
+    def resizeEvent(self, event) -> None:  # type: ignore[no-untyped-def]
+        super().resizeEvent(event)
+        self._refresh_elision()
+
+
+class ReorderableStepList(QListWidget):
+    """Custom drag feedback that delegates the real model reorder to MainWindow."""
+
+    EDGE_DROP_ZONE = 20
+    DRAG_MIME_TYPE = "application/x-launchflow-step-id"
+    DRAG_PREVIEW_OPACITY = 0.86
+    DRAG_PREVIEW_WIDTH_SCALE = 0.90
+    DRAG_PREVIEW_HEIGHT_SCALE = 0.92
+    INSERTION_INDICATOR_WIDTH = 4
+    INSERTION_INDICATOR_HAS_ARROW = True
+
+    def __init__(
+        self,
+        prepare_drag: Callable[[], bool],
+        reorder: Callable[[int, int], Optional[int]],
+        move_selected: Callable[[int], Optional[int]],
+        parent: Optional[QWidget] = None,
+    ) -> None:
+        super().__init__(parent)
+        self._prepare_drag = prepare_drag
+        self._reorder = reorder
+        self._move_selected = move_selected
+        self._dragging_step_id: Optional[str] = None
+        self._drop_target_index: Optional[int] = None
+        self._drag_active = False
+        self.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
+        self.setDefaultDropAction(Qt.DropAction.MoveAction)
+        self.setDragEnabled(True)
+        self.setAcceptDrops(True)
+        self.setDropIndicatorShown(False)
+        self.setAutoScroll(True)
+
+    def keyPressEvent(self, event: QKeyEvent) -> None:
+        if event.modifiers() == Qt.KeyboardModifier.AltModifier and event.key() in (Qt.Key.Key_Up, Qt.Key.Key_Down):
+            self._move_selected(-1 if event.key() == Qt.Key.Key_Up else 1)
+            event.accept()
+            return
+        super().keyPressEvent(event)
+
+    def startDrag(self, supported_actions) -> None:  # type: ignore[no-untyped-def]
+        selected = self.selectedItems()
+        if len(selected) != 1 or not self._prepare_drag():
+            return
+        item = selected[0]
+        step_id = item.data(Qt.ItemDataRole.UserRole)
+        if not isinstance(step_id, str) or not step_id:
+            return
+        self._dragging_step_id = step_id
+        self._drag_active = True
+        self.viewport().update()
+
+        drag = QDrag(self)
+        mime_data = self.model().mimeData(self.selectedIndexes())
+        mime_data.setData(self.DRAG_MIME_TYPE, QByteArray(step_id.encode("utf-8")))
+        drag.setMimeData(mime_data)
+        preview = self.build_drag_preview(item)
+        if not preview.isNull():
+            drag.setPixmap(preview)
+            drag.setHotSpot(QPoint(max(8, preview.width() // 9), preview.height() // 2))
+
+        # Qt InternalMove may delete/recreate the source QListWidgetItem while
+        # QDrag.exec() is running. From this point onward only the stable step
+        # ID is retained; the Python wrapper must never be touched again.
+        selected.clear()
+        item = None
+        try:
+            drag.exec(Qt.DropAction.MoveAction)
+        finally:
+            self.clear_drag_visual_state()
+
+    def clear_drag_visual_state(self) -> None:
+        """Clear drag paint state without dereferencing any list item wrapper."""
+
+        self._drag_active = False
+        self._dragging_step_id = None
+        self._drop_target_index = None
+        self.unsetCursor()
+        self.viewport().update()
+
+    def _step_id_from_mime(self, mime_data: QMimeData) -> Optional[str]:
+        if not mime_data.hasFormat(self.DRAG_MIME_TYPE):
+            return None
+        step_id = bytes(mime_data.data(self.DRAG_MIME_TYPE)).decode("utf-8", errors="ignore")
+        return step_id or None
+
+    def _row_for_step_id(self, step_id: Optional[str]) -> Optional[int]:
+        if not step_id:
+            return None
+        for index in range(self.count()):
+            current = self.item(index)
+            if current is not None and current.data(Qt.ItemDataRole.UserRole) == step_id:
+                return index
+        return None
+
+    def build_drag_preview(self, item: QListWidgetItem) -> QPixmap:
+        """Create one compact, translucent card without a second outer frame."""
+
+        rect = self.visualItemRect(item)
+        raw = self.viewport().grab(rect)
+        if raw.isNull():
+            return raw
+        target_size = QSize(
+            max(1, round(raw.width() * self.DRAG_PREVIEW_WIDTH_SCALE)),
+            max(1, round(raw.height() * self.DRAG_PREVIEW_HEIGHT_SCALE)),
+        )
+        scaled = raw.scaled(
+            target_size,
+            Qt.AspectRatioMode.IgnoreAspectRatio,
+            Qt.TransformationMode.SmoothTransformation,
+        )
+        preview = QPixmap(scaled.size())
+        preview.fill(Qt.GlobalColor.transparent)
+        painter = QPainter(preview)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        clip = QPainterPath()
+        clip.addRoundedRect(QRectF(preview.rect()), 8, 8)
+        painter.setClipPath(clip)
+        painter.setOpacity(self.DRAG_PREVIEW_OPACITY)
+        painter.drawPixmap(0, 0, scaled)
+        painter.end()
+        return preview
+
+    def _item_rects(self) -> list[QRect]:
+        return [self.visualItemRect(self.item(index)) for index in range(self.count())]
+
+    def drop_target_at(self, mouse_y: int) -> int:
+        return calculate_drop_target(
+            mouse_y,
+            self._item_rects(),
+            self.viewport().height(),
+            self.EDGE_DROP_ZONE,
+        )
+
+    def final_index_for_drop(self, insertion_index: int) -> Optional[int]:
+        source = self._row_for_step_id(self._dragging_step_id)
+        if source is None or source < 0 or source >= self.count():
+            return None
+        final_index = insertion_index - 1 if insertion_index > source else insertion_index
+        return max(0, min(final_index, self.count() - 1))
+
+    @property
+    def drop_target_label(self) -> str:
+        if self._drop_target_index is None:
+            return ""
+        final_index = self.final_index_for_drop(self._drop_target_index)
+        position = (final_index if final_index is not None else self._drop_target_index) + 1
+        return f"松开放置到第 {position} 位"
+
+    def dragEnterEvent(self, event) -> None:  # type: ignore[no-untyped-def]
+        if event.source() is self:
+            step_id = self._step_id_from_mime(event.mimeData())
+            if self._row_for_step_id(step_id) is None:
+                event.ignore()
+                return
+            self._dragging_step_id = step_id
+            self._drag_active = True
+            event.setDropAction(Qt.DropAction.MoveAction)
+            event.accept()
+            self.viewport().update()
+            return
+        event.ignore()
+
+    def dragMoveEvent(self, event) -> None:  # type: ignore[no-untyped-def]
+        if event.source() is not self:
+            event.ignore()
+            return
+        self._drop_target_index = self.drop_target_at(event.position().toPoint().y())
+        self._auto_scroll_for_position(event.position().toPoint().y())
+        event.setDropAction(Qt.DropAction.MoveAction)
+        event.accept()
+        self.viewport().update()
+
+    def dragLeaveEvent(self, event) -> None:  # type: ignore[no-untyped-def]
+        self.clear_drag_visual_state()
+        super().dragLeaveEvent(event)
+
+    def dropEvent(self, event) -> None:  # type: ignore[no-untyped-def]
+        step_id = self._step_id_from_mime(event.mimeData()) or self._dragging_step_id
+        source_index = self._row_for_step_id(step_id)
+        insertion_index = self.drop_target_at(event.position().toPoint().y())
+        self._dragging_step_id = step_id
+        target_index = self.final_index_for_drop(insertion_index)
+        if source_index is not None and target_index is not None:
+            self._reorder(source_index, target_index)
+            event.setDropAction(Qt.DropAction.MoveAction)
+            event.accept()
+            self.clear_drag_visual_state()
+            return
+        self.clear_drag_visual_state()
+        event.ignore()
+
+    def focusOutEvent(self, event) -> None:  # type: ignore[no-untyped-def]
+        if self._drag_active:
+            self.clear_drag_visual_state()
+        super().focusOutEvent(event)
+
+    def _auto_scroll_for_position(self, mouse_y: int) -> None:
+        scrollbar = self.verticalScrollBar()
+        amount = max(1, scrollbar.singleStep())
+        if mouse_y <= self.EDGE_DROP_ZONE:
+            scrollbar.setValue(scrollbar.value() - amount)
+        elif mouse_y >= self.viewport().height() - self.EDGE_DROP_ZONE:
+            scrollbar.setValue(scrollbar.value() + amount)
+
+    def _insertion_y(self, insertion_index: int) -> int:
+        if self.count() == 0:
+            return self.viewport().rect().center().y()
+        if insertion_index <= 0:
+            return self.visualItemRect(self.item(0)).top()
+        if insertion_index >= self.count():
+            return self.visualItemRect(self.item(self.count() - 1)).bottom() + 1
+        return self.visualItemRect(self.item(insertion_index)).top()
+
+    def _indicator_color(self) -> QColor:
+        return QColor("#38BDF8" if self.palette().base().color().lightness() < 128 else "#0369A1")
+
+    def _indicator_label_rect(self, insertion_y: int) -> QRectF:
+        """Keep the position hint on the right, away from step names on the left."""
+
+        width = 158
+        x = max(self.viewport().width() * 0.55, self.viewport().width() - width - 18)
+        y = max(2, min(insertion_y - 12, self.viewport().height() - 25))
+        return QRectF(x, y, width, 23)
+
+    def paintEvent(self, event) -> None:  # type: ignore[no-untyped-def]
+        super().paintEvent(event)
+        painter = QPainter(self.viewport())
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        source_index = self._row_for_step_id(self._dragging_step_id) if self._drag_active else None
+        if source_index is not None:
+            source_rect = self.visualItemRect(self.item(source_index)).adjusted(3, 3, -3, -3)
+            placeholder_pen = QPen(self._indicator_color(), 2, Qt.PenStyle.DashLine)
+            placeholder_pen.setColor(QColor(placeholder_pen.color().red(), placeholder_pen.color().green(), placeholder_pen.color().blue(), 175))
+            painter.setPen(placeholder_pen)
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.drawRoundedRect(QRectF(source_rect), 7, 7)
+
+        if self._drop_target_index is not None:
+            y = self._insertion_y(self._drop_target_index)
+            color = self._indicator_color()
+            painter.setPen(QPen(color, self.INSERTION_INDICATOR_WIDTH))
+            painter.drawLine(12, y, max(12, self.viewport().width() - 12), y)
+
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(color)
+            painter.drawPolygon(QPolygonF([
+                QPointF(4, y - 7),
+                QPointF(4, y + 7),
+                QPointF(12, y),
+            ]))
+
+            label_rect = self._indicator_label_rect(y)
+            painter.setBrush(color)
+            painter.drawRoundedRect(label_rect, 5, 5)
+            painter.setPen(QColor("#FFFFFF"))
+            painter.drawText(label_rect, Qt.AlignmentFlag.AlignCenter, self.drop_target_label)
+        painter.end()
+
+
+@dataclass(frozen=True)
+class StepCommitResult:
+    """Structured result for moving the visible inspector draft into the model."""
+
+    success: bool
+    changed: bool = False
+    error: str = ""
+    step_index: Optional[int] = None
+    step_id: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class PlanValidationIssue:
+    """A user-facing execution preflight issue tied to one step field."""
+
+    message: str
+    step_index: Optional[int] = None
+    step_id: Optional[str] = None
+    field: str = ""
+
+
+@dataclass(frozen=True)
+class PlanPreparationResult:
+    """Committed, validated and immutable-by-convention input for a worker."""
+
+    success: bool
+    snapshot: Optional[Plan] = None
+    error: str = ""
+    step_index: Optional[int] = None
+    step_id: Optional[str] = None
+    field: str = ""
+
+
+def validate_plan_for_execution(plan: Plan, action_label: str) -> Optional[PlanValidationIssue]:
+    """Return the first enabled-step issue before any external action can start."""
+
+    if not plan.steps:
+        return PlanValidationIssue(f"当前没有任何步骤，无法{action_label}。")
+
+    for index, step in enumerate(plan.steps):
+        if not step.enabled:
+            continue
+
+        number = index + 1
+        name = step.name.strip() or f"步骤 {number}"
+        prefix = f"步骤 {number}“{name}”"
+
+        if isinstance(step, AppStep):
+            if not step.path.strip():
+                return PlanValidationIssue(
+                    f"{prefix}的应用路径为空，请选择目标文件后再{action_label}。",
+                    index,
+                    step.id,
+                    "path",
+                )
+        elif isinstance(step, UrlStep):
+            if not step.url.strip():
+                return PlanValidationIssue(
+                    f"{prefix}的网址为空，请输入 URL 后再{action_label}。",
+                    index,
+                    step.id,
+                    "url",
+                )
+        elif isinstance(step, CommandStep):
+            if not step.command.strip():
+                return PlanValidationIssue(
+                    f"{prefix}的执行命令为空，请输入命令后再{action_label}。",
+                    index,
+                    step.id,
+                    "command",
+                )
+            if step.shell not in {"cmd", "powershell"}:
+                return PlanValidationIssue(
+                    f"{prefix}的 Shell 类型无效，请选择 cmd 或 powershell 后再{action_label}。",
+                    index,
+                    step.id,
+                    "shell",
+                )
+        elif isinstance(step, WaitStep):
+            if not isinstance(step.seconds, (int, float)) or not math.isfinite(step.seconds) or step.seconds < 0:
+                return PlanValidationIssue(
+                    f"{prefix}的等待时间无效，请输入不小于 0 的秒数后再{action_label}。",
+                    index,
+                    step.id,
+                    "seconds",
+                )
+        else:
+            return PlanValidationIssue(
+                f"{prefix}的步骤类型无效，无法{action_label}。",
+                index,
+                getattr(step, "id", None),
+                "type",
+            )
+
+    return None
+
+
+@dataclass(frozen=True)
+class FieldThemeTokens:
+    field_border: str
+    field_border_focus: str
+    field_background: str
+    field_text: str
+    field_disabled: str
+    subcontrol_background: str
+    subcontrol_hover: str
+    subcontrol_pressed: str
+    separator: str
+    arrow_color: str
+    popup_background: str
+
+
+DARK_FIELD_TOKENS = FieldThemeTokens(
+    field_border="#475569",
+    field_border_focus="#38BDF8",
+    field_background="#0B1220",
+    field_text="#F8FAFC",
+    field_disabled="#0F172A",
+    subcontrol_background="#111827",
+    subcontrol_hover="#1E293B",
+    subcontrol_pressed="#334155",
+    separator="#475569",
+    arrow_color="#CBD5E1",
+    popup_background="#111827",
+)
+
+LIGHT_FIELD_TOKENS = FieldThemeTokens(
+    field_border="#9CA3AF",
+    field_border_focus="#2563EB",
+    field_background="#F8FAFC",
+    field_text="#111827",
+    field_disabled="#F3F4F6",
+    subcontrol_background="#F3F4F6",
+    subcontrol_hover="#E5E7EB",
+    subcontrol_pressed="#D1D5DB",
+    separator="#9CA3AF",
+    arrow_color="#475569",
+    popup_background="#FFFFFF",
+)
+
+
+def _field_control_qss(tokens: FieldThemeTokens) -> str:
+    """Build one visible field-border contract for both application themes."""
+
+    return f"""
+    QLineEdit, QTextEdit, QPlainTextEdit, QSpinBox,
+    QComboBox, QDoubleSpinBox {{
+        background: {tokens.field_background};
+        color: {tokens.field_text};
+        border: 1px solid {tokens.field_border};
+        border-radius: 8px;
+    }}
+
+    QLineEdit, QSpinBox, QComboBox, QDoubleSpinBox {{
+        min-height: 36px;
+    }}
+
+    QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus, QSpinBox:focus,
+    QComboBox:focus, QDoubleSpinBox:focus {{
+        border-color: {tokens.field_border_focus};
+    }}
+
+    QLineEdit:disabled, QTextEdit:disabled, QPlainTextEdit:disabled, QSpinBox:disabled,
+    QComboBox:disabled, QDoubleSpinBox:disabled {{
+        background: {tokens.field_disabled};
+        color: {tokens.field_border};
+        border-color: {tokens.field_border};
+    }}
+
+    QLineEdit {{
+        padding: 0px 10px;
+    }}
+
+    QTextEdit, QPlainTextEdit {{
+        padding: 7px 10px;
+    }}
+
+    QSpinBox {{
+        padding: 0px 30px 0px 10px;
+    }}
+
+    QComboBox {{
+        padding: 0px 34px 0px 10px;
+    }}
+
+    QComboBox::drop-down {{
+        subcontrol-origin: padding;
+        subcontrol-position: top right;
+        width: 30px;
+        margin: 0px;
+        background: {tokens.subcontrol_background};
+        border: none;
+        border-left: 1px solid {tokens.separator};
+        border-top-right-radius: 7px;
+        border-bottom-right-radius: 7px;
+    }}
+
+    QComboBox::drop-down:hover {{ background: {tokens.subcontrol_hover}; }}
+    QComboBox::drop-down:pressed,
+    QComboBox::drop-down:open {{ background: {tokens.subcontrol_pressed}; }}
+    QComboBox::drop-down:disabled {{ background: {tokens.field_disabled}; }}
+    QComboBox::down-arrow {{ image: none; width: 12px; height: 8px; }}
+
+    QComboBox QAbstractItemView {{
+        background: {tokens.popup_background};
+        color: {tokens.field_text};
+        border: 1px solid {tokens.field_border};
+        outline: none;
+        padding: 4px;
+        selection-color: white;
+        selection-background-color: {tokens.field_border_focus};
+    }}
+
+    QDoubleSpinBox {{
+        padding: 0px 30px 0px 10px;
+    }}
+
+    QDoubleSpinBox::up-button,
+    QDoubleSpinBox::down-button {{
+        subcontrol-origin: padding;
+        width: 26px;
+        margin: 0px;
+        background: {tokens.subcontrol_background};
+        border: none;
+        border-left: 1px solid {tokens.separator};
+    }}
+
+    QDoubleSpinBox::up-button {{
+        subcontrol-position: top right;
+        border-top-right-radius: 7px;
+    }}
+
+    QDoubleSpinBox::down-button {{
+        subcontrol-position: bottom right;
+        border-top: 1px solid {tokens.separator};
+        border-bottom-right-radius: 7px;
+    }}
+
+    QDoubleSpinBox::up-button:hover,
+    QDoubleSpinBox::down-button:hover {{ background: {tokens.subcontrol_hover}; }}
+    QDoubleSpinBox::up-button:pressed,
+    QDoubleSpinBox::down-button:pressed {{ background: {tokens.subcontrol_pressed}; }}
+    QDoubleSpinBox::up-button:disabled,
+    QDoubleSpinBox::down-button:disabled {{ background: {tokens.field_disabled}; }}
+    QDoubleSpinBox::up-arrow,
+    QDoubleSpinBox::down-arrow {{ image: none; width: 10px; height: 7px; }}
+    """
+
+
+def _widget_arrow_color(widget: QWidget) -> QColor:
+    """Return a theme-aware, disabled-safe arrow color."""
+    dark_theme = bool(widget.property("darkTheme"))
+    tokens = DARK_FIELD_TOKENS if dark_theme else LIGHT_FIELD_TOKENS
+    color = QColor(tokens.arrow_color)
+    color.setAlpha(235 if widget.isEnabled() else 105)
+    return color
+
+
+class ThemedDoubleSpinBox(QDoubleSpinBox):
+    """QDoubleSpinBox whose arrows remain visible under Qt style sheets."""
+
+    def paintEvent(self, event) -> None:  # type: ignore[no-untyped-def]
+        super().paintEvent(event)
+        option = QStyleOptionSpinBox()
+        self.initStyleOption(option)
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(_widget_arrow_color(self))
+
+        for subcontrol, points_up in (
+            (QStyle.SubControl.SC_SpinBoxUp, True),
+            (QStyle.SubControl.SC_SpinBoxDown, False),
+        ):
+            rect = self.style().subControlRect(
+                QStyle.ComplexControl.CC_SpinBox,
+                option,
+                subcontrol,
+                self,
+            )
+            center = rect.center()
+            half_width = max(2.5, min(rect.width(), rect.height()) * 0.2)
+            half_height = max(1.8, half_width * 0.65)
+            if points_up:
+                points = [
+                    QPointF(center.x() - half_width, center.y() + half_height / 2),
+                    QPointF(center.x() + half_width, center.y() + half_height / 2),
+                    QPointF(center.x(), center.y() - half_height),
+                ]
+            else:
+                points = [
+                    QPointF(center.x() - half_width, center.y() - half_height / 2),
+                    QPointF(center.x() + half_width, center.y() - half_height / 2),
+                    QPointF(center.x(), center.y() + half_height),
+                ]
+            painter.drawPolygon(QPolygonF(points))
+
+
+class ThemedComboBox(QComboBox):
+    """QComboBox with a palette-aware arrow drawn in its real arrow hit area."""
+
+    def paintEvent(self, event) -> None:  # type: ignore[no-untyped-def]
+        super().paintEvent(event)
+        option = QStyleOptionComboBox()
+        self.initStyleOption(option)
+        rect = self.style().subControlRect(
+            QStyle.ComplexControl.CC_ComboBox,
+            option,
+            QStyle.SubControl.SC_ComboBoxArrow,
+            self,
+        )
+        center = rect.center()
+        half_width = max(3.0, min(rect.width(), rect.height()) * 0.18)
+        half_height = max(2.0, half_width * 0.65)
+        points = QPolygonF([
+            QPointF(center.x() - half_width, center.y() - half_height / 2),
+            QPointF(center.x() + half_width, center.y() - half_height / 2),
+            QPointF(center.x(), center.y() + half_height),
+        ])
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(_widget_arrow_color(self))
+        painter.drawPolygon(points)
 
 
 class ThemeManager:
@@ -157,6 +862,16 @@ class ThemeManager:
         border-bottom: 1px solid;
     }
 
+    QMenuBar#MainMenuBar {
+        border-bottom: 1px solid;
+        padding: 2px 8px;
+    }
+
+    QMenuBar#MainMenuBar::item {
+        border-radius: 5px;
+        padding: 5px 10px;
+    }
+
     QFrame#Sidebar {
         border-right: 1px solid;
     }
@@ -167,40 +882,6 @@ class ThemeManager:
 
     QFrame#LogDrawer {
         border-top: 1px solid;
-    }
-
-    QLineEdit, QTextEdit, QComboBox {
-        border: 1px solid;
-        border-radius: 8px;
-        padding: 7px 10px;
-    }
-
-    QDoubleSpinBox {
-        border: 1px solid;
-        border-radius: 8px;
-        min-height: 36px;
-        padding: 0px 30px 0px 10px;
-    }
-
-    QDoubleSpinBox::up-button {
-        subcontrol-origin: border;
-        subcontrol-position: top right;
-        width: 26px;
-        height: 18px;
-        border-left: 1px solid;
-        border-bottom: 1px solid;
-        border-top-right-radius: 8px;
-        margin: 0px;
-    }
-
-    QDoubleSpinBox::down-button {
-        subcontrol-origin: border;
-        subcontrol-position: bottom right;
-        width: 26px;
-        height: 18px;
-        border-left: 1px solid;
-        border-bottom-right-radius: 8px;
-        margin: 0px;
     }
 
     QListWidget#HistoryList {
@@ -342,6 +1023,25 @@ class ThemeManager:
         border-color: #243145;
     }
 
+    QMenuBar#MainMenuBar {
+        background: #111827;
+        border-color: #243145;
+        color: #E2E8F0;
+    }
+
+    QMenuBar#MainMenuBar::item:selected,
+    QMenuBar#MainMenuBar::item:pressed {
+        background: #1E293B;
+    }
+
+    QMenu {
+        background: #111827;
+        border: 1px solid #334155;
+        color: #E2E8F0;
+    }
+
+    QMenu::item:selected { background: #2563EB; }
+
     QFrame#Sidebar {
         background: #1E293B;
         border-color: #334155;
@@ -350,6 +1050,11 @@ class ThemeManager:
     QFrame#TopBar {
         background: #0F172A;
         border-color: #243145;
+    }
+
+    QFrame#TopBar QLabel {
+        background: transparent;
+        border: none;
     }
 
     QFrame#LogDrawer {
@@ -365,23 +1070,6 @@ class ThemeManager:
     QLabel[role="empty_subtitle"] { color: #94A3B8; }
     QLabel[role="panel_title"] { color: #F8FAFC; }
     QLabel[role="panel_hint"] { color: #94A3B8; }
-
-    QLineEdit, QTextEdit, QComboBox, QDoubleSpinBox {
-        background: #0B1220;
-        border-color: #334155;
-        color: #F8FAFC;
-    }
-
-    QDoubleSpinBox::up-button,
-    QDoubleSpinBox::down-button {
-        background: #111827;
-        border-color: #334155;
-    }
-
-    QDoubleSpinBox::up-button:hover,
-    QDoubleSpinBox::down-button:hover {
-        background: #1E293B;
-    }
 
     QListWidget#HistoryList {
         background: transparent;
@@ -486,7 +1174,7 @@ class ThemeManager:
     QScrollBar::handle:horizontal:hover {
         background: rgba(148, 163, 184, 0.55);
     }
-    """
+    """ + _field_control_qss(DARK_FIELD_TOKENS)
 
     LIGHT = COMMON + """
     QWidget {
@@ -504,6 +1192,25 @@ class ThemeManager:
         border-color: #E5E7EB;
     }
 
+    QMenuBar#MainMenuBar {
+        background: #FFFFFF;
+        border-color: #E5E7EB;
+        color: #1F2937;
+    }
+
+    QMenuBar#MainMenuBar::item:selected,
+    QMenuBar#MainMenuBar::item:pressed {
+        background: #E5E7EB;
+    }
+
+    QMenu {
+        background: #FFFFFF;
+        border: 1px solid #D1D5DB;
+        color: #1F2937;
+    }
+
+    QMenu::item:selected { background: #DBEAFE; color: #1D4ED8; }
+
     QFrame#Sidebar {
         background: #F8FAFC;
         border-color: #E5E7EB;
@@ -512,6 +1219,11 @@ class ThemeManager:
     QFrame#TopBar {
         background: #FFFFFF;
         border-color: #E5E7EB;
+    }
+
+    QFrame#TopBar QLabel {
+        background: transparent;
+        border: none;
     }
 
     QFrame#LogDrawer {
@@ -527,23 +1239,6 @@ class ThemeManager:
     QLabel[role="empty_subtitle"] { color: #6B7280; }
     QLabel[role="panel_title"] { color: #111827; }
     QLabel[role="panel_hint"] { color: #6B7280; }
-
-    QLineEdit, QTextEdit, QComboBox, QDoubleSpinBox {
-        background: #F8FAFC;
-        border-color: #D1D5DB;
-        color: #111827;
-    }
-
-    QDoubleSpinBox::up-button,
-    QDoubleSpinBox::down-button {
-        background: #F3F4F6;
-        border-color: #D1D5DB;
-    }
-
-    QDoubleSpinBox::up-button:hover,
-    QDoubleSpinBox::down-button:hover {
-        background: #E5E7EB;
-    }
 
     QListWidget#HistoryList {
         background: transparent;
@@ -650,7 +1345,7 @@ class ThemeManager:
     QScrollBar::handle:horizontal:hover {
         background: rgba(107, 114, 128, 0.50);
     }
-    """
+    """ + _field_control_qss(LIGHT_FIELD_TOKENS)
 
     DIALOG_COMMON = """
     QDialog {
@@ -1046,6 +1741,57 @@ class CustomTitleBar(QFrame):
             self._toggle_maximize()
 
 
+class DiagnosticsDialog(QDialog):
+    """Local diagnostic preview; nothing is uploaded or sent automatically."""
+
+    def __init__(self, parent: QWidget, diagnostic_text: str, is_dark: bool) -> None:
+        super().__init__(parent)
+        self.setObjectName("DiagnosticsDialog")
+        self.setWindowTitle("反馈问题 / 诊断信息")
+        self.resize(720, 520)
+        layout = QVBoxLayout(self)
+
+        warning = QLabel("诊断信息可能包含您输入的命令或文件路径，请在发送前检查。不会自动上传。")
+        warning.setWordWrap(True)
+        layout.addWidget(warning)
+
+        self.preview = QTextEdit()
+        self.preview.setObjectName("DiagnosticsPreview")
+        self.preview.setReadOnly(True)
+        self.preview.setPlainText(diagnostic_text)
+        layout.addWidget(self.preview, 1)
+
+        self.status = QLabel("")
+        layout.addWidget(self.status)
+        buttons = QHBoxLayout()
+        buttons.addStretch()
+        self.btn_copy = QPushButton("复制诊断信息")
+        self.btn_copy.setObjectName("DiagnosticsCopyButton")
+        self.btn_open_logs = QPushButton("打开日志目录")
+        self.btn_open_logs.setObjectName("DiagnosticsOpenLogsButton")
+        self.btn_close = QPushButton("关闭")
+        buttons.addWidget(self.btn_copy)
+        buttons.addWidget(self.btn_open_logs)
+        buttons.addWidget(self.btn_close)
+        layout.addLayout(buttons)
+
+        self.btn_copy.clicked.connect(self._copy)
+        self.btn_open_logs.clicked.connect(self._open_logs)
+        self.btn_close.clicked.connect(self.accept)
+        self.setStyleSheet(ThemeManager.DARK if is_dark else ThemeManager.LIGHT)
+
+    def _copy(self) -> None:
+        QApplication.clipboard().setText(self.preview.toPlainText())
+        self.status.setText("诊断信息已复制，请在发送前检查内容。")
+
+    def _open_logs(self) -> None:
+        try:
+            path = open_logs_directory()
+            self.status.setText(f"已打开日志目录：{path}")
+        except OSError as exc:
+            self.status.setText(f"无法打开日志目录：{exc}")
+
+
 class MainWindow(QMainWindow):
     """
     Launch Flow 主工作台窗口。
@@ -1064,12 +1810,23 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.project_root = project_root
         self.plan_service = PlanService(project_root)
+        self.disk_logger = get_app_logger()
 
         self.current_plan = Plan(plan_name="未命名方案")
         self.current_plan_path: Optional[Path] = None
         self.templates = self.plan_service.load_templates()
+        self.current_step_dirty = False
+        self.plan_dirty = False
+        self.loading_editor = False
+        self._loading_plan = True
+        self._selection_change_in_progress = False
+        self.current_editor_index: Optional[int] = None
+        self.last_error_status = ""
+        self._log_toolbar_mode: Optional[str] = None
+        self._log_toolbar_update_pending = False
+        self._setting_log_layout = False
 
-        self.is_dark_theme = True
+        self.is_dark_theme = self.plan_service.load_settings().get("theme", "dark") != "light"
         self.build_worker: Optional[BuildWorker] = None
         self.trial_run_worker: Optional[TrialRunWorker] = None
         self.progress_dialog: Optional[QProgressDialog] = None
@@ -1077,10 +1834,14 @@ class MainWindow(QMainWindow):
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Window)
         self.resize(1280, 800)
 
-        self.app_icon = self._create_app_icon()
-        self.setWindowIcon(self.app_icon)
+        self.app_icon = apply_window_icon(self, project_root, self.disk_logger)
 
         self._build_ui()
+        QTimer.singleShot(0, self._restore_default_log_layout)
+        self._configure_tooltips()
+        self.plan_name_edit.setText(self.current_plan.plan_name)
+        self._connect_step_editor_dirty_signals()
+        self._loading_plan = False
         self._apply_theme()
         self._load_history_plans()
         self._refresh_flow_list()
@@ -1117,6 +1878,9 @@ class MainWindow(QMainWindow):
         self.title_bar = CustomTitleBar(self)
         self.title_bar.set_icon(self.app_icon)
         root_layout.addWidget(self.title_bar)
+
+        self.main_menu_bar = self._build_menu_bar()
+        root_layout.addWidget(self.main_menu_bar)
 
         content_host = QWidget()
         content_layout = QHBoxLayout(content_host)
@@ -1178,13 +1942,15 @@ class MainWindow(QMainWindow):
         sidebar_layout.addWidget(self.btn_new_plan)
 
         sidebar_layout.addSpacing(16)
-        sidebar_layout.addWidget(self._make_label("本地历史方案 (双击载入)", "section"))
+        self.history_section_label = self._make_label("本地历史方案（单击载入）", "section")
+        sidebar_layout.addWidget(self.history_section_label)
         sidebar_layout.addSpacing(8)
 
-        self.history_list = QListWidget()
+        self.history_list = PlanHistoryList()
         self.history_list.setObjectName("HistoryList")
         self.history_list.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.history_list.itemDoubleClicked.connect(self._load_history_plan_item)
+        self.history_list.itemClicked.connect(self._load_history_plan_item)
+        self.history_list.enterPressed.connect(self._load_history_plan_item)
         sidebar_layout.addWidget(self.history_list, 1)
 
         content_layout.addWidget(sidebar)
@@ -1196,27 +1962,35 @@ class MainWindow(QMainWindow):
 
         self.main_splitter = QSplitter(Qt.Orientation.Vertical)
         self.main_splitter.setHandleWidth(2)
+        self.main_splitter.setChildrenCollapsible(False)
 
         workspace = QWidget()
+        workspace.setObjectName("EditorWorkspace")
+        workspace.setMinimumHeight(320)
         workspace_layout = QVBoxLayout(workspace)
         workspace_layout.setContentsMargins(0, 0, 0, 0)
         workspace_layout.setSpacing(0)
 
-        top_bar = QFrame()
-        top_bar.setObjectName("TopBar")
-        top_bar.setFixedHeight(56)
+        self.top_bar = QFrame()
+        self.top_bar.setObjectName("TopBar")
+        self.top_bar.setFixedHeight(60)
 
-        top_bar_layout = QHBoxLayout(top_bar)
-        top_bar_layout.setContentsMargins(16, 0, 16, 0)
+        top_bar_layout = QHBoxLayout(self.top_bar)
+        top_bar_layout.setContentsMargins(16, 8, 16, 8)
         top_bar_layout.setSpacing(10)
+        top_bar_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
 
-        top_bar_layout.addWidget(QLabel("方案名称:"))
+        self.plan_name_label = QLabel("方案名称:")
+        self.plan_name_label.setObjectName("TopBarLabel")
+        self.plan_name_label.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
+        top_bar_layout.addWidget(self.plan_name_label, 0, Qt.AlignmentFlag.AlignVCenter)
 
         self.plan_name_edit = QLineEdit()
         self.plan_name_edit.setPlaceholderText("请输入方案名称...")
         self.plan_name_edit.setFixedWidth(230)
+        self.plan_name_edit.setFixedHeight(38)
         self.plan_name_edit.textChanged.connect(self._on_plan_name_changed)
-        top_bar_layout.addWidget(self.plan_name_edit)
+        top_bar_layout.addWidget(self.plan_name_edit, 0, Qt.AlignmentFlag.AlignVCenter)
 
         top_bar_layout.addStretch()
 
@@ -1225,6 +1999,10 @@ class MainWindow(QMainWindow):
         self.btn_save.setIcon(self._create_small_icon("save"))
         self.btn_save.setIconSize(QSize(18, 18))
         self.btn_save.clicked.connect(self._on_save_plan)
+
+        self.btn_save_as = QPushButton("另存为")
+        self.btn_save_as.setObjectName("TopToolBtn")
+        self.btn_save_as.clicked.connect(self._on_save_plan_as)
 
         self.btn_trial_run = QPushButton("试运行")
         self.btn_trial_run.setObjectName("TopToolBtn")
@@ -1239,11 +2017,11 @@ class MainWindow(QMainWindow):
         self.btn_export_exe.setIconSize(QSize(18, 18))
         self.btn_export_exe.clicked.connect(self._on_export_exe)
 
-        for btn in [self.btn_save, self.btn_trial_run, self.btn_export_exe]:
+        for btn in [self.btn_save, self.btn_save_as, self.btn_trial_run, self.btn_export_exe]:
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
-            top_bar_layout.addWidget(btn)
+            top_bar_layout.addWidget(btn, 0, Qt.AlignmentFlag.AlignVCenter)
 
-        workspace_layout.addWidget(top_bar)
+        workspace_layout.addWidget(self.top_bar)
 
         content_splitter = QSplitter(Qt.Orientation.Horizontal)
         content_splitter.setHandleWidth(1)
@@ -1254,7 +2032,7 @@ class MainWindow(QMainWindow):
 
         flow_layout.addWidget(self._make_label("启动流排布 (DELETE 键删除)", "section"))
 
-        self.flow_list = QListWidget()
+        self.flow_list = ReorderableStepList(self._prepare_step_drag, self.reorder_steps, self._move_selected_step)
         self.flow_list.setObjectName("FlowList")
         self.flow_list.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
         self.flow_list.itemSelectionChanged.connect(self._on_flow_selection_changed)
@@ -1309,38 +2087,152 @@ class MainWindow(QMainWindow):
 
         self.log_drawer = QFrame()
         self.log_drawer.setObjectName("LogDrawer")
-        drawer_layout = QVBoxLayout(self.log_drawer)
-        drawer_layout.setContentsMargins(12, 10, 12, 12)
+        self.log_drawer.setMinimumHeight(44)
+        drawer_layout = QHBoxLayout(self.log_drawer)
+        drawer_layout.setContentsMargins(10, 7, 7, 8)
+        drawer_layout.setSpacing(7)
 
-        drawer_layout.addWidget(self._make_label("🛠️ 运行与输出日志", "panel_title"))
-        drawer_layout.addWidget(self._make_label("试运行、导出、缓存复用等输出都会显示在这里。", "panel_hint"))
+        self.log_main = QWidget()
+        log_main_layout = QVBoxLayout(self.log_main)
+        log_main_layout.setContentsMargins(0, 0, 0, 0)
+        log_main_layout.setSpacing(3)
 
-        self.log_text = QTextEdit()
-        self.log_text.setReadOnly(True)
-        drawer_layout.addWidget(self.log_text)
+        self.log_header = QFrame()
+        self.log_header.setObjectName("LogHeader")
+        self.log_header.setMinimumHeight(29)
+        log_header = QHBoxLayout(self.log_header)
+        log_header.setContentsMargins(0, 0, 0, 0)
+        log_header.setSpacing(8)
+        self.log_title_label = self._make_label("🛠️ 运行与输出日志", "panel_title")
+        log_header.addWidget(self.log_title_label)
+
+        self.status_label = ElidedLabel("状态：准备就绪")
+        self.status_label.setProperty("role", "status")
+        self.status_label.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
+        self.status_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        log_header.addWidget(self.status_label, 1)
+
+        self.log_unseen_label = QLabel("有新输出")
+        self.log_unseen_label.setObjectName("LogUnseenLabel")
+        self.log_unseen_label.hide()
+        log_header.addWidget(self.log_unseen_label)
+
+        self.btn_open_log = QPushButton("隐藏日志")
+        self.btn_open_log.setObjectName("LogHeaderButton")
+        self.btn_open_log.setFixedHeight(28)
+        self.btn_open_log.setMinimumWidth(86)
+        self.btn_open_log.setMaximumWidth(104)
+        self.btn_open_log.setIconSize(QSize(14, 14))
+        self.btn_open_log.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_open_log.clicked.connect(self._toggle_log_drawer)
+        log_header.addWidget(self.btn_open_log)
+        log_main_layout.addWidget(self.log_header)
+
+        self.log_hint = self._make_label(
+            "后台 Command 的标准输出、错误和退出码集中显示在这里。",
+            "panel_hint",
+        )
+        log_main_layout.addWidget(self.log_hint)
+
+        self.log_text = LogConsole(max_blocks=4000)
+        self.log_text.setObjectName("LogConsole")
+        self.log_text.setMinimumHeight(148)
+        self.log_text.unseenOutputChanged.connect(self._on_log_unseen_output_changed)
+        log_main_layout.addWidget(self.log_text, 1)
+        drawer_layout.addWidget(self.log_main, 1)
+
+        self.log_toolbar = QFrame()
+        self.log_toolbar.setObjectName("LogToolbar")
+        self.log_toolbar.setFixedWidth(32)
+        log_tools_layout = QVBoxLayout(self.log_toolbar)
+        log_tools_layout.setContentsMargins(0, 0, 0, 0)
+        log_tools_layout.setSpacing(4)
+
+        self.btn_log_expand = QPushButton()
+        self.btn_clear_log = QPushButton()
+        self.btn_copy_log = QPushButton()
+        self.btn_open_logs_dir = QPushButton()
+        self.btn_feedback = QPushButton()
+        log_button_icons = (
+            (self.btn_log_expand, QStyle.StandardPixmap.SP_TitleBarMaxButton),
+            (self.btn_clear_log, QStyle.StandardPixmap.SP_TrashIcon),
+            (self.btn_copy_log, QStyle.StandardPixmap.SP_FileDialogDetailedView),
+            (self.btn_open_logs_dir, QStyle.StandardPixmap.SP_DirOpenIcon),
+            (self.btn_feedback, QStyle.StandardPixmap.SP_MessageBoxQuestion),
+        )
+        for button, icon_kind in log_button_icons:
+            button.setObjectName("LogToolButton")
+            button.setFixedSize(32, 32)
+            button.setIcon(self.style().standardIcon(icon_kind))
+            button.setIconSize(QSize(17, 17))
+            button.setCursor(Qt.CursorShape.PointingHandCursor)
+            log_tools_layout.addWidget(button)
+        log_tools_layout.addStretch()
+        drawer_layout.addWidget(self.log_toolbar)
+        self.log_tool_buttons = tuple(button for button, _icon in log_button_icons)
+
+        self.btn_log_expand.clicked.connect(self._toggle_log_expand)
+        self.btn_clear_log.clicked.connect(self._clear_visible_log)
+        self.btn_copy_log.clicked.connect(self._copy_visible_log)
+        self.btn_open_logs_dir.clicked.connect(self._open_logs_directory)
+        self.btn_feedback.clicked.connect(self._show_feedback_dialog)
 
         self.main_splitter.addWidget(self.log_drawer)
-        self.main_splitter.setSizes([800, 0])
+        self.main_splitter.setStretchFactor(0, 1)
+        self.main_splitter.setStretchFactor(1, 0)
+        self.log_layout_state = "normal"
+        self.main_splitter.setSizes([470, 250])
+        self.main_splitter.splitterMoved.connect(self._on_main_splitter_moved)
 
         right_layout.addWidget(self.main_splitter)
-
-        status_bar_layout = QHBoxLayout()
-        status_bar_layout.setContentsMargins(12, 6, 12, 12)
-
-        self.status_label = QLabel("状态：准备就绪")
-        self.status_label.setProperty("role", "status")
-        status_bar_layout.addWidget(self.status_label)
-        status_bar_layout.addStretch()
-
-        self.btn_open_log = QPushButton("📟 调阅控制台")
-        self.btn_open_log.setObjectName("SecondaryBtn")
-        self.btn_open_log.setMinimumWidth(124)
-        self.btn_open_log.setFixedHeight(36)
-        self.btn_open_log.clicked.connect(self._toggle_log_drawer)
-        status_bar_layout.addWidget(self.btn_open_log)
-
-        right_layout.addLayout(status_bar_layout)
         content_layout.addWidget(right_container, 1)
+
+    def _build_menu_bar(self) -> QMenuBar:
+        """Build menus whose actions share the toolbar handlers."""
+        menu_bar = QMenuBar(self)
+        menu_bar.setObjectName("MainMenuBar")
+
+        file_menu = menu_bar.addMenu("文件")
+        edit_menu = menu_bar.addMenu("编辑")
+
+        self.action_save = QAction("保存", self)
+        self.action_save.setShortcut(QKeySequence(SHORTCUTS["save"]))
+        self.action_save.triggered.connect(self._on_save_plan)
+
+        self.action_save_as = QAction("另存为", self)
+        self.action_save_as.setShortcut(QKeySequence(SHORTCUTS["save_as"]))
+        self.action_save_as.triggered.connect(self._on_save_plan_as)
+
+        self.action_trial_run = QAction("运行", self)
+        self.action_trial_run.setShortcut(QKeySequence(SHORTCUTS["trial_run"]))
+        self.action_trial_run.triggered.connect(self._on_trial_run)
+
+        self.action_export_exe = QAction("导出 EXE", self)
+        self.action_export_exe.setShortcut(QKeySequence(SHORTCUTS["export"]))
+        self.action_export_exe.triggered.connect(self._on_export_exe)
+
+        self.action_delete_step = QAction("删除当前选中步骤", self)
+        self.action_delete_step.setShortcut(QKeySequence(SHORTCUTS["delete"]))
+        self.action_delete_step.triggered.connect(self._on_delete_step)
+
+        self.action_move_step_up = QAction("上移当前步骤", self)
+        self.action_move_step_up.setShortcut(QKeySequence(SHORTCUTS["move_up"]))
+        self.action_move_step_up.triggered.connect(lambda: self._move_selected_step(-1))
+
+        self.action_move_step_down = QAction("下移当前步骤", self)
+        self.action_move_step_down.setShortcut(QKeySequence(SHORTCUTS["move_down"]))
+        self.action_move_step_down.triggered.connect(lambda: self._move_selected_step(1))
+
+        file_menu.addAction(self.action_save)
+        file_menu.addAction(self.action_save_as)
+        file_menu.addSeparator()
+        file_menu.addAction(self.action_trial_run)
+        file_menu.addAction(self.action_export_exe)
+        edit_menu.addAction(self.action_move_step_up)
+        edit_menu.addAction(self.action_move_step_down)
+        edit_menu.addSeparator()
+        edit_menu.addAction(self.action_delete_step)
+        return menu_bar
 
     def _configure_seconds_spinbox(self, spinbox: QDoubleSpinBox, *, decimals: int = 1) -> None:
         """
@@ -1353,7 +2245,10 @@ class MainWindow(QMainWindow):
         spinbox.setRange(0, 9999)
         spinbox.setDecimals(decimals)
         spinbox.setSingleStep(1.0)
-        spinbox.setFixedHeight(38)
+        # 40 logical pixels gives Qt an even styled content height so the
+        # native Up/Down subcontrols receive identical hitbox dimensions at
+        # 100%, 125%, and 150% scale while preserving the compact field row.
+        spinbox.setFixedHeight(40)
         spinbox.setMinimumWidth(150)
         spinbox.setButtonSymbols(QAbstractSpinBox.ButtonSymbols.UpDownArrows)
 
@@ -1378,7 +2273,7 @@ class MainWindow(QMainWindow):
         self.app_path_in.setPlaceholderText("选择或粘贴 .exe / .bat / .cmd / .ps1 路径")
         self.app_args_in.setPlaceholderText("可选：按空格分隔启动参数")
         self.app_args_in.setMaximumHeight(82)
-        self.app_delay_in = QDoubleSpinBox()
+        self.app_delay_in = ThemedDoubleSpinBox()
         self._configure_seconds_spinbox(self.app_delay_in)
         app_form.addRow("步骤名称", self.app_name_in)
         app_form.addRow("程序路径", self.app_path_in)
@@ -1390,7 +2285,7 @@ class MainWindow(QMainWindow):
         url_form = QFormLayout(self.page_url)
         self.url_name_in = QLineEdit()
         self.url_in = QLineEdit()
-        self.url_delay_in = QDoubleSpinBox()
+        self.url_delay_in = ThemedDoubleSpinBox()
         self._configure_seconds_spinbox(self.url_delay_in)
         url_form.addRow("步骤名称", self.url_name_in)
         url_form.addRow("网址 URL", self.url_in)
@@ -1402,9 +2297,9 @@ class MainWindow(QMainWindow):
         self.cmd_name_in = QLineEdit()
         self.cmd_in = QTextEdit()
         self.cmd_in.setMaximumHeight(120)
-        self.cmd_shell_in = QComboBox()
+        self.cmd_shell_in = ThemedComboBox()
         self.cmd_shell_in.addItems(["cmd", "powershell"])
-        self.cmd_delay_in = QDoubleSpinBox()
+        self.cmd_delay_in = ThemedDoubleSpinBox()
         self._configure_seconds_spinbox(self.cmd_delay_in)
         cmd_form.addRow("步骤名称", self.cmd_name_in)
         cmd_form.addRow("执行命令", self.cmd_in)
@@ -1415,7 +2310,7 @@ class MainWindow(QMainWindow):
         self.page_wait = QWidget()
         wait_form = QFormLayout(self.page_wait)
         self.wait_name_in = QLineEdit()
-        self.wait_seconds_in = QDoubleSpinBox()
+        self.wait_seconds_in = ThemedDoubleSpinBox()
         self._configure_seconds_spinbox(self.wait_seconds_in)
         wait_form.addRow("步骤名称", self.wait_name_in)
         wait_form.addRow("等待时间(秒)", self.wait_seconds_in)
@@ -1467,6 +2362,40 @@ class MainWindow(QMainWindow):
         multi_layout.addWidget(sub3)
         multi_layout.addStretch()
         self.editor_stack.addWidget(self.page_multi)
+
+    def _connect_step_editor_dirty_signals(self) -> None:
+        """Track inspector drafts without serializing or rebuilding the step list per keypress."""
+
+        for line_edit in (
+            self.app_name_in,
+            self.app_path_in,
+            self.url_name_in,
+            self.url_in,
+            self.cmd_name_in,
+            self.wait_name_in,
+        ):
+            line_edit.textChanged.connect(self._on_step_editor_changed)
+
+        for text_edit in (self.app_args_in, self.cmd_in):
+            text_edit.textChanged.connect(self._on_step_editor_changed)
+
+        for spinbox in (
+            self.app_delay_in,
+            self.url_delay_in,
+            self.cmd_delay_in,
+            self.wait_seconds_in,
+        ):
+            spinbox.valueChanged.connect(self._on_step_editor_changed)
+
+        self.cmd_shell_in.currentTextChanged.connect(self._on_step_editor_changed)
+
+    def _on_step_editor_changed(self, *_args) -> None:
+        """Mark only the visible draft dirty; model and disk writes stay boundary-based."""
+
+        if self.loading_editor or self.current_editor_index is None:
+            return
+        self.current_step_dirty = True
+        self.plan_dirty = True
 
     # ---------------- icon ----------------
     def _draw_app_icon_pixmap(self, size: int) -> QPixmap:
@@ -1542,19 +2471,8 @@ class MainWindow(QMainWindow):
         return pix
 
     def _create_app_icon(self) -> QIcon:
-        """
-        生成多尺寸应用图标。
-
-        返回值：
-        - QIcon 对象，内部包含多组尺寸位图，
-          以适配任务栏、标题栏与桌面快捷方式等不同场景。
-        """
-        icon = QIcon()
-
-        for size in [16, 20, 24, 32, 40, 48, 64, 128, 256]:
-            icon.addPixmap(self._draw_app_icon_pixmap(size))
-
-        return icon
+        """Return the packaged ICO shared by source, frozen, and activation windows."""
+        return load_app_icon(self.project_root, self.disk_logger)
 
     def _create_small_icon(self, kind: str) -> QIcon:
         """
@@ -1621,6 +2539,57 @@ class MainWindow(QMainWindow):
         return QIcon(pix)
 
     # ---------------- utils ----------------
+    def _shortcut_tooltip(self, description: str, action: QAction) -> str:
+        shortcut = next(
+            (label for label in SHORTCUTS.values() if QKeySequence(label) == action.shortcut()),
+            action.shortcut().toString(QKeySequence.SequenceFormat.PortableText),
+        )
+        return f"{description}（{shortcut}）" if shortcut else description
+
+    def _configure_tooltips(self) -> None:
+        """Bind concise help text to widgets using the QAction shortcut source of truth."""
+
+        self.btn_save.setToolTip(self._shortcut_tooltip("保存当前方案", self.action_save))
+        self.btn_save_as.setToolTip(self._shortcut_tooltip("将当前方案保存为新文件", self.action_save_as))
+        self.btn_trial_run.setToolTip(
+            self._shortcut_tooltip("后台执行当前方案，命令输出显示在下方日志", self.action_trial_run)
+        )
+        self.btn_export_exe.setToolTip(
+            self._shortcut_tooltip("将当前方案导出为独立启动器", self.action_export_exe)
+        )
+        self.btn_apply.setToolTip("将右侧编辑内容应用到当前步骤")
+        self.btn_delete_step.setToolTip(
+            self._shortcut_tooltip("删除当前选中步骤", self.action_delete_step)
+        )
+        self.btn_add_app.setToolTip("添加一个应用启动步骤")
+        self.btn_add_url.setToolTip("添加一个网页打开步骤")
+        self.btn_add_cmd.setToolTip("添加一个后台命令步骤，输出显示在日志区")
+        self.btn_add_wait.setToolTip("添加一个等待步骤")
+        self.btn_open_log.setToolTip("隐藏或显示 LaunchFlow 内置运行日志区域")
+        self.btn_log_expand.setToolTip("放大日志区域；放大后再次点击恢复正常大小")
+        self.btn_clear_log.setToolTip("只清空当前显示，不删除磁盘日志")
+        self.btn_copy_log.setToolTip("复制当前显示的全部日志")
+        self.btn_open_logs_dir.setToolTip("打开 LaunchFlow 当前数据目录中的日志文件夹")
+        self.btn_feedback.setToolTip("预览并复制经过掩码的诊断信息，不会自动上传")
+        accessible_names = {
+            self.btn_log_expand: "展开或还原日志",
+            self.btn_clear_log: "清空显示日志",
+            self.btn_copy_log: "复制全部日志",
+            self.btn_open_logs_dir: "打开日志目录",
+            self.btn_feedback: "反馈问题",
+        }
+        for button, name in accessible_names.items():
+            button.setAccessibleName(name)
+        self.flow_list.setToolTip(
+            f"拖动以调整步骤顺序；顶部和底部有扩展投放区\n"
+            f"{SHORTCUTS['move_up']} 上移 / {SHORTCUTS['move_down']} 下移"
+        )
+        self.cmd_shell_in.setToolTip("选择使用 CMD 或 PowerShell 解析命令；默认不会弹出外部终端")
+
+        for action in (self.action_move_step_up, self.action_move_step_down):
+            action.setShortcutContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+            self.flow_list.addAction(action)
+
     def _make_label(self, text: str, role: str) -> QLabel:
         """
         创建带 role 属性的标签组件。
@@ -1636,6 +2605,10 @@ class MainWindow(QMainWindow):
         lab.setProperty("role", role)
         return lab
 
+    def resizeEvent(self, event) -> None:  # type: ignore[no-untyped-def]
+        super().resizeEvent(event)
+        self._schedule_log_toolbar_update()
+
     def _apply_theme(self) -> None:
         """
         应用当前主题样式到整个主窗口。
@@ -1644,7 +2617,47 @@ class MainWindow(QMainWindow):
         - 所有界面配色统一由 ThemeManager 管理；
         - 主题切换时直接整体替换样式表，避免局部控件状态不一致。
         """
-        self.setStyleSheet(ThemeManager.DARK if self.is_dark_theme else ThemeManager.LIGHT)
+        base_style = ThemeManager.DARK if self.is_dark_theme else ThemeManager.LIGHT
+        tooltip_style = (
+            "QToolTip { background: #111827; color: #F8FAFC; border: 1px solid #475569; "
+            "padding: 6px 8px; border-radius: 5px; }"
+            if self.is_dark_theme
+            else "QToolTip { background: #FFFFFF; color: #111827; border: 1px solid #CBD5E1; "
+            "padding: 6px 8px; border-radius: 5px; }"
+        )
+        self.setStyleSheet(base_style + tooltip_style)
+        log_tool_style = (
+            "QFrame#LogToolbar, QFrame#LogHeader { background: transparent; border: none; }"
+            "QPushButton#LogToolButton { padding: 0; background: #1E293B; border: 1px solid #475569; "
+            "border-radius: 6px; } QPushButton#LogToolButton:hover { background: #334155; }"
+            "QPushButton#LogToolButton:pressed { background: #475569; }"
+            "QPushButton#LogHeaderButton { padding: 0 8px; color: #CBD5E1; background: #111827; "
+            "border: 1px solid #475569; border-radius: 6px; }"
+            "QPushButton#LogHeaderButton:hover { background: #1E293B; color: #FFFFFF; }"
+            "QPushButton#LogHeaderButton:pressed { background: #334155; }"
+            "QLabel#LogUnseenLabel { color: #FBBF24; font-weight: 600; }"
+            if self.is_dark_theme
+            else
+            "QFrame#LogToolbar, QFrame#LogHeader { background: transparent; border: none; }"
+            "QPushButton#LogToolButton { padding: 0; background: #FFFFFF; border: 1px solid #CBD5E1; "
+            "border-radius: 6px; } QPushButton#LogToolButton:hover { background: #E2E8F0; }"
+            "QPushButton#LogToolButton:pressed { background: #CBD5E1; }"
+            "QPushButton#LogHeaderButton { padding: 0 8px; color: #475569; background: #FFFFFF; "
+            "border: 1px solid #CBD5E1; border-radius: 6px; }"
+            "QPushButton#LogHeaderButton:hover { background: #F1F5F9; color: #111827; }"
+            "QPushButton#LogHeaderButton:pressed { background: #E2E8F0; }"
+            "QLabel#LogUnseenLabel { color: #B45309; font-weight: 600; }"
+        )
+        self.setStyleSheet(self.styleSheet() + log_tool_style)
+        self.log_text.set_theme(self.is_dark_theme)
+        themed_widgets = [
+            *self.findChildren(ThemedDoubleSpinBox),
+            *self.findChildren(ThemedComboBox),
+        ]
+        for widget in themed_widgets:
+            widget.setProperty("darkTheme", self.is_dark_theme)
+            widget.update()
+        self._schedule_log_toolbar_update()
 
     def _toggle_theme(self) -> None:
         """
@@ -1658,6 +2671,9 @@ class MainWindow(QMainWindow):
         self.is_dark_theme = not self.is_dark_theme
         self._update_theme_btn_text()
         self._apply_theme()
+        settings = self.plan_service.load_settings()
+        settings["theme"] = "dark" if self.is_dark_theme else "light"
+        self.plan_service.save_settings(settings)
 
     def _update_theme_btn_text(self) -> None:
         """
@@ -1687,6 +2703,7 @@ class MainWindow(QMainWindow):
         - title: 弹窗标题；
         - text: 弹窗内容。
         """
+        self.last_error_status = f"{title}: {text}"
         dlg = FancyDialog(self, title, text, primary_text="关闭", is_dark=self.is_dark_theme)
         dlg.exec()
 
@@ -1714,7 +2731,7 @@ class MainWindow(QMainWindow):
         dlg.exec()
         return dlg.result_value
 
-    def _log(self, text: str) -> None:
+    def _log(self, text: str, kind: Optional[LogKind] = None) -> None:
         """
         向日志抽屉追加一条日志，同时更新底部状态文字。
 
@@ -1725,8 +2742,9 @@ class MainWindow(QMainWindow):
         - 日志和状态栏共用同一份短文本，有助于让用户同时看到“详细过程”和“当前状态”。
         """
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        self.log_text.append(f"[{now}] {text}")
+        self.log_text.append_entry(now, text, kind or infer_log_kind(text))
         self.status_label.setText(f"状态：{text}")
+        self.disk_logger.info(text)
 
     def _create_progress_dialog(self, title: str, text: str) -> None:
         """
@@ -1748,22 +2766,171 @@ class MainWindow(QMainWindow):
         self.progress_dialog.show()
 
     def _toggle_log_drawer(self) -> None:
-        """
-        展开或收起底部日志抽屉。
+        """Hide the body, or restore a constrained/collapsed drawer to normal."""
 
-        说明：
-        - 通过读取 splitter 当前尺寸判断抽屉是否关闭；
-        - 展开时为日志区预留固定高度，收起时将其高度归零。
-        """
-        sizes = self.main_splitter.sizes()
-        if sizes[1] <= 10:
-            total = sizes[0] + sizes[1]
-            self.main_splitter.setSizes([max(total - 200, 100), 200])
-            self.btn_open_log.setText("🔽 隐藏控制台")
+        should_restore = self.log_layout_state == "collapsed" or self._log_toolbar_mode != "full"
+        self.set_log_layout_state("normal" if should_restore else "collapsed")
+
+    def _on_log_unseen_output_changed(self, has_unseen: bool) -> None:
+        self.log_unseen_label.setVisible(has_unseen and self.log_layout_state != "collapsed")
+
+    def _toggle_log_expand(self) -> None:
+        if self.log_layout_state == "expanded":
+            self.set_log_layout_state("normal")
+        elif self.log_layout_state == "collapsed":
+            self.set_log_layout_state("normal")
         else:
-            total = sizes[0] + sizes[1]
-            self.main_splitter.setSizes([total, 0])
-            self.btn_open_log.setText("📟 调阅控制台")
+            self.set_log_layout_state("expanded")
+
+    def _restore_default_log_layout(self) -> None:
+        self.set_log_layout_state("normal")
+
+    def _apply_log_state_widgets(self, state: str) -> None:
+        collapsed = state == "collapsed"
+        self.log_layout_state = state
+        self.log_hint.setVisible(not collapsed)
+        self.log_text.setVisible(not collapsed)
+        self.log_unseen_label.setVisible(not collapsed and self.log_text.has_unseen_output)
+
+        expanded = state == "expanded"
+        self.btn_log_expand.setAccessibleName("恢复正常大小" if expanded else "放大日志区域")
+        self.btn_log_expand.setToolTip(
+            "恢复日志区域正常大小" if expanded else "放大日志区域"
+        )
+        self.btn_log_expand.setIcon(
+            self.style().standardIcon(
+                QStyle.StandardPixmap.SP_TitleBarNormalButton
+                if expanded
+                else QStyle.StandardPixmap.SP_TitleBarMaxButton
+            )
+        )
+        self._update_log_header_control()
+        self._schedule_log_toolbar_update()
+
+    def _update_log_header_control(self) -> None:
+        """Keep one compact header action useful at every drawer height."""
+
+        if self.log_layout_state == "collapsed":
+            text = "显示日志"
+            icon = QStyle.StandardPixmap.SP_TitleBarNormalButton
+        elif self._log_toolbar_mode != "full":
+            text = "恢复高度"
+            icon = QStyle.StandardPixmap.SP_TitleBarNormalButton
+        else:
+            text = "隐藏日志"
+            icon = QStyle.StandardPixmap.SP_TitleBarShadeButton
+        self.btn_open_log.setText(text)
+        self.btn_open_log.setAccessibleName(text)
+        self.btn_open_log.setToolTip(f"{text}区域")
+        self.btn_open_log.setIcon(self.style().standardIcon(icon))
+
+    def _log_toolbar_height_requirements(self) -> tuple[int, int]:
+        layout = self.log_toolbar.layout()
+        margins = layout.contentsMargins()
+        button_heights = [max(button.height(), button.sizeHint().height()) for button in self.log_tool_buttons]
+        one = margins.top() + margins.bottom() + button_heights[0]
+        full = margins.top() + margins.bottom() + sum(button_heights)
+        full += layout.spacing() * max(0, len(button_heights) - 1)
+        return one, full
+
+    def update_log_toolbar_visibility(self, available_height: Optional[int] = None) -> str:
+        """Show five, one, or zero complete tool buttons based on real height."""
+
+        self._log_toolbar_update_pending = False
+        if self.log_layout_state == "collapsed":
+            mode = "hidden"
+        else:
+            if available_height is None:
+                layout = self.log_drawer.layout()
+                margins = layout.contentsMargins()
+                available_height = max(
+                    0,
+                    self.log_drawer.contentsRect().height() - margins.top() - margins.bottom(),
+                )
+            one_height, full_height = self._log_toolbar_height_requirements()
+            mode = "full" if available_height >= full_height else "expand" if available_height >= one_height else "hidden"
+
+        if mode == self._log_toolbar_mode:
+            self._update_log_header_control()
+            return mode
+
+        self._log_toolbar_mode = mode
+        show_toolbar = mode != "hidden"
+        self.log_toolbar.setVisible(show_toolbar)
+        for index, button in enumerate(self.log_tool_buttons):
+            button.setVisible(mode == "full" or (mode == "expand" and index == 0))
+        self._update_log_header_control()
+        return mode
+
+    def _schedule_log_toolbar_update(self) -> None:
+        if self._log_toolbar_update_pending or not hasattr(self, "log_toolbar"):
+            return
+        self._log_toolbar_update_pending = True
+        QTimer.singleShot(0, self.update_log_toolbar_visibility)
+
+    def _on_main_splitter_moved(self, _position: int, _index: int) -> None:
+        if self._setting_log_layout:
+            return
+        sizes = self.main_splitter.sizes()
+        total = max(1, sum(sizes))
+        log_height = sizes[1]
+        state = "expanded" if log_height / total >= 0.45 else "normal"
+        if state != self.log_layout_state:
+            self._apply_log_state_widgets(state)
+        else:
+            self._schedule_log_toolbar_update()
+
+    def set_log_layout_state(self, state: str) -> None:
+        """Apply a reversible collapsed/normal/expanded splitter preset."""
+
+        if state not in {"collapsed", "normal", "expanded"}:
+            raise ValueError(f"Unsupported log layout state: {state}")
+
+        sizes = self.main_splitter.sizes()
+        total = max(sum(sizes), self.main_splitter.height(), 570)
+        if state == "collapsed":
+            desired = 44
+        elif state == "expanded":
+            desired = min(max(260, round(total * 0.5)), max(220, total - 320))
+        else:
+            desired = min(240, max(220, total - 320))
+
+        self._setting_log_layout = True
+        try:
+            self._apply_log_state_widgets(state)
+            self.main_splitter.setSizes([max(320, total - desired), desired])
+        finally:
+            self._setting_log_layout = False
+        self._schedule_log_toolbar_update()
+
+    def _clear_visible_log(self) -> None:
+        self.log_text.clear_visible()
+        self.status_label.setText("状态：显示日志已清空，磁盘日志未删除。")
+
+    def _copy_visible_log(self) -> None:
+        QApplication.clipboard().setText(self.log_text.toPlainText())
+        self.status_label.setText("状态：显示日志已复制。")
+
+    def _open_logs_directory(self) -> None:
+        try:
+            path = open_logs_directory()
+            self.status_label.setText(f"状态：已打开日志目录 {path}")
+        except OSError as exc:
+            self._error("无法打开日志目录", str(exc))
+
+    def _build_diagnostic_text(self) -> str:
+        return collect_diagnostics(
+            plan_name=self.current_plan.plan_name,
+            step_count=len(self.current_plan.steps),
+            visible_log=self.log_text.toPlainText(),
+            current_error=self.last_error_status,
+        )
+
+    def _create_diagnostics_dialog(self) -> DiagnosticsDialog:
+        return DiagnosticsDialog(self, self._build_diagnostic_text(), self.is_dark_theme)
+
+    def _show_feedback_dialog(self) -> None:
+        self._create_diagnostics_dialog().exec()
 
     def _set_editor_no_steps(self) -> None:
         """
@@ -1831,9 +2998,7 @@ class MainWindow(QMainWindow):
         - 缓存统一放在项目根目录下，便于清理与调试；
         - 使用隐藏目录名称，避免干扰普通用户的主文件视图。
         """
-        cache_root = self.project_root / ".visual_launcher_cache"
-        cache_root.mkdir(parents=True, exist_ok=True)
-        return cache_root
+        return self.plan_service.get_build_cache_dir()
 
     def _plan_signature(self) -> str:
         """
@@ -1889,6 +3054,7 @@ class MainWindow(QMainWindow):
         - 当前实现通过清理该方案历史缓存 exe 的方式，
           防止用户继续复用过期的导出结果。
         """
+        self.plan_dirty = True
         self._clear_cached_exes_for_plan(self.current_plan.plan_name)
 
     # ---------------- keyboard ----------------
@@ -1913,7 +3079,8 @@ class MainWindow(QMainWindow):
         - text: 输入框中的最新文本。
         """
         self.current_plan.plan_name = text
-        self._mark_plan_changed()
+        if not self._loading_plan:
+            self._mark_plan_changed()
 
     def _on_new_plan(self) -> None:
         """
@@ -1921,43 +3088,85 @@ class MainWindow(QMainWindow):
         """
         self.current_plan = Plan(plan_name="未命名方案")
         self.current_plan_path = None
+        self._loading_plan = True
         self.plan_name_edit.setText(self.current_plan.plan_name)
+        self._loading_plan = False
+        self.current_editor_index = None
+        self.current_step_dirty = False
         self._refresh_flow_list()
         self.flow_list.clearSelection()
+        self._restore_history_selection()
         self._set_editor_no_steps()
+        self.plan_dirty = False
         self._log("已新建空白方案。")
 
     def _on_save_plan(self) -> None:
-        """
-        保存当前方案到本地方案目录。
+        """Commit the visible draft, then save it in the normal plans directory."""
+        self._save_current_plan(show_confirmation=True)
 
-        保存流程：
-        1. 校验方案名是否为空；
-        2. 基于方案名生成目标 JSON 文件路径；
-        3. 执行结构校验；
-        4. 保存成功后刷新历史方案列表。
-        """
+    def _save_current_plan(self, *, show_confirmation: bool) -> bool:
+        """Shared save path used by Ctrl+S and the history dirty-change guard."""
+
+        commit_result = self.commit_current_step_editor()
+        if not commit_result.success:
+            self._error("无法保存", commit_result.error)
+            return False
+
+        name = self.current_plan.plan_name.strip()
+        if not name:
+            self._error("无法保存", "方案名称不能为空。")
+            return False
+
+        file_path = self.plan_service.get_plans_dir() / f"{name}.json"
+        try:
+            errors = validate_plan_dict(self.current_plan.to_dict())
+            if errors:
+                self._error("方案校验失败", "\n".join(errors))
+                return False
+            self.plan_service.save_plan(self.current_plan, file_path)
+            self.current_plan_path = file_path
+            self.plan_dirty = False
+            self._load_history_plans()
+            self._log(f"方案已保存至: {file_path}", LogKind.SUCCESS)
+            if show_confirmation:
+                self._info("保存成功", "方案已成功保存。")
+            return True
+        except Exception as e:
+            self._error("保存失败", str(e))
+            return False
+
+    def _on_save_plan_as(self) -> None:
+        """Commit the visible draft, then save to a user-selected path."""
+        commit_result = self.commit_current_step_editor()
+        if not commit_result.success:
+            self._error("无法另存", commit_result.error)
+            return
+
         name = self.current_plan.plan_name.strip()
         if not name:
             self._error("无法保存", "方案名称不能为空。")
             return
-
-        plans_dir = self.plan_service.get_plans_dir()
-        file_path = plans_dir / f"{name}.json"
-
+        file_path_str, _ = QFileDialog.getSaveFileName(
+            self,
+            "方案另存为",
+            str(self.plan_service.get_plans_dir() / f"{name}.json"),
+            "LaunchFlow Plan (*.json)",
+        )
+        if not file_path_str:
+            return
         try:
             errors = validate_plan_dict(self.current_plan.to_dict())
             if errors:
                 self._error("方案校验失败", "\n".join(errors))
                 return
-
+            file_path = Path(file_path_str)
             self.plan_service.save_plan(self.current_plan, file_path)
             self.current_plan_path = file_path
-            self._load_history_plans()
-            self._log(f"方案已保存至: {file_path}")
-            self._info("保存成功", "方案已成功保存。")
+            self.plan_dirty = False
+            self._log(f"方案已另存为: {file_path}")
+            self._info("另存成功", "方案已保存到所选位置。")
         except Exception as e:
-            self._error("保存失败", str(e))
+            self._error("另存失败", str(e))
 
     def _load_history_plans(self) -> None:
         """
@@ -1968,35 +3177,211 @@ class MainWindow(QMainWindow):
         for f in sorted(plans_dir.glob("*.json")):
             item = QListWidgetItem(f"📄 {f.stem}")
             item.setData(Qt.ItemDataRole.UserRole, f)
+            item.setToolTip("单击载入方案")
             self.history_list.addItem(item)
+        self._restore_history_selection()
 
-    def _load_history_plan_item(self, item: QListWidgetItem) -> None:
+    @staticmethod
+    def _path_key(path: Path) -> str:
+        return os.path.normcase(str(Path(path).resolve(strict=False)))
+
+    def _is_current_plan_path(self, path: Path) -> bool:
+        return self.current_plan_path is not None and self._path_key(self.current_plan_path) == self._path_key(path)
+
+    def _restore_history_selection(self) -> None:
+        self.history_list.blockSignals(True)
+        try:
+            matching_item = None
+            if self.current_plan_path is not None:
+                current_key = self._path_key(self.current_plan_path)
+                for index in range(self.history_list.count()):
+                    item = self.history_list.item(index)
+                    if self._path_key(Path(item.data(Qt.ItemDataRole.UserRole))) == current_key:
+                        matching_item = item
+                        break
+            if matching_item is None:
+                self.history_list.setCurrentRow(-1)
+                self.history_list.clearSelection()
+            else:
+                self.history_list.setCurrentItem(matching_item)
+        finally:
+            self.history_list.blockSignals(False)
+
+    def _prompt_unsaved_plan_change(self, target_path: Path) -> PlanSwitchDecision:
+        dialog = QMessageBox(self)
+        dialog.setWindowTitle("当前方案有未保存修改")
+        dialog.setIcon(QMessageBox.Icon.Warning)
+        dialog.setText(f"载入“{target_path.stem}”前，当前方案有尚未保存的修改。")
+        dialog.setInformativeText("请选择保存当前修改、放弃修改，或取消载入。")
+        save_button = dialog.addButton("保存并载入", QMessageBox.ButtonRole.AcceptRole)
+        discard_button = dialog.addButton("放弃修改并载入", QMessageBox.ButtonRole.DestructiveRole)
+        cancel_button = dialog.addButton("取消", QMessageBox.ButtonRole.RejectRole)
+        dialog.setDefaultButton(save_button)
+        dialog.exec()
+        clicked = dialog.clickedButton()
+        if clicked is save_button:
+            return PlanSwitchDecision.SAVE
+        if clicked is discard_button:
+            return PlanSwitchDecision.DISCARD
+        if clicked is cancel_button:
+            return PlanSwitchDecision.CANCEL
+        return PlanSwitchDecision.CANCEL
+
+    def _load_history_plan_item(self, item: QListWidgetItem) -> bool:
         """
         根据历史方案列表项载入对应方案。
 
         参数：
-        - item: 被双击的列表项。
+        - item: 被单击或通过 Enter 激活的列表项。
         """
-        file_path = item.data(Qt.ItemDataRole.UserRole)
-        try:
-            from shared.utils import read_json
-            from shared.models import plan_from_dict
+        file_path = Path(item.data(Qt.ItemDataRole.UserRole))
+        if self._is_current_plan_path(file_path):
+            self._restore_history_selection()
+            return False
 
-            data = read_json(file_path)
-            self.current_plan = plan_from_dict(data)
+        try:
+            if not file_path.is_file():
+                raise FileNotFoundError(f"方案文件不存在：{file_path}")
+            loaded_plan = self.plan_service.load_plan(file_path)
+        except Exception as e:
+            self._restore_history_selection()
+            self._error("载入失败", f"无法读取方案“{file_path.name}”：{e}")
+            return False
+
+        if self.current_step_dirty or self.plan_dirty:
+            decision = self._prompt_unsaved_plan_change(file_path)
+            if decision is PlanSwitchDecision.CANCEL:
+                self._restore_history_selection()
+                return False
+            if decision is PlanSwitchDecision.SAVE:
+                if not self._save_current_plan(show_confirmation=False):
+                    self._restore_history_selection()
+                    return False
+                if self._is_current_plan_path(file_path):
+                    # Saving can legitimately resolve to the clicked history
+                    # path (for example, an unsaved plan with the same name).
+                    # In that case the current in-memory plan is already the
+                    # newest saved representation and must not be overwritten.
+                    self._restore_history_selection()
+                    return False
+                try:
+                    loaded_plan = self.plan_service.load_plan(file_path)
+                except Exception as e:
+                    self._restore_history_selection()
+                    self._error("载入失败", f"保存当前方案后无法重新读取“{file_path.name}”：{e}")
+                    return False
+
+        try:
+            self.current_plan = loaded_plan
             self.current_plan_path = file_path
+            self._loading_plan = True
             self.plan_name_edit.setText(self.current_plan.plan_name)
+            self._loading_plan = False
+            self.current_editor_index = None
+            self.current_step_dirty = False
             self._refresh_flow_list()
             self.flow_list.clearSelection()
 
             if not self.current_plan.steps:
                 self._set_editor_no_steps()
             else:
-                self._set_editor_no_selection()
+                self.flow_list.setCurrentRow(0)
 
-            self._log(f"成功载入方案: {file_path.name}")
+            self.plan_dirty = False
+            self._restore_history_selection()
+            self._log(f"成功载入方案: {file_path.name}", LogKind.SYSTEM)
+            return True
         except Exception as e:
+            self._restore_history_selection()
             self._error("载入失败", f"载入方案失败：{str(e)}")
+            return False
+
+    def _format_step_list_text(self, step) -> str:
+        icon = (
+            "📱" if step.type == "app"
+            else "🌐" if step.type == "url"
+            else "⌨️" if step.type == "command"
+            else "⏳"
+        )
+        return f"{icon}  {step.name}"
+
+    def _update_step_list_item(self, index: int) -> None:
+        if 0 <= index < self.flow_list.count() and index < len(self.current_plan.steps):
+            item = self.flow_list.item(index)
+            if item is not None:
+                item.setText(self._format_step_list_text(self.current_plan.steps[index]))
+
+    def commit_current_step_editor(self) -> StepCommitResult:
+        """Commit the currently displayed inspector draft without execution validation."""
+
+        index = self.current_editor_index
+        if index is None:
+            return StepCommitResult(success=True)
+        if index < 0 or index >= len(self.current_plan.steps):
+            return StepCommitResult(
+                success=False,
+                error="当前编辑步骤已不存在，请重新选择步骤。",
+                step_index=index,
+            )
+
+        step = self.current_plan.steps[index]
+        if not self.current_step_dirty:
+            return StepCommitResult(success=True, step_index=index, step_id=step.id)
+
+        try:
+            before = step.to_dict()
+            if isinstance(step, AppStep):
+                step.name = self.app_name_in.text().strip()
+                step.path = self.app_path_in.text().strip()
+                step.args = self.app_args_in.toPlainText().split()
+                step.delay_after = self.app_delay_in.value()
+            elif isinstance(step, UrlStep):
+                step.name = self.url_name_in.text().strip()
+                step.url = self.url_in.text().strip()
+                step.delay_after = self.url_delay_in.value()
+            elif isinstance(step, CommandStep):
+                step.name = self.cmd_name_in.text().strip()
+                # Preserve the command exactly. Whitespace is only stripped by preflight checks.
+                step.command = self.cmd_in.toPlainText()
+                step.shell = self.cmd_shell_in.currentText()
+                step.delay_after = self.cmd_delay_in.value()
+            elif isinstance(step, WaitStep):
+                step.name = self.wait_name_in.text().strip()
+                step.seconds = self.wait_seconds_in.value()
+            else:
+                return StepCommitResult(
+                    success=False,
+                    error="当前步骤类型无法编辑。",
+                    step_index=index,
+                    step_id=getattr(step, "id", None),
+                )
+        except Exception as exc:
+            return StepCommitResult(
+                success=False,
+                error=f"无法保存当前步骤修改：{exc}",
+                step_index=index,
+                step_id=getattr(step, "id", None),
+            )
+
+        changed = before != step.to_dict()
+        self.current_step_dirty = False
+        if changed:
+            self._update_step_list_item(index)
+            self._mark_plan_changed()
+            self._log(f"已更新步骤: {step.name}")
+        return StepCommitResult(
+            success=True,
+            changed=changed,
+            step_index=index,
+            step_id=step.id,
+        )
+
+    def _commit_before_editor_boundary(self, title: str) -> bool:
+        result = self.commit_current_step_editor()
+        if result.success:
+            return True
+        self._error(title, result.error)
+        return False
 
     # ---------------- add step ----------------
     def _on_add_app_step(self) -> None:
@@ -2015,12 +3400,15 @@ class MainWindow(QMainWindow):
         )
         if not file_path:
             return
+        if not self._commit_before_editor_boundary("无法新增步骤"):
+            return
 
         new_step = self.plan_service.create_app_step(Path(file_path).stem, file_path)
         self.current_plan.steps.append(new_step)
+        self.current_editor_index = None
         self._refresh_flow_list()
         self._mark_plan_changed()
-        self._set_editor_no_selection()
+        self._select_new_step(len(self.current_plan.steps) - 1)
 
     def _on_add_template_step(self, step_type: str) -> None:
         """
@@ -2029,31 +3417,131 @@ class MainWindow(QMainWindow):
         参数：
         - step_type: 模板类型，可选值为 url / command / wait。
         """
-        template = next((t for t in self.templates if t.get("type") == step_type), None)
-        if not template:
-            template = {"type": step_type, "name": f"新{step_type}"}
+        fresh_templates = {
+            "url": {"type": "url", "name": "新网页", "default_url": "", "delay_after": 1.0},
+            "command": {
+                "type": "command",
+                "name": "新命令",
+                "default_command": "",
+                "default_shell": "cmd",
+                "delay_after": 1.0,
+            },
+            "wait": {"type": "wait", "name": "新等待", "default_seconds": 1.0},
+        }
+        template = fresh_templates.get(step_type)
+        if template is None:
+            raise ValueError(f"不支持的步骤类型: {step_type}")
+        if not self._commit_before_editor_boundary("无法新增步骤"):
+            return
 
         new_step = self.plan_service.create_step_from_template(template)
         self.current_plan.steps.append(new_step)
+        self.current_editor_index = None
         self._refresh_flow_list()
         self._mark_plan_changed()
-        self._set_editor_no_selection()
+        self._select_new_step(len(self.current_plan.steps) - 1)
+
+    def _select_new_step(self, index: int) -> None:
+        """Select a newly appended step and make its inspector ready to edit."""
+        if index < 0 or index >= self.flow_list.count():
+            return
+
+        self.flow_list.clearSelection()
+        self.flow_list.setCurrentRow(index)
+        item = self.flow_list.item(index)
+        if item is not None:
+            self.flow_list.scrollToItem(item)
+
+        step = self.current_plan.steps[index]
+        editor = (
+            self.app_name_in
+            if isinstance(step, AppStep)
+            else self.url_name_in
+            if isinstance(step, UrlStep)
+            else self.cmd_name_in
+            if isinstance(step, CommandStep)
+            else self.wait_name_in
+        )
+        editor.setFocus()
+        editor.selectAll()
 
     # ---------------- flow ----------------
+    def _prepare_step_drag(self) -> bool:
+        result = self.commit_current_step_editor()
+        if result.success:
+            return True
+        self._error("无法调整步骤顺序", result.error)
+        return False
+
+    def _step_index_by_id(self, step_id: str) -> Optional[int]:
+        return next((index for index, step in enumerate(self.current_plan.steps) if step.id == step_id), None)
+
+    def _select_step_by_id(self, step_id: str) -> None:
+        index = self._step_index_by_id(step_id)
+        if index is None:
+            return
+        self._selection_change_in_progress = True
+        try:
+            self.flow_list.clearSelection()
+            self.flow_list.setCurrentRow(index)
+        finally:
+            self._selection_change_in_progress = False
+        self._on_step_selected(index)
+        item = self.flow_list.item(index)
+        if item is not None:
+            self.flow_list.scrollToItem(item)
+
+    def reorder_steps(self, source_index: int, target_index: int) -> Optional[int]:
+        """Move one existing step without recreating it and return its final index."""
+
+        count = len(self.current_plan.steps)
+        if source_index < 0 or target_index < 0 or source_index >= count or target_index >= count:
+            return None
+        if source_index == target_index:
+            return source_index
+
+        commit_result = self.commit_current_step_editor()
+        if not commit_result.success:
+            self._error("无法调整步骤顺序", commit_result.error)
+            return None
+
+        step = self.current_plan.steps.pop(source_index)
+        self.current_plan.steps.insert(target_index, step)
+        self.current_editor_index = None
+        self.current_step_dirty = False
+        self._refresh_flow_list()
+        self._select_step_by_id(step.id)
+        self._mark_plan_changed()
+        self._log(f"已移动步骤“{step.name}”：{source_index + 1} → {target_index + 1}")
+        return target_index
+
+    def _move_selected_step(self, offset: int) -> Optional[int]:
+        selected = self.flow_list.selectedItems()
+        if len(selected) != 1:
+            return None
+        source_index = self.flow_list.row(selected[0])
+        target_index = source_index + offset
+        if target_index < 0 or target_index >= len(self.current_plan.steps):
+            return source_index
+        return self.reorder_steps(source_index, target_index)
+
     def _refresh_flow_list(self) -> None:
         """
         根据当前方案重新渲染左侧步骤列表。
         """
-        self.flow_list.clear()
-
-        for step in self.current_plan.steps:
-            icon = (
-                "📱" if step.type == "app"
-                else "🌐" if step.type == "url"
-                else "⌨️" if step.type == "command"
-                else "⏳"
-            )
-            self.flow_list.addItem(QListWidgetItem(f"{icon}  {step.name}"))
+        previous_guard = self._selection_change_in_progress
+        self._selection_change_in_progress = True
+        try:
+            self.flow_list.clear()
+            for step in self.current_plan.steps:
+                item = QListWidgetItem(self._format_step_list_text(step))
+                item.setData(Qt.ItemDataRole.UserRole, step.id)
+                item.setToolTip(
+                    f"拖动以调整步骤顺序\n{SHORTCUTS['move_up']} 上移 / {SHORTCUTS['move_down']} 下移"
+                )
+                self.flow_list.addItem(item)
+        finally:
+            self._selection_change_in_progress = previous_guard
 
         self._log(f"刷新流布局，当前步骤数：{len(self.current_plan.steps)}")
 
@@ -2067,12 +3555,33 @@ class MainWindow(QMainWindow):
         - 单选：进入具体步骤属性编辑页；
         - 多选：进入批量删除状态。
         """
+        if self._selection_change_in_progress:
+            return
         if not self.current_plan.steps:
+            self.current_editor_index = None
+            self.current_step_dirty = False
             self._set_editor_no_steps()
             return
 
         selected_items = self.flow_list.selectedItems()
         count = len(selected_items)
+        next_index = self.flow_list.row(selected_items[0]) if count == 1 else None
+        previous_index = self.current_editor_index
+
+        if previous_index is not None and previous_index != next_index:
+            result = self.commit_current_step_editor()
+            if not result.success:
+                self._selection_change_in_progress = True
+                try:
+                    self.flow_list.clearSelection()
+                    if 0 <= previous_index < self.flow_list.count():
+                        self.flow_list.setCurrentRow(previous_index)
+                finally:
+                    self._selection_change_in_progress = False
+                self._error("无法切换步骤", result.error)
+                return
+            self.current_editor_index = None
+            self.current_step_dirty = False
 
         if count == 0:
             self._set_editor_no_selection()
@@ -2080,19 +3589,18 @@ class MainWindow(QMainWindow):
             self.btn_apply.setEnabled(True)
             self.btn_delete_step.setEnabled(True)
             self.btn_delete_step.setText("🗑️ 删除此步骤")
-            idx = self.flow_list.row(selected_items[0])
-            self._on_step_selected(idx)
+            self._on_step_selected(next_index)
         else:
             self._set_editor_multi_selection(count)
 
-    def _on_step_selected(self, index: int) -> None:
+    def _on_step_selected(self, index: Optional[int]) -> None:
         """
         根据索引加载单个步骤到右侧编辑器。
 
         参数：
         - index: 当前步骤在方案列表中的索引。
         """
-        if index < 0 or index >= len(self.current_plan.steps):
+        if index is None or index < 0 or index >= len(self.current_plan.steps):
             if not self.current_plan.steps:
                 self._set_editor_no_steps()
             else:
@@ -2107,67 +3615,44 @@ class MainWindow(QMainWindow):
         self.btn_delete_step.setText("🗑️ 删除此步骤")
 
         step = self.current_plan.steps[index]
+        self.loading_editor = True
+        try:
+            if isinstance(step, AppStep):
+                self.editor_stack.setCurrentWidget(self.page_app)
+                self.app_name_in.setText(step.name)
+                self.app_path_in.setText(step.path)
+                self.app_args_in.setText(" ".join(step.args))
+                self.app_delay_in.setValue(step.delay_after)
 
-        if isinstance(step, AppStep):
-            self.editor_stack.setCurrentWidget(self.page_app)
-            self.app_name_in.setText(step.name)
-            self.app_path_in.setText(step.path)
-            self.app_args_in.setText(" ".join(step.args))
-            self.app_delay_in.setValue(step.delay_after)
+            elif isinstance(step, UrlStep):
+                self.editor_stack.setCurrentWidget(self.page_url)
+                self.url_name_in.setText(step.name)
+                self.url_in.setText(step.url)
+                self.url_delay_in.setValue(step.delay_after)
 
-        elif isinstance(step, UrlStep):
-            self.editor_stack.setCurrentWidget(self.page_url)
-            self.url_name_in.setText(step.name)
-            self.url_in.setText(step.url)
-            self.url_delay_in.setValue(step.delay_after)
+            elif isinstance(step, CommandStep):
+                self.editor_stack.setCurrentWidget(self.page_cmd)
+                self.cmd_name_in.setText(step.name)
+                self.cmd_in.setPlainText(step.command)
+                self.cmd_shell_in.setCurrentText(step.shell)
+                self.cmd_delay_in.setValue(step.delay_after)
 
-        elif isinstance(step, CommandStep):
-            self.editor_stack.setCurrentWidget(self.page_cmd)
-            self.cmd_name_in.setText(step.name)
-            self.cmd_in.setText(step.command)
-            self.cmd_shell_in.setCurrentText(step.shell)
-            self.cmd_delay_in.setValue(step.delay_after)
-
-        elif isinstance(step, WaitStep):
-            self.editor_stack.setCurrentWidget(self.page_wait)
-            self.wait_name_in.setText(step.name)
-            self.wait_seconds_in.setValue(step.seconds)
+            elif isinstance(step, WaitStep):
+                self.editor_stack.setCurrentWidget(self.page_wait)
+                self.wait_name_in.setText(step.name)
+                self.wait_seconds_in.setValue(step.seconds)
+        finally:
+            self.loading_editor = False
+        self.current_editor_index = index
+        self.current_step_dirty = False
 
     def _apply_step_changes(self) -> None:
         """
         将右侧编辑器中的改动写回当前选中步骤。
         """
-        idx = self.flow_list.currentRow()
-        if idx < 0 or idx >= len(self.current_plan.steps):
-            return
-
-        step = self.current_plan.steps[idx]
-
-        if isinstance(step, AppStep):
-            step.name = self.app_name_in.text().strip()
-            step.path = self.app_path_in.text().strip()
-            step.args = self.app_args_in.toPlainText().split()
-            step.delay_after = self.app_delay_in.value()
-
-        elif isinstance(step, UrlStep):
-            step.name = self.url_name_in.text().strip()
-            step.url = self.url_in.text().strip()
-            step.delay_after = self.url_delay_in.value()
-
-        elif isinstance(step, CommandStep):
-            step.name = self.cmd_name_in.text().strip()
-            step.command = self.cmd_in.toPlainText().strip()
-            step.shell = self.cmd_shell_in.currentText()
-            step.delay_after = self.cmd_delay_in.value()
-
-        elif isinstance(step, WaitStep):
-            step.name = self.wait_name_in.text().strip()
-            step.seconds = self.wait_seconds_in.value()
-
-        self._refresh_flow_list()
-        self.flow_list.setCurrentRow(idx)
-        self._log(f"已更新步骤: {step.name}")
-        self._mark_plan_changed()
+        result = self.commit_current_step_editor()
+        if not result.success:
+            self._error("无法保存步骤", result.error)
 
     def _on_delete_step(self) -> None:
         """
@@ -2185,6 +3670,8 @@ class MainWindow(QMainWindow):
             if 0 <= row < len(self.current_plan.steps):
                 del self.current_plan.steps[row]
 
+        self.current_editor_index = None
+        self.current_step_dirty = False
         self._refresh_flow_list()
         self.flow_list.clearSelection()
         self._mark_plan_changed()
@@ -2193,6 +3680,59 @@ class MainWindow(QMainWindow):
             self._set_editor_no_steps()
         else:
             self._set_editor_no_selection()
+
+    def _focus_preflight_issue(self, issue: PlanValidationIssue) -> None:
+        """Select the invalid step and focus the field the user needs to fix."""
+
+        index = issue.step_index
+        if index is None or index < 0 or index >= len(self.current_plan.steps):
+            return
+
+        self._selection_change_in_progress = True
+        try:
+            self.flow_list.clearSelection()
+            self.flow_list.setCurrentRow(index)
+        finally:
+            self._selection_change_in_progress = False
+        self._on_step_selected(index)
+
+        step = self.current_plan.steps[index]
+        field_widgets = {
+            ("app", "path"): self.app_path_in,
+            ("url", "url"): self.url_in,
+            ("command", "command"): self.cmd_in,
+            ("command", "shell"): self.cmd_shell_in,
+            ("wait", "seconds"): self.wait_seconds_in,
+        }
+        widget = field_widgets.get((step.type, issue.field))
+        if widget is not None:
+            widget.setFocus()
+        self.status_label.setText(f"状态：{issue.message}")
+
+    def _prepare_plan_for_execution(self, action_label: str) -> PlanPreparationResult:
+        """Commit the draft, run full-plan preflight, and return a stable snapshot."""
+
+        commit_result = self.commit_current_step_editor()
+        if not commit_result.success:
+            return PlanPreparationResult(
+                success=False,
+                error=commit_result.error,
+                step_index=commit_result.step_index,
+                step_id=commit_result.step_id,
+            )
+
+        issue = validate_plan_for_execution(self.current_plan, action_label)
+        if issue is not None:
+            self._focus_preflight_issue(issue)
+            return PlanPreparationResult(
+                success=False,
+                error=issue.message,
+                step_index=issue.step_index,
+                step_id=issue.step_id,
+                field=issue.field,
+            )
+
+        return PlanPreparationResult(success=True, snapshot=deepcopy(self.current_plan))
 
     # ---------------- run / export ----------------
     def _on_trial_run(self) -> None:
@@ -2204,8 +3744,9 @@ class MainWindow(QMainWindow):
         - 为避免用户误触，这里先弹确认框；
         - 运行日志会自动展开到底部日志抽屉。
         """
-        if not self.current_plan.steps:
-            self._error("无法试运行", "当前没有任何步骤。")
+        preparation = self._prepare_plan_for_execution("试运行")
+        if not preparation.success or preparation.snapshot is None:
+            self._error("无法试运行", preparation.error)
             return
 
         if not self._confirm(
@@ -2215,26 +3756,23 @@ class MainWindow(QMainWindow):
         ):
             return
 
-        sizes = self.main_splitter.sizes()
-        if sizes[1] <= 10:
-            total = sizes[0] + sizes[1]
-            self.main_splitter.setSizes([max(total - 250, 100), 250])
-            self.btn_open_log.setText("🔽 隐藏控制台")
+        if self.log_layout_state == "collapsed":
+            self.set_log_layout_state("normal")
 
         self.btn_trial_run.setEnabled(False)
         self._log("开始直接试运行当前方案...")
 
-        self.trial_run_worker = TrialRunWorker(self.current_plan)
+        self.trial_run_worker = TrialRunWorker(preparation.snapshot)
         self.trial_run_worker.progress.connect(self._log)
         self.trial_run_worker.success.connect(self._on_trial_run_success)
         self.trial_run_worker.failed.connect(self._on_trial_run_failed)
+        self.trial_run_worker.finished.connect(self._on_trial_run_finished)
         self.trial_run_worker.start()
 
     def _on_trial_run_success(self) -> None:
         """
         试运行成功后的收尾处理。
         """
-        self.btn_trial_run.setEnabled(True)
         self._log("试运行完成。")
 
     def _on_trial_run_failed(self, error_msg: str) -> None:
@@ -2244,9 +3782,17 @@ class MainWindow(QMainWindow):
         参数：
         - error_msg: 后台线程返回的错误文本。
         """
-        self.btn_trial_run.setEnabled(True)
         self._log(f"试运行失败: {error_msg}")
         self._error("试运行失败", error_msg)
+
+    def _on_trial_run_finished(self) -> None:
+        """Release the worker only after its run method and pipe logging finish."""
+        worker = self.sender()
+        self.btn_trial_run.setEnabled(True)
+        if worker is self.trial_run_worker:
+            self.trial_run_worker = None
+        if isinstance(worker, QThread):
+            worker.deleteLater()
 
     def _on_export_exe(self) -> None:
         """
@@ -2256,14 +3802,17 @@ class MainWindow(QMainWindow):
         - 开发版优先使用当前 Python 环境中的 PyInstaller；
         - 发布版会尝试使用系统 PATH 中的 pyinstaller 或 python -m PyInstaller。
         """
-        if not self.current_plan.steps:
-            self._error("无法导出", "当前没有任何步骤。")
+        preparation = self._prepare_plan_for_execution("导出")
+        if not preparation.success or preparation.snapshot is None:
+            self._error("无法导出", preparation.error)
             return
+
+        plan_snapshot = preparation.snapshot
 
         target_path_str, _ = QFileDialog.getSaveFileName(
             self,
             "导出单文件 EXE",
-            f"{self.current_plan.plan_name}.exe",
+            f"{plan_snapshot.plan_name}.exe",
             "Executable Files (*.exe)"
         )
         if not target_path_str:
@@ -2272,7 +3821,7 @@ class MainWindow(QMainWindow):
         target_path = Path(target_path_str)
         packable_count = sum(
             1
-            for step in self.current_plan.steps
+            for step in plan_snapshot.steps
             if isinstance(step, AppStep)
             and Path(step.path).suffix.lower() in PACKABLE_APP_SUFFIXES
             and Path(step.path).is_file()
@@ -2292,7 +3841,7 @@ class MainWindow(QMainWindow):
 
         self._create_progress_dialog("正在导出", "正在封装独立 EXE，请稍候...")
 
-        self.build_worker = BuildWorker(self.current_plan, target_path)
+        self.build_worker = BuildWorker(plan_snapshot, target_path)
         self.build_worker.progress.connect(self._log)
         self.build_worker.success.connect(self._on_full_export_success)
         self.build_worker.failed.connect(self._on_full_export_failed)

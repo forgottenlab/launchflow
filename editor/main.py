@@ -18,8 +18,8 @@ Launch Flow 程序入口。
 - editor.ui.main_window
 
 注意事项：
-- 发布版中 project_root 指向 exe 所在目录，
-  这样 data / licenses / logs 都会按便携模式跟随程序目录保存。
+- project_root 只定位源码或 frozen 只读资源；
+- 可变数据统一由 shared.app_paths 写入用户 AppData。
 """
 
 from __future__ import annotations
@@ -27,9 +27,13 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QMessageBox
 
 from shared.app_info import APP_NAME
+from shared.app_logging import get_app_logger
+from shared.app_icon import apply_application_icon, configure_windows_app_id, resolve_app_icon_path
+from shared.app_paths import AppPathError, ensure_app_directories
+from shared.data_migration import migrate_legacy_data
 
 
 def get_project_root() -> Path:
@@ -38,11 +42,12 @@ def get_project_root() -> Path:
 
     返回值：
     - 开发模式下返回项目源码根目录；
-    - 打包模式下返回 exe 所在目录。
+    - 打包模式下返回 exe 所在目录，仅用于识别明确的旧版便携数据。
 
     设计原因：
     - 开发模式需要直接访问源码目录中的模块与资源；
-    - 发布模式需要让配置、日志、授权文件与 exe 保持同目录便携存放。
+    - 可变数据始终由 shared.app_paths 定位到用户数据目录；
+    - onefile 中的图标、公钥等只读资源通过 sys._MEIPASS 单独解析。
     """
     if getattr(sys, "frozen", False):
         return Path(sys.executable).resolve().parent
@@ -71,11 +76,40 @@ def main() -> None:
     4. 授权无效则先进入激活窗口；
     5. 激活成功后再进入主窗口。
     """
+    # Windows must receive the stable process identity before QApplication or
+    # any top-level window exists, otherwise taskbar grouping can keep the
+    # generic Python/Qt identity.
+    configure_windows_app_id()
     app = QApplication(sys.argv)
     app.setApplicationName(APP_NAME)
+    icon = apply_application_icon(app, PROJECT_ROOT)
+
+    try:
+        ensure_app_directories()
+    except AppPathError as exc:
+        QMessageBox.critical(None, "LaunchFlow 无法启动", str(exc))
+        return
+
+    logger = get_app_logger()
+    if icon.isNull():
+        logger.warning("LaunchFlow icon unavailable at startup: %s", resolve_app_icon_path(PROJECT_ROOT))
+    migration = migrate_legacy_data(PROJECT_ROOT)
+    logger.info(
+        "Legacy migration: copied=%s skipped=%s errors=%s",
+        len(migration.copied),
+        len(migration.skipped),
+        len(migration.errors),
+    )
+    for item in migration.copied:
+        logger.info("Legacy migration copied: %s", item)
+    for item in migration.skipped:
+        logger.info("Legacy migration skipped: %s", item)
+    for item in migration.errors:
+        logger.warning("Legacy migration error: %s", item)
 
     license_manager = LicenseManager(PROJECT_ROOT)
     license_result = license_manager.validate_current_license()
+    logger.info("License check result: %s", license_result.code)
 
     if license_result.is_valid:
         window = MainWindow(PROJECT_ROOT)

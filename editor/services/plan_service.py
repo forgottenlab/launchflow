@@ -17,8 +17,8 @@ plan_service.py
 - editor.ui.main_window
 
 说明：
-- 当前服务层默认采用便携式目录策略；
-- 在开发模式和发布模式下，data / logs 等目录都跟随 project_root 管理。
+- project_root 仅用于只读程序资源；
+- 方案、配置、缓存与日志统一由 shared.app_paths 管理。
 """
 
 from __future__ import annotations
@@ -40,6 +40,14 @@ from shared.utils import (
     ensure_dir,
     list_json_files,
     load_or_default_json,
+)
+from shared.app_paths import (
+    ensure_app_directories,
+    get_cache_dir,
+    get_config_dir,
+    get_data_dir,
+    get_logs_dir,
+    get_plans_dir,
 )
 
 
@@ -89,20 +97,20 @@ class PlanService:
         - project_root: 当前项目根目录或发布版 exe 所在目录。
 
         说明：
-        - 这里采用便携模式管理数据目录；
-        - 开发时指向项目根目录下的 data；
-        - 打包后则指向 exe 同目录下的 data。
+        - 源码和 frozen 模式使用同一用户数据根目录；
+        - LAUNCHFLOW_DATA_DIR 仅用于开发和自动测试隔离。
         """
         self.project_root = project_root
+        ensure_app_directories()
 
-        # 发布版中 project_root 指向 exe 所在目录，
-        # 这样 data / logs / user_plans 都可以随程序目录一起移动与备份。
-        self.data_dir = self.project_root / "data"
+        # project_root 仅用于定位程序资源。所有可变数据必须由 app_paths
+        # 解析到用户目录，避免 frozen EXE、源码目录或当前工作目录被污染。
+        self.data_dir = get_data_dir()
         self.templates_path = self.data_dir / "app_templates.json"
-        self.settings_path = self.data_dir / "settings.json"
-        self.user_plans_dir = self.data_dir / "user_plans"
-        self.build_cache_dir = self.data_dir / "build_cache"
-        self.logs_dir = self.project_root / "logs"
+        self.settings_path = get_config_dir() / "settings.json"
+        self.user_plans_dir = get_plans_dir()
+        self.build_cache_dir = get_cache_dir()
+        self.logs_dir = get_logs_dir()
 
         ensure_dir(self.data_dir)
         ensure_dir(self.user_plans_dir)
@@ -138,9 +146,7 @@ class PlanService:
             },
         )
 
-        raw = str(settings.get("plans_dir", "")).strip()
-        if not raw:
-            settings["plans_dir"] = str(self.user_plans_dir)
+        settings["plans_dir"] = str(self.user_plans_dir)
 
         write_json(self.settings_path, settings)
         ensure_dir(Path(settings["plans_dir"]))
@@ -175,9 +181,7 @@ class PlanService:
             {"plans_dir": str(self.user_plans_dir)},
         )
 
-        raw = str(settings.get("plans_dir", "")).strip()
-        if not raw:
-            settings["plans_dir"] = str(self.user_plans_dir)
+        settings["plans_dir"] = str(self.user_plans_dir)
 
         return settings
 
@@ -191,9 +195,7 @@ class PlanService:
         说明：
         - 为避免写入空方案目录，这里会再次兜底校正 plans_dir。
         """
-        raw = str(settings.get("plans_dir", "")).strip()
-        if not raw:
-            settings["plans_dir"] = str(self.user_plans_dir)
+        settings["plans_dir"] = str(self.user_plans_dir)
         write_json(self.settings_path, settings)
 
     def get_plans_dir(self) -> Path:
@@ -206,11 +208,8 @@ class PlanService:
         说明：
         - 若 settings 中的 plans_dir 为空，则回退为默认 user_plans 目录。
         """
-        settings = self.load_settings()
-        raw = str(settings.get("plans_dir", "")).strip()
-        plans_dir = Path(raw) if raw else self.user_plans_dir
-        ensure_dir(plans_dir)
-        return plans_dir
+        ensure_dir(self.user_plans_dir)
+        return self.user_plans_dir
 
     def set_plans_dir(self, plans_dir: Path) -> None:
         """

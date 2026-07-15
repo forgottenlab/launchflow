@@ -25,14 +25,12 @@ activation_service.py
 
 from __future__ import annotations
 
-import base64
-import json
-from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any
 
 from licensing.hwid import get_machine_id, format_machine_id
 from licensing.license_manager import LicenseManager
+from licensing.request_token import build_request_payload, encode_request_token, parse_request_token
 
 
 class ActivationService:
@@ -79,12 +77,7 @@ class ActivationService:
         - 授权生成器会解析该载荷中的 machine_id，
           因此用户只需发送申请码，无需额外手动提供机器码。
         """
-        return {
-            "machine_id": self.get_machine_id(),
-            "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "product": "VisualLauncher",
-            "edition": "beta",
-        }
+        return build_request_payload(self.get_machine_id())
 
     def generate_request_code(self) -> str:
         """
@@ -93,9 +86,7 @@ class ActivationService:
         返回值：
         - 经过 base64 编码后的申请码字符串。
         """
-        payload = self.generate_request_payload()
-        raw = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
-        return base64.urlsafe_b64encode(raw).decode("utf-8")
+        return encode_request_token(self.generate_request_payload())
 
     def parse_request_code(self, request_code: str) -> Dict[str, Any]:
         """
@@ -107,8 +98,7 @@ class ActivationService:
         返回值：
         - 原始申请载荷字典。
         """
-        raw = base64.urlsafe_b64decode(request_code.encode("utf-8"))
-        return json.loads(raw.decode("utf-8"))
+        return parse_request_token(request_code)
 
     def import_license_file(self, file_path: Path) -> None:
         """
@@ -117,10 +107,7 @@ class ActivationService:
         参数：
         - file_path: 用户选择或拖入的授权文件路径。
         """
-        from shared.utils import read_json
-
-        license_data = read_json(file_path)
-        self.license_manager.save_license(license_data)
+        self.license_manager.import_license_file(file_path)
 
     def validate_local_license(self):
         """
