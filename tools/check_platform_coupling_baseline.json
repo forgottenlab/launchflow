@@ -1,0 +1,1176 @@
+{
+  "schema": 1,
+  "description": "Known platform-coupling occurrences for the Windows Beta baseline.",
+  "entries": [
+    {
+      "fingerprint": "dd3d7eb8bdf234b68d01",
+      "path": "editor/services/plan_service.py",
+      "rule_id": "WIN-SHELL-001",
+      "area": "command-shell",
+      "classification": "platform_adapter_candidate",
+      "reason": "Windows command shell or command",
+      "future_target": "CommandBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "bc6d8c324cd41c63f26a",
+      "path": "editor/services/plan_service.py",
+      "rule_id": "WIN-SHELL-001",
+      "area": "command-shell",
+      "classification": "platform_adapter_candidate",
+      "reason": "Windows command shell or command",
+      "future_target": "CommandBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "1393d79204876da8b3c7",
+      "path": "editor/services/plan_service.py",
+      "rule_id": "WIN-ASSET-001",
+      "area": "artifacts",
+      "classification": "platform_adapter_candidate",
+      "reason": "Windows artifact or script suffix",
+      "future_target": "ApplicationLauncher or PackagingBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "febffe7d6f60279c9235",
+      "path": "editor/ui/main_window.py",
+      "rule_id": "UI-SHORTCUT-001",
+      "area": "ui-input",
+      "classification": "platform_adapter_candidate",
+      "reason": "Literal Ctrl shortcut instead of a platform standard key",
+      "future_target": "PlatformInfo and Qt StandardKey",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "0b64b738dd452dd187d0",
+      "path": "editor/ui/main_window.py",
+      "rule_id": "UI-SHORTCUT-001",
+      "area": "ui-input",
+      "classification": "platform_adapter_candidate",
+      "reason": "Literal Ctrl shortcut instead of a platform standard key",
+      "future_target": "PlatformInfo and Qt StandardKey",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "6051cd43a7d8f96f1ccd",
+      "path": "editor/ui/main_window.py",
+      "rule_id": "UI-SHORTCUT-001",
+      "area": "ui-input",
+      "classification": "platform_adapter_candidate",
+      "reason": "Literal Ctrl shortcut instead of a platform standard key",
+      "future_target": "PlatformInfo and Qt StandardKey",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "c57562b16092d0e9aeeb",
+      "path": "editor/ui/main_window.py",
+      "rule_id": "UI-SHORTCUT-001",
+      "area": "ui-input",
+      "classification": "platform_adapter_candidate",
+      "reason": "Literal Ctrl shortcut instead of a platform standard key",
+      "future_target": "PlatformInfo and Qt StandardKey",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "1c41cbc5d6ca5b9120d8",
+      "path": "editor/ui/main_window.py",
+      "rule_id": "WIN-SHELL-001",
+      "area": "command-shell",
+      "classification": "platform_adapter_candidate",
+      "reason": "Windows command shell or command",
+      "future_target": "CommandBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "fd13b449b10a7bb5a241",
+      "path": "editor/ui/main_window.py",
+      "rule_id": "WIN-DESKTOP-001",
+      "area": "desktop-integration",
+      "classification": "platform_adapter_candidate",
+      "reason": "Windows desktop integration or font",
+      "future_target": "DesktopIntegration",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "9b8c16fe6a8ce3e038ac",
+      "path": "editor/ui/main_window.py",
+      "rule_id": "WIN-ASSET-001",
+      "area": "artifacts",
+      "classification": "platform_adapter_candidate",
+      "reason": "Windows artifact or script suffix",
+      "future_target": "ApplicationLauncher or PackagingBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "a6c5a3b4c1a905f1c7c1",
+      "path": "editor/ui/main_window.py",
+      "rule_id": "WIN-SHELL-001",
+      "area": "command-shell",
+      "classification": "platform_adapter_candidate",
+      "reason": "Windows command shell or command",
+      "future_target": "CommandBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "fb8438243f533844072d",
+      "path": "editor/ui/main_window.py",
+      "rule_id": "WIN-ASSET-001",
+      "area": "artifacts",
+      "classification": "platform_adapter_candidate",
+      "reason": "Windows artifact or script suffix",
+      "future_target": "ApplicationLauncher or PackagingBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "14e08a720a6bed853eba",
+      "path": "editor/ui/main_window.py",
+      "rule_id": "WIN-ASSET-001",
+      "area": "artifacts",
+      "classification": "platform_adapter_candidate",
+      "reason": "Windows artifact or script suffix",
+      "future_target": "ApplicationLauncher or PackagingBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "793b7b4c5b2aa222ec28",
+      "path": "editor/ui/main_window.py",
+      "rule_id": "WIN-ASSET-001",
+      "area": "artifacts",
+      "classification": "platform_adapter_candidate",
+      "reason": "Windows artifact or script suffix",
+      "future_target": "ApplicationLauncher or PackagingBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "98882f9a695abaf0ad9f",
+      "path": "editor/ui/main_window.py",
+      "rule_id": "WIN-SHELL-001",
+      "area": "command-shell",
+      "classification": "platform_adapter_candidate",
+      "reason": "Windows command shell or command",
+      "future_target": "CommandBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "4e038ee9b5782445a1e8",
+      "path": "editor/ui/main_window.py",
+      "rule_id": "WIN-ASSET-001",
+      "area": "artifacts",
+      "classification": "platform_adapter_candidate",
+      "reason": "Windows artifact or script suffix",
+      "future_target": "ApplicationLauncher or PackagingBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "87df9e0111eae3b7c684",
+      "path": "editor/ui/main_window.py",
+      "rule_id": "WIN-ASSET-001",
+      "area": "artifacts",
+      "classification": "platform_adapter_candidate",
+      "reason": "Windows artifact or script suffix",
+      "future_target": "ApplicationLauncher or PackagingBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "5b6073b09cb810acb176",
+      "path": "editor/ui/main_window.py",
+      "rule_id": "PACK-ONEFILE-001",
+      "area": "packaging",
+      "classification": "platform_adapter_candidate",
+      "reason": "PyInstaller onefile packaging contract",
+      "future_target": "PackagingBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "bef788b219dd0ce61b19",
+      "path": "licensing/hwid.py",
+      "rule_id": "WIN-BRANCH-001",
+      "area": "platform-branch",
+      "classification": "platform_adapter_candidate",
+      "reason": "Explicit Windows platform branch",
+      "future_target": "shared/platform/detection.py",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "a8827ef2be351b547e17",
+      "path": "licensing/hwid.py",
+      "rule_id": "WIN-API-001",
+      "area": "windows-api",
+      "classification": "platform_adapter_candidate",
+      "reason": "Windows-only API",
+      "future_target": "DesktopIntegration or ApplicationLauncher",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "1c6fb944846d55017030",
+      "path": "licensing/hwid.py",
+      "rule_id": "WIN-API-001",
+      "area": "windows-api",
+      "classification": "platform_adapter_candidate",
+      "reason": "Windows-only API",
+      "future_target": "DesktopIntegration or ApplicationLauncher",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "ec2cbe26fc1de404f6df",
+      "path": "licensing/hwid.py",
+      "rule_id": "WIN-HWID-001",
+      "area": "hardware-identity",
+      "classification": "platform_adapter_candidate",
+      "reason": "Windows-oriented hardware identity source",
+      "future_target": "HardwareIdentityProvider",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "3c2555193f57faf81506",
+      "path": "licensing/hwid.py",
+      "rule_id": "WIN-API-001",
+      "area": "windows-api",
+      "classification": "platform_adapter_candidate",
+      "reason": "Windows-only API",
+      "future_target": "DesktopIntegration or ApplicationLauncher",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "88bbf1ea55e81b36c66f",
+      "path": "licensing/hwid.py",
+      "rule_id": "WIN-HWID-001",
+      "area": "hardware-identity",
+      "classification": "platform_adapter_candidate",
+      "reason": "Windows-oriented hardware identity source",
+      "future_target": "HardwareIdentityProvider",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "5b6e9ecbe4bcd362b3be",
+      "path": "licensing/hwid.py",
+      "rule_id": "WIN-HWID-001",
+      "area": "hardware-identity",
+      "classification": "platform_adapter_candidate",
+      "reason": "Windows-oriented hardware identity source",
+      "future_target": "HardwareIdentityProvider",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "bef788b219dd0ce61b19",
+      "path": "licensing/hwid.py",
+      "rule_id": "WIN-BRANCH-001",
+      "area": "platform-branch",
+      "classification": "platform_adapter_candidate",
+      "reason": "Explicit Windows platform branch",
+      "future_target": "shared/platform/detection.py",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "235ec3b7bc1fa12f3a52",
+      "path": "licensing/hwid.py",
+      "rule_id": "WIN-SHELL-001",
+      "area": "command-shell",
+      "classification": "platform_adapter_candidate",
+      "reason": "Windows command shell or command",
+      "future_target": "CommandBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "89d6864b8220f211f1f9",
+      "path": "licensing/hwid.py",
+      "rule_id": "WIN-HWID-001",
+      "area": "hardware-identity",
+      "classification": "platform_adapter_candidate",
+      "reason": "Windows-oriented hardware identity source",
+      "future_target": "HardwareIdentityProvider",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "302d972cc7dc5eda68ca",
+      "path": "licensing/hwid.py",
+      "rule_id": "WIN-HWID-001",
+      "area": "hardware-identity",
+      "classification": "platform_adapter_candidate",
+      "reason": "Windows-oriented hardware identity source",
+      "future_target": "HardwareIdentityProvider",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "ea518a9f225a88ee4d6f",
+      "path": "licensing/hwid.py",
+      "rule_id": "WIN-HWID-001",
+      "area": "hardware-identity",
+      "classification": "platform_adapter_candidate",
+      "reason": "Windows-oriented hardware identity source",
+      "future_target": "HardwareIdentityProvider",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "7b6463a74d784b7655a9",
+      "path": "licensing/license_manager.py",
+      "rule_id": "PACK-ONEFILE-001",
+      "area": "packaging",
+      "classification": "platform_adapter_candidate",
+      "reason": "PyInstaller onefile packaging contract",
+      "future_target": "PackagingBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "dc378d6dcbc237efa641",
+      "path": "licensing/license_manager.py",
+      "rule_id": "PACK-ONEFILE-001",
+      "area": "packaging",
+      "classification": "platform_adapter_candidate",
+      "reason": "PyInstaller onefile packaging contract",
+      "future_target": "PackagingBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "0692a1caa5774564e7b2",
+      "path": "runtime/command_runner.py",
+      "rule_id": "WIN-BRANCH-001",
+      "area": "platform-branch",
+      "classification": "platform_adapter_candidate",
+      "reason": "Explicit Windows platform branch",
+      "future_target": "shared/platform/detection.py",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "cb6fd0b0e50c45b01e27",
+      "path": "runtime/command_runner.py",
+      "rule_id": "WIN-SHELL-001",
+      "area": "command-shell",
+      "classification": "platform_adapter_candidate",
+      "reason": "Windows command shell or command",
+      "future_target": "CommandBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "763c7fe5253348e223c6",
+      "path": "runtime/command_runner.py",
+      "rule_id": "WIN-ASSET-001",
+      "area": "artifacts",
+      "classification": "platform_adapter_candidate",
+      "reason": "Windows artifact or script suffix",
+      "future_target": "ApplicationLauncher or PackagingBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "967e18fe8d3c7649a953",
+      "path": "runtime/command_runner.py",
+      "rule_id": "WIN-SHELL-001",
+      "area": "command-shell",
+      "classification": "platform_adapter_candidate",
+      "reason": "Windows command shell or command",
+      "future_target": "CommandBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "174536738fee5c0617c5",
+      "path": "runtime/command_runner.py",
+      "rule_id": "WIN-ASSET-001",
+      "area": "artifacts",
+      "classification": "platform_adapter_candidate",
+      "reason": "Windows artifact or script suffix",
+      "future_target": "ApplicationLauncher or PackagingBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "ef8564a760e66abd8b15",
+      "path": "runtime/command_runner.py",
+      "rule_id": "WIN-SHELL-001",
+      "area": "command-shell",
+      "classification": "platform_adapter_candidate",
+      "reason": "Windows command shell or command",
+      "future_target": "CommandBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "4b7a8b607ae63e88a453",
+      "path": "runtime/command_runner.py",
+      "rule_id": "UNIX-ASSUME-001",
+      "area": "unix-assumption",
+      "classification": "platform_adapter_candidate",
+      "reason": "Single Unix fallback used for all non-Windows platforms",
+      "future_target": "platform-specific backend selection",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "169732de949ab14c96f7",
+      "path": "runtime/command_runner.py",
+      "rule_id": "WIN-BRANCH-001",
+      "area": "platform-branch",
+      "classification": "platform_adapter_candidate",
+      "reason": "Explicit Windows platform branch",
+      "future_target": "shared/platform/detection.py",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "4a79eb6f3dc9a69c5eeb",
+      "path": "runtime/command_runner.py",
+      "rule_id": "WIN-PROC-001",
+      "area": "process",
+      "classification": "platform_adapter_candidate",
+      "reason": "Windows subprocess flag",
+      "future_target": "CommandBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "d30add2bef24539b942e",
+      "path": "runtime/command_runner.py",
+      "rule_id": "WIN-PROC-001",
+      "area": "process",
+      "classification": "platform_adapter_candidate",
+      "reason": "Windows subprocess flag",
+      "future_target": "CommandBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "dfd7df364190288067be",
+      "path": "runtime/command_runner.py",
+      "rule_id": "WIN-PROC-001",
+      "area": "process",
+      "classification": "platform_adapter_candidate",
+      "reason": "Windows subprocess flag",
+      "future_target": "CommandBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "0692a1caa5774564e7b2",
+      "path": "runtime/command_runner.py",
+      "rule_id": "WIN-BRANCH-001",
+      "area": "platform-branch",
+      "classification": "platform_adapter_candidate",
+      "reason": "Explicit Windows platform branch",
+      "future_target": "shared/platform/detection.py",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "91b3e27794e990dc73f5",
+      "path": "runtime/command_runner.py",
+      "rule_id": "WIN-SHELL-001",
+      "area": "command-shell",
+      "classification": "platform_adapter_candidate",
+      "reason": "Windows command shell or command",
+      "future_target": "CommandBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "e9ceccf058a44a7bedc5",
+      "path": "runtime/command_runner.py",
+      "rule_id": "WIN-BRANCH-001",
+      "area": "platform-branch",
+      "classification": "platform_adapter_candidate",
+      "reason": "Explicit Windows platform branch",
+      "future_target": "shared/platform/detection.py",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "ff0ef5ce3446e8a3c2a6",
+      "path": "runtime/command_runner.py",
+      "rule_id": "WIN-SHELL-001",
+      "area": "command-shell",
+      "classification": "platform_adapter_candidate",
+      "reason": "Windows command shell or command",
+      "future_target": "CommandBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "2945ae8f49bf71d92258",
+      "path": "runtime/launcher_runtime.py",
+      "rule_id": "WIN-BRANCH-001",
+      "area": "platform-branch",
+      "classification": "platform_adapter_candidate",
+      "reason": "Explicit Windows platform branch",
+      "future_target": "shared/platform/detection.py",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "d7435e799fccd823251a",
+      "path": "runtime/launcher_runtime.py",
+      "rule_id": "WIN-PROC-001",
+      "area": "process",
+      "classification": "platform_adapter_candidate",
+      "reason": "Windows subprocess flag",
+      "future_target": "CommandBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "aa96b846bdcb7543f45f",
+      "path": "runtime/launcher_runtime.py",
+      "rule_id": "WIN-PROC-001",
+      "area": "process",
+      "classification": "platform_adapter_candidate",
+      "reason": "Windows subprocess flag",
+      "future_target": "CommandBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "3089eda2e6332c39e3ab",
+      "path": "runtime/launcher_runtime.py",
+      "rule_id": "WIN-ASSET-001",
+      "area": "artifacts",
+      "classification": "platform_adapter_candidate",
+      "reason": "Windows artifact or script suffix",
+      "future_target": "ApplicationLauncher or PackagingBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "9d0a0fa5fa2cb2ccde0c",
+      "path": "runtime/launcher_runtime.py",
+      "rule_id": "WIN-API-001",
+      "area": "windows-api",
+      "classification": "platform_adapter_candidate",
+      "reason": "Windows-only API",
+      "future_target": "DesktopIntegration or ApplicationLauncher",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "9e1afa9a13ac48237455",
+      "path": "runtime/launcher_runtime.py",
+      "rule_id": "WIN-ASSET-001",
+      "area": "artifacts",
+      "classification": "platform_adapter_candidate",
+      "reason": "Windows artifact or script suffix",
+      "future_target": "ApplicationLauncher or PackagingBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "2ce55e2dff41308daca1",
+      "path": "runtime/launcher_runtime.py",
+      "rule_id": "WIN-SHELL-001",
+      "area": "command-shell",
+      "classification": "platform_adapter_candidate",
+      "reason": "Windows command shell or command",
+      "future_target": "CommandBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "4a4170c4fcfb9ccf4c52",
+      "path": "runtime/launcher_runtime.py",
+      "rule_id": "WIN-API-001",
+      "area": "windows-api",
+      "classification": "platform_adapter_candidate",
+      "reason": "Windows-only API",
+      "future_target": "DesktopIntegration or ApplicationLauncher",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "ea588f48a54a4ad6830d",
+      "path": "shared/app_icon.py",
+      "rule_id": "PACK-ONEFILE-001",
+      "area": "packaging",
+      "classification": "platform_adapter_candidate",
+      "reason": "PyInstaller onefile packaging contract",
+      "future_target": "PackagingBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "47061611cfdc3ad1f394",
+      "path": "shared/app_icon.py",
+      "rule_id": "PACK-ONEFILE-001",
+      "area": "packaging",
+      "classification": "platform_adapter_candidate",
+      "reason": "PyInstaller onefile packaging contract",
+      "future_target": "PackagingBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "4206b5747787fe0e1444",
+      "path": "shared/app_icon.py",
+      "rule_id": "WIN-ASSET-001",
+      "area": "artifacts",
+      "classification": "platform_adapter_candidate",
+      "reason": "Windows artifact or script suffix",
+      "future_target": "ApplicationLauncher or PackagingBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "09862f3ed9f3fe53c5bb",
+      "path": "shared/app_icon.py",
+      "rule_id": "WIN-BRANCH-001",
+      "area": "platform-branch",
+      "classification": "platform_adapter_candidate",
+      "reason": "Explicit Windows platform branch",
+      "future_target": "shared/platform/detection.py",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "344cfd46fe765e0429b5",
+      "path": "shared/app_icon.py",
+      "rule_id": "WIN-API-001",
+      "area": "windows-api",
+      "classification": "platform_adapter_candidate",
+      "reason": "Windows-only API",
+      "future_target": "DesktopIntegration or ApplicationLauncher",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "ef2897bc48d215cd25e9",
+      "path": "shared/app_icon.py",
+      "rule_id": "WIN-DESKTOP-001",
+      "area": "desktop-integration",
+      "classification": "platform_adapter_candidate",
+      "reason": "Windows desktop integration or font",
+      "future_target": "DesktopIntegration",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "483f56aab0f068dd5ccc",
+      "path": "shared/app_paths.py",
+      "rule_id": "WIN-BRANCH-001",
+      "area": "platform-branch",
+      "classification": "platform_adapter_candidate",
+      "reason": "Explicit Windows platform branch",
+      "future_target": "shared/platform/detection.py",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "857daf4e361881597dd7",
+      "path": "shared/app_paths.py",
+      "rule_id": "WIN-PATH-001",
+      "area": "paths",
+      "classification": "platform_adapter_candidate",
+      "reason": "Windows user-data path or environment variable",
+      "future_target": "PlatformPaths",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "27691f212eb08286bc08",
+      "path": "shared/data_migration.py",
+      "rule_id": "WIN-ASSET-001",
+      "area": "artifacts",
+      "classification": "platform_adapter_candidate",
+      "reason": "Windows artifact or script suffix",
+      "future_target": "ApplicationLauncher or PackagingBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "4034e22c8cdf797d65d9",
+      "path": "shared/diagnostics.py",
+      "rule_id": "WIN-PATH-001",
+      "area": "paths",
+      "classification": "platform_adapter_candidate",
+      "reason": "Windows user-data path or environment variable",
+      "future_target": "PlatformPaths",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "e2b8be01bb66e86a9a27",
+      "path": "shared/diagnostics.py",
+      "rule_id": "WIN-PATH-001",
+      "area": "paths",
+      "classification": "platform_adapter_candidate",
+      "reason": "Windows user-data path or environment variable",
+      "future_target": "PlatformPaths",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "da7a920d1b9a7b0a62d6",
+      "path": "shared/diagnostics.py",
+      "rule_id": "WIN-BRANCH-001",
+      "area": "platform-branch",
+      "classification": "platform_adapter_candidate",
+      "reason": "Explicit Windows platform branch",
+      "future_target": "shared/platform/detection.py",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "d4610dd7aa87ced95b83",
+      "path": "shared/diagnostics.py",
+      "rule_id": "WIN-API-001",
+      "area": "windows-api",
+      "classification": "platform_adapter_candidate",
+      "reason": "Windows-only API",
+      "future_target": "DesktopIntegration or ApplicationLauncher",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "19fdb0fba6f8070a49f9",
+      "path": "shared/models.py",
+      "rule_id": "WIN-SHELL-001",
+      "area": "command-shell",
+      "classification": "platform_adapter_candidate",
+      "reason": "Windows command shell or command",
+      "future_target": "CommandBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "9f64c65e98d152ffa262",
+      "path": "tools/build_editor_release.py",
+      "rule_id": "PACK-ONEFILE-001",
+      "area": "packaging",
+      "classification": "allowed_windows_boundary",
+      "reason": "PyInstaller onefile packaging contract",
+      "future_target": "PackagingBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "51909aa98421927e09b5",
+      "path": "tools/build_editor_release.py",
+      "rule_id": "PACK-ONEFILE-001",
+      "area": "packaging",
+      "classification": "allowed_windows_boundary",
+      "reason": "PyInstaller onefile packaging contract",
+      "future_target": "PackagingBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "3801fd034d050e6728f5",
+      "path": "tools/build_editor_release.py",
+      "rule_id": "PACK-ONEFILE-001",
+      "area": "packaging",
+      "classification": "allowed_windows_boundary",
+      "reason": "PyInstaller onefile packaging contract",
+      "future_target": "PackagingBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "b114432c3b2dcecb52e0",
+      "path": "tools/build_editor_release.py",
+      "rule_id": "WIN-ASSET-001",
+      "area": "artifacts",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows artifact or script suffix",
+      "future_target": "ApplicationLauncher or PackagingBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "1d3847dda6d7915bc7f9",
+      "path": "tools/build_editor_release.py",
+      "rule_id": "PACK-ONEFILE-001",
+      "area": "packaging",
+      "classification": "allowed_windows_boundary",
+      "reason": "PyInstaller onefile packaging contract",
+      "future_target": "PackagingBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "795fec0d1f4246b1a455",
+      "path": "tools/build_editor_release.py",
+      "rule_id": "PACK-ONEFILE-001",
+      "area": "packaging",
+      "classification": "allowed_windows_boundary",
+      "reason": "PyInstaller onefile packaging contract",
+      "future_target": "PackagingBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "e2b2b3859c3702725b3f",
+      "path": "tools/build_editor_release.py",
+      "rule_id": "WIN-ASSET-001",
+      "area": "artifacts",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows artifact or script suffix",
+      "future_target": "ApplicationLauncher or PackagingBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "592b9a372ee25f8da4f5",
+      "path": "tools/build_editor_release.py",
+      "rule_id": "WIN-ASSET-001",
+      "area": "artifacts",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows artifact or script suffix",
+      "future_target": "ApplicationLauncher or PackagingBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "9c830d0481d886de9b47",
+      "path": "tools/build_editor_release.py",
+      "rule_id": "WIN-ASSET-001",
+      "area": "artifacts",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows artifact or script suffix",
+      "future_target": "ApplicationLauncher or PackagingBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "f46435558acb51db574f",
+      "path": "tools/build_single_exe.py",
+      "rule_id": "WIN-ASSET-001",
+      "area": "artifacts",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows artifact or script suffix",
+      "future_target": "ApplicationLauncher or PackagingBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "c90d6e8b3bd755ab50c0",
+      "path": "tools/build_single_exe.py",
+      "rule_id": "PACK-ONEFILE-001",
+      "area": "packaging",
+      "classification": "allowed_windows_boundary",
+      "reason": "PyInstaller onefile packaging contract",
+      "future_target": "PackagingBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "167955a07d1ad3063fba",
+      "path": "tools/build_single_exe.py",
+      "rule_id": "PACK-ONEFILE-001",
+      "area": "packaging",
+      "classification": "allowed_windows_boundary",
+      "reason": "PyInstaller onefile packaging contract",
+      "future_target": "PackagingBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "bd7ba61b61c6e5bd56ae",
+      "path": "tools/build_single_exe.py",
+      "rule_id": "WIN-PATH-001",
+      "area": "paths",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows user-data path or environment variable",
+      "future_target": "PlatformPaths",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "eb037ecfdf3e118cf42f",
+      "path": "tools/build_single_exe.py",
+      "rule_id": "WIN-BRANCH-001",
+      "area": "platform-branch",
+      "classification": "allowed_windows_boundary",
+      "reason": "Explicit Windows platform branch",
+      "future_target": "shared/platform/detection.py",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "93e3c39470ab1d1dcf80",
+      "path": "tools/build_single_exe.py",
+      "rule_id": "WIN-API-001",
+      "area": "windows-api",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows-only API",
+      "future_target": "DesktopIntegration or ApplicationLauncher",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "eb037ecfdf3e118cf42f",
+      "path": "tools/build_single_exe.py",
+      "rule_id": "WIN-BRANCH-001",
+      "area": "platform-branch",
+      "classification": "allowed_windows_boundary",
+      "reason": "Explicit Windows platform branch",
+      "future_target": "shared/platform/detection.py",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "68dfc206fc9d9f024a12",
+      "path": "tools/build_single_exe.py",
+      "rule_id": "WIN-API-001",
+      "area": "windows-api",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows-only API",
+      "future_target": "DesktopIntegration or ApplicationLauncher",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "eb037ecfdf3e118cf42f",
+      "path": "tools/build_single_exe.py",
+      "rule_id": "WIN-BRANCH-001",
+      "area": "platform-branch",
+      "classification": "allowed_windows_boundary",
+      "reason": "Explicit Windows platform branch",
+      "future_target": "shared/platform/detection.py",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "62905d4ee541488e3413",
+      "path": "tools/build_single_exe.py",
+      "rule_id": "WIN-PROC-001",
+      "area": "process",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows subprocess flag",
+      "future_target": "CommandBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "4e6012e8caf74bafd7eb",
+      "path": "tools/build_single_exe.py",
+      "rule_id": "WIN-PROC-001",
+      "area": "process",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows subprocess flag",
+      "future_target": "CommandBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "502709817c7704058a42",
+      "path": "tools/build_single_exe.py",
+      "rule_id": "WIN-ASSET-001",
+      "area": "artifacts",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows artifact or script suffix",
+      "future_target": "ApplicationLauncher or PackagingBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "bf996d7a995960b47771",
+      "path": "tools/build_single_exe.py",
+      "rule_id": "WIN-API-001",
+      "area": "windows-api",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows-only API",
+      "future_target": "DesktopIntegration or ApplicationLauncher",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "40a3c8636be500974788",
+      "path": "tools/build_single_exe.py",
+      "rule_id": "WIN-ASSET-001",
+      "area": "artifacts",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows artifact or script suffix",
+      "future_target": "ApplicationLauncher or PackagingBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "affae38574ae7680917d",
+      "path": "tools/build_single_exe.py",
+      "rule_id": "WIN-SHELL-001",
+      "area": "command-shell",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows command shell or command",
+      "future_target": "CommandBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "84687189771b53b14698",
+      "path": "tools/build_single_exe.py",
+      "rule_id": "WIN-API-001",
+      "area": "windows-api",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows-only API",
+      "future_target": "DesktopIntegration or ApplicationLauncher",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "a3617a52251e15daac58",
+      "path": "tools/build_single_exe.py",
+      "rule_id": "WIN-SHELL-001",
+      "area": "command-shell",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows command shell or command",
+      "future_target": "CommandBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "eb037ecfdf3e118cf42f",
+      "path": "tools/build_single_exe.py",
+      "rule_id": "WIN-BRANCH-001",
+      "area": "platform-branch",
+      "classification": "allowed_windows_boundary",
+      "reason": "Explicit Windows platform branch",
+      "future_target": "shared/platform/detection.py",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "db59ba000ec7721224e3",
+      "path": "tools/build_single_exe.py",
+      "rule_id": "WIN-SHELL-001",
+      "area": "command-shell",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows command shell or command",
+      "future_target": "CommandBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "9125ab72d811051ab0cd",
+      "path": "tools/build_single_exe.py",
+      "rule_id": "WIN-ASSET-001",
+      "area": "artifacts",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows artifact or script suffix",
+      "future_target": "ApplicationLauncher or PackagingBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "a23adbd774e559ecf6bb",
+      "path": "tools/build_single_exe.py",
+      "rule_id": "WIN-SHELL-001",
+      "area": "command-shell",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows command shell or command",
+      "future_target": "CommandBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "7088f409aa7ce4b955a8",
+      "path": "tools/build_single_exe.py",
+      "rule_id": "WIN-ASSET-001",
+      "area": "artifacts",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows artifact or script suffix",
+      "future_target": "ApplicationLauncher or PackagingBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "8da7a02aeea7dae54020",
+      "path": "tools/build_single_exe.py",
+      "rule_id": "WIN-SHELL-001",
+      "area": "command-shell",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows command shell or command",
+      "future_target": "CommandBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "4e6012e8caf74bafd7eb",
+      "path": "tools/build_single_exe.py",
+      "rule_id": "WIN-PROC-001",
+      "area": "process",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows subprocess flag",
+      "future_target": "CommandBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "5875cf8e9f98008bb666",
+      "path": "tools/build_single_exe.py",
+      "rule_id": "WIN-PROC-001",
+      "area": "process",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows subprocess flag",
+      "future_target": "CommandBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "ac77e67fc02b2911aff9",
+      "path": "tools/build_single_exe.py",
+      "rule_id": "WIN-PROC-001",
+      "area": "process",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows subprocess flag",
+      "future_target": "CommandBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "b39e243e69f12f8548db",
+      "path": "tools/build_single_exe.py",
+      "rule_id": "UNIX-ASSUME-001",
+      "area": "unix-assumption",
+      "classification": "allowed_windows_boundary",
+      "reason": "Single Unix fallback used for all non-Windows platforms",
+      "future_target": "platform-specific backend selection",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "fdfcc9a7c010a7386103",
+      "path": "tools/build_single_exe.py",
+      "rule_id": "WIN-BRANCH-001",
+      "area": "platform-branch",
+      "classification": "allowed_windows_boundary",
+      "reason": "Explicit Windows platform branch",
+      "future_target": "shared/platform/detection.py",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "1b9bc9349ebe457e3873",
+      "path": "tools/build_single_exe.py",
+      "rule_id": "WIN-SHELL-001",
+      "area": "command-shell",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows command shell or command",
+      "future_target": "CommandBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "93f80fb91b9a8c8b380c",
+      "path": "tools/build_single_exe.py",
+      "rule_id": "PACK-ONEFILE-001",
+      "area": "packaging",
+      "classification": "allowed_windows_boundary",
+      "reason": "PyInstaller onefile packaging contract",
+      "future_target": "PackagingBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "fe7ca1299cd750880b38",
+      "path": "tools/build_single_exe.py",
+      "rule_id": "PACK-ONEFILE-001",
+      "area": "packaging",
+      "classification": "allowed_windows_boundary",
+      "reason": "PyInstaller onefile packaging contract",
+      "future_target": "PackagingBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "12c816fd4401a82c3999",
+      "path": "tools/build_single_exe.py",
+      "rule_id": "PACK-ONEFILE-001",
+      "area": "packaging",
+      "classification": "allowed_windows_boundary",
+      "reason": "PyInstaller onefile packaging contract",
+      "future_target": "PackagingBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "9d777281b7a0df70c130",
+      "path": "tools/build_single_exe.py",
+      "rule_id": "PACK-ONEFILE-001",
+      "area": "packaging",
+      "classification": "allowed_windows_boundary",
+      "reason": "PyInstaller onefile packaging contract",
+      "future_target": "PackagingBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "f3e4ad7892c76ad7605e",
+      "path": "tools/build_single_exe.py",
+      "rule_id": "PACK-ONEFILE-001",
+      "area": "packaging",
+      "classification": "allowed_windows_boundary",
+      "reason": "PyInstaller onefile packaging contract",
+      "future_target": "PackagingBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "6f1e93d5d983927c480f",
+      "path": "tools/build_single_exe.py",
+      "rule_id": "PACK-ONEFILE-001",
+      "area": "packaging",
+      "classification": "allowed_windows_boundary",
+      "reason": "PyInstaller onefile packaging contract",
+      "future_target": "PackagingBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "fdd8d1f8f7df3f52f8e6",
+      "path": "tools/build_single_exe.py",
+      "rule_id": "WIN-ASSET-001",
+      "area": "artifacts",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows artifact or script suffix",
+      "future_target": "ApplicationLauncher or PackagingBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "487d14fe489394d254a4",
+      "path": "tools/generate_app_icon.py",
+      "rule_id": "WIN-ASSET-001",
+      "area": "artifacts",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows artifact or script suffix",
+      "future_target": "ApplicationLauncher or PackagingBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "3dc19efea13b5cb3db6a",
+      "path": "tools/run_editor_dev.ps1",
+      "rule_id": "WIN-PATH-001",
+      "area": "paths",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows user-data path or environment variable",
+      "future_target": "PlatformPaths",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "527e149c24f76b1dd19a",
+      "path": "tools/run_editor_dev.ps1",
+      "rule_id": "WIN-PATH-001",
+      "area": "paths",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows user-data path or environment variable",
+      "future_target": "PlatformPaths",
+      "allowed_to_remain": true
+    }
+  ]
+}

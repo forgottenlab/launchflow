@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added / 新增
+- 新增跨平台耦合审计、支持矩阵与分阶段适配路线图，并加入带审核基线的 stdlib 静态检查，阻止核心包出现未登记的平台耦合。
 - 优化中英文 README 的视觉层级，为主要章节增加一致且克制的图标，并补充有效的更新日志入口。
 - 增加首批 4 位测试者致谢，特别感谢 ZTS 和 SYZ 持续测试、错误反馈与改进建议。
 - 加强 README 文档合同检查，覆盖致谢、标题样式、真实仓库目录、许可链接、写作注释和虚构许可证声明。
