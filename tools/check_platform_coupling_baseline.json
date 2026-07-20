@@ -613,26 +613,6 @@
       "allowed_to_remain": true
     },
     {
-      "fingerprint": "483f56aab0f068dd5ccc",
-      "path": "shared/app_paths.py",
-      "rule_id": "WIN-BRANCH-001",
-      "area": "platform-branch",
-      "classification": "platform_adapter_candidate",
-      "reason": "Explicit Windows platform branch",
-      "future_target": "shared/platform/detection.py",
-      "allowed_to_remain": true
-    },
-    {
-      "fingerprint": "857daf4e361881597dd7",
-      "path": "shared/app_paths.py",
-      "rule_id": "WIN-PATH-001",
-      "area": "paths",
-      "classification": "platform_adapter_candidate",
-      "reason": "Windows user-data path or environment variable",
-      "future_target": "PlatformPaths",
-      "allowed_to_remain": true
-    },
-    {
       "fingerprint": "27691f212eb08286bc08",
       "path": "shared/data_migration.py",
       "rule_id": "WIN-ASSET-001",
@@ -690,6 +670,16 @@
       "classification": "platform_adapter_candidate",
       "reason": "Windows command shell or command",
       "future_target": "CommandBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "aa9cc8abb94dfa23c533",
+      "path": "shared/platform/paths.py",
+      "rule_id": "WIN-PATH-001",
+      "area": "paths",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows user-data path or environment variable",
+      "future_target": "PlatformPaths",
       "allowed_to_remain": true
     },
     {

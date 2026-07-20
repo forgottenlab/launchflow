@@ -67,6 +67,12 @@ Backends should return structured results/capabilities. Core code should reject 
 
 The first implementation slice should stop after paths. Later Phase 1 slices must separately prove cmd/PowerShell argv, hidden flags, raw output, `9009`, `.lnk`/`.ps1`, browser opening, icon, and EXE naming equivalence. The existing Windows `machine_id` must never be routed through a new algorithm in this phase.
 
+### Phase 1a status — completed
+
+Phase 1a now provides stdlib-only normalized platform detection, a minimal path-provider contract, a behavior-equivalent Windows provider, and a clearly named legacy fallback for non-Windows hosts. `shared/app_paths.py` retains its existing public API and delegates calculation through this boundary. `%LOCALAPPDATA%\LaunchFlow`, explicit `LAUNCHFLOW_DATA_DIR`, and the process-level `%LOCALAPPDATA%\LaunchFlow-Dev` developer override remain unchanged. Path calculation is side-effect free; only `ensure_app_directories()` creates directories.
+
+This completion records an abstraction boundary, not Linux or macOS product support. The legacy fallback deliberately preserves the previous `~/.local/share/LaunchFlow` result until XDG and macOS-native policies are implemented and validated on real target hosts. Phase 1a does not use Qt or `QStandardPaths`, does not alter resources, migration, identity, licensing, runtime execution, packaging, or plan schemas, and must not be used as evidence of non-Windows support.
+
 ## Phase 2 — Linux x86_64 source-run experimental target
 
 | Field | Definition |

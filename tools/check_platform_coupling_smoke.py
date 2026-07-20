@@ -315,6 +315,7 @@ def write_baseline(path: Path, findings: list[Finding]) -> None:
                 "classification": (
                     "allowed_windows_boundary"
                     if finding.scope == "tooling"
+                    or finding.path.startswith("shared/platform/")
                     else "platform_adapter_candidate"
                 ),
                 "reason": next(

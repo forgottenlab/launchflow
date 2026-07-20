@@ -3,11 +3,15 @@
 from __future__ import annotations
 
 import os
-import sys
 from pathlib import Path
 
+from shared.platform.paths import (
+    DATA_DIR_OVERRIDE_ENV as _DATA_DIR_OVERRIDE_ENV,
+    get_platform_path_provider as _get_platform_path_provider,
+)
 
-APP_DATA_ENV = "LAUNCHFLOW_DATA_DIR"
+
+APP_DATA_ENV = _DATA_DIR_OVERRIDE_ENV
 APP_DIR_NAME = "LaunchFlow"
 APP_SUBDIRECTORIES = ("config", "data", "licenses", "logs", "plans", "cache", "temp")
 
@@ -18,20 +22,15 @@ class AppPathError(RuntimeError):
 
 def get_app_data_dir() -> Path:
     """Return the user-writable LaunchFlow root without using cwd or the EXE directory."""
-    override = os.environ.get(APP_DATA_ENV, "").strip()
-    if override:
-        path = Path(os.path.expandvars(override)).expanduser()
-        if not path.is_absolute():
-            raise AppPathError(f"{APP_DATA_ENV} 必须是绝对路径: {override}")
-        return path
-
-    if sys.platform == "win32":
-        local_app_data = os.environ.get("LOCALAPPDATA", "").strip()
-        if local_app_data:
-            return Path(local_app_data) / APP_DIR_NAME
-        return Path.home() / "AppData" / "Local" / APP_DIR_NAME
-
-    return Path.home() / ".local" / "share" / APP_DIR_NAME
+    provider = _get_platform_path_provider(environment=os.environ)
+    try:
+        return provider.resolve_app_root(
+            APP_DIR_NAME,
+            False,
+            os.environ.get(APP_DATA_ENV, ""),
+        )
+    except ValueError as exc:
+        raise AppPathError(str(exc)) from exc
 
 
 def get_config_dir() -> Path:

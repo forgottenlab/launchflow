@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added / 新增
+- 新增 stdlib-only `shared/platform` 检测与路径适配边界；`shared/app_paths.py` 保持原有 API、Windows/Dev/`LAUNCHFLOW_DATA_DIR` 行为及无副作用路径计算，并由独立 smoke 证明非 Windows 仅为旧回退兼容而非支持声明。
 - 新增跨平台耦合审计、支持矩阵与分阶段适配路线图，并加入带审核基线的 stdlib 静态检查，阻止核心包出现未登记的平台耦合。
 - 优化中英文 README 的视觉层级，为主要章节增加一致且克制的图标，并补充有效的更新日志入口。
 - 增加首批 4 位测试者致谢，特别感谢 ZTS 和 SYZ 持续测试、错误反馈与改进建议。

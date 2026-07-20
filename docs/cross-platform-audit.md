@@ -54,7 +54,7 @@ These are conceptual findings. The static checker reports individual source occu
 | CP-05 | Editor package | P1 | `tools.build_editor_release.build_release` at `tools/build_editor_release.py:85-148` | ICO and `.exe` onefile | No native artifact | No app bundle, signing, or notarization | Per-host `PackagingBackend` |
 | CP-06 | Launcher export | P1 | `tools/build_single_exe.py:38,421-461,498-577` | Windows packable suffixes and EXE output | No ELF/AppImage export | No `.app`/`.dmg` export | Current-host packaging only |
 | CP-07 | Export runtime | P1 | `EMBEDDED_TEMPLATE` at `tools/build_single_exe.py:54-399` | Duplicated AppData/MessageBox/startfile/shell behavior | Source fixes do not propagate | Source fixes do not propagate | Generate from/reuse backend contracts |
-| CP-08 | Paths | P2 | `resolve_data_root` at `shared/app_paths.py:19-34` | `%LOCALAPPDATA%`, one generic fallback | XDG config/cache split missing | Application Support/Logs/Caches missing | `PlatformPaths`; evaluate QStandardPaths |
+| CP-08 | Paths | P2 | `shared/platform/paths.py`; public facade in `shared/app_paths.py` | `%LOCALAPPDATA%`, explicit override, one legacy fallback | XDG config/cache split missing | Application Support/Logs/Caches missing | Phase 1a boundary complete; native providers remain future work |
 | CP-09 | Desktop | P2 | `shared/app_icon.py:15-39`; `shared/diagnostics.py:103-110` | AppUserModelID, ICO, startfile | No desktop/icon/open-folder integration | No icns/Info.plist/Dock/open integration | `DesktopIntegration` |
 | CP-10 | Diagnostics | P2 | `build_diagnostic_text` at `shared/diagnostics.py:22-33,76-100` | `Windows:` and `%USERPROFILE%` labels | Mislabels Linux | Mislabels macOS | Platform label/path aliases; keep redaction |
 | CP-11 | Shortcuts | P2 | `SHORTCUTS`/QAction setup at `editor/ui/main_window.py:115-122,2198-2223` | Literal Ctrl sequences | Native mapping unverified | Command-key/menu convention unverified | Qt StandardKey plus native validation |
@@ -79,7 +79,7 @@ These are conceptual findings. The static checker reports individual source occu
 | CP-05 | P1 | Editor packaging | Release packaging requires `launchflow.ico`, passes `--onefile`, and expects `<name>.exe` (`tools/build_editor_release.py:85-144`). PyInstaller cannot cross-compile these missing platform artifacts from one Windows job. |
 | CP-06 | P1 | Plan launcher export | Packable assets are Windows suffixes (`tools/build_single_exe.py:38,421-461`), the builder expects an EXE (`tools/build_single_exe.py:498-577`), and the UI presents an EXE-only destination (`editor/ui/main_window.py:3812-3827`). Linux/macOS launcher artifacts do not exist. |
 | CP-07 | P1 | Embedded launcher runtime | The generated launcher independently embeds Windows AppData, MessageBox, `os.startfile`, cmd/PowerShell, and `/bin/sh` fallback behavior (`tools/build_single_exe.py:88-102,134-160,186-269`). Source runtime fixes would not automatically fix exported launchers. |
-| CP-08 | P2 | User-data paths | Windows uses `%LOCALAPPDATA%`, but all non-Windows systems share `~/.local/share/LaunchFlow` (`shared/app_paths.py:19-34`). This does not separate config/cache/data by XDG and is not the standard macOS Application Support location. |
+| CP-08 | P2 | User-data paths | Phase 1a moved calculation behind `shared/platform/paths.py` while preserving `%LOCALAPPDATA%\LaunchFlow`, `LAUNCHFLOW_DATA_DIR`, and the previous non-Windows `~/.local/share/LaunchFlow` fallback. The fallback remains compatibility-only: it does not separate XDG config/cache/data and is not the standard macOS Application Support location. |
 | CP-09 | P2 | Desktop integration | App identity/icon integration is Windows AppUserModelID plus ICO (`shared/app_icon.py:15-39`); opening logs is Windows-only and otherwise a silent no-op (`shared/diagnostics.py:103-110`). |
 | CP-10 | P2 | Diagnostics | Diagnostics label every OS as `Windows` and mask home as `%USERPROFILE%` (`shared/diagnostics.py:22-33,88`). Redaction still protects the resolved home path, but output is misleading on Linux/macOS. |
 | CP-11 | P2 | Keyboard conventions | Actions use literal `Ctrl+...` strings (`editor/ui/main_window.py:115-122,2198-2223`) instead of Qt standard keys. macOS Command-key conventions and menu presentation have not been validated. |
@@ -103,7 +103,7 @@ Fire-and-forget ordinary executable launch is reusable (`runtime/launcher_runtim
 
 ## Data and Configuration Paths
 
-`LAUNCHFLOW_DATA_DIR` absolute override remains useful for tests (`shared/app_paths.py:19-26`). Future defaults should separately consider `%LOCALAPPDATA%`, XDG data/config/cache roots, and macOS Application Support/Logs/Caches. QStandardPaths is a candidate, not a decision, because migration compatibility and headless tests must be proven first.
+`LAUNCHFLOW_DATA_DIR` remains an exact absolute override through the Phase 1a provider boundary (`shared/app_paths.py`, `shared/platform/paths.py`). Windows default and Dev-mode behavior remain unchanged. Non-Windows hosts intentionally retain the old generic fallback only; future native providers must separately consider XDG data/config/cache roots and macOS Application Support/Logs/Caches, with migration compatibility and headless tests proven before adoption. Phase 1a adds no Qt dependency and does not use `QStandardPaths`.
 
 ## UI and OS Integration
 
