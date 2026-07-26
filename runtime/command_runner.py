@@ -7,12 +7,12 @@ console. Application steps intentionally keep their independent launch semantics
 
 from __future__ import annotations
 
-import locale
 import os
 import subprocess
-import uuid
 from dataclasses import dataclass
 from typing import Any
+
+from shared.platform.process import CommandLaunchSpec, get_command_backend
 
 
 @dataclass(frozen=True)
@@ -35,68 +35,32 @@ def friendly_command_error(result: CommandResult) -> str | None:
     """Translate common failures without discarding captured diagnostics."""
     if result.succeeded:
         return None
-    if result.returncode == 9009:
-        return "未找到可执行命令，请检查程序是否安装或是否加入 PATH。"
-    if result.error_kind == "not_found":
-        return "找不到目标文件，请检查路径。"
-    if result.error_kind == "permission_denied":
-        return "没有权限执行该操作。"
-    return "命令执行失败，请查看退出码和错误输出。"
+    return get_command_backend().explain_failure(result.returncode, result.error_kind)
 
 
 def build_command_args(command: str, shell: str) -> list[str]:
     """Build a predictable shell invocation without splitting user quoting."""
-    shell_name = shell.strip().lower()
-    if os.name == "nt":
-        if shell_name == "powershell":
-            return [
-                "powershell.exe",
-                "-NoLogo",
-                "-NoProfile",
-                "-NonInteractive",
-                "-ExecutionPolicy",
-                "Bypass",
-                "-Command",
-                command,
-            ]
-        return ["cmd.exe", "/d", "/s", "/c", command]
-
-    return ["/bin/sh", "-c", command]
+    return list(get_command_backend().build_launch_spec(command, shell).command_args)
 
 
 def windows_hidden_process_options() -> dict[str, Any]:
     """Return Windows subprocess options that suppress a console window."""
-    if os.name != "nt":
-        return {}
+    spec = get_command_backend().build_launch_spec("", "cmd")
+    return _process_options(spec)
 
-    startupinfo = subprocess.STARTUPINFO()
-    startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-    startupinfo.wShowWindow = subprocess.SW_HIDE
-    return {
-        "creationflags": subprocess.CREATE_NO_WINDOW,
-        "startupinfo": startupinfo,
-    }
+
+def _process_options(spec: CommandLaunchSpec) -> dict[str, Any]:
+    options: dict[str, Any] = {}
+    if spec.creationflags:
+        options["creationflags"] = spec.creationflags
+    if spec.startupinfo is not None:
+        options["startupinfo"] = spec.startupinfo
+    return options
 
 
 def _decode_output(data: bytes) -> str:
     """Decode redirected Windows output without allowing decode failures."""
-    preferred = locale.getpreferredencoding(False) or "utf-8"
-    encodings = [preferred, "utf-8"]
-    if os.name == "nt":
-        encodings.extend(["mbcs", "cp936"])
-
-    seen: set[str] = set()
-    for encoding in encodings:
-        normalized = encoding.lower()
-        if normalized in seen:
-            continue
-        seen.add(normalized)
-        try:
-            return data.decode(encoding)
-        except (LookupError, UnicodeDecodeError):
-            continue
-
-    return data.decode(preferred, errors="replace")
+    return get_command_backend().decode_output(data)
 
 
 def execute_command(command: str, shell: str = "cmd", working_dir: str = "") -> CommandResult:
@@ -104,21 +68,14 @@ def execute_command(command: str, shell: str = "cmd", working_dir: str = "") -> 
     if not command.strip():
         raise ValueError("命令为空")
 
-    command_args = build_command_args(command, shell)
-    process_args = command_args
+    backend = get_command_backend()
+    launch_spec = backend.build_launch_spec(command, shell)
+    command_args = list(launch_spec.command_args)
+    process_args = list(launch_spec.process_args)
     process_env = None
-    if os.name == "nt" and shell.strip().lower() != "powershell" and '"' in command:
-        # Python converts Windows argument lists with C-runtime quote escaping,
-        # which is not cmd.exe quote escaping. Replace only
-        # literal double quotes with a unique environment expansion so Popen
-        # still receives a list and cmd reconstructs the original text before
-        # executing it. Other user variables such as %TEMP% keep working.
-        quote_variable = f"__LAUNCHFLOW_DQ_{uuid.uuid4().hex.upper()}"
-        while f"%{quote_variable}%" in command:
-            quote_variable = f"__LAUNCHFLOW_DQ_{uuid.uuid4().hex.upper()}"
-        process_args = [*command_args[:4], command.replace('"', f"%{quote_variable}%")]
+    if launch_spec.environment_overrides:
         process_env = os.environ.copy()
-        process_env[quote_variable] = '"'
+        process_env.update(launch_spec.environment_overrides)
     try:
         process = subprocess.Popen(
             process_args,
@@ -128,30 +85,25 @@ def execute_command(command: str, shell: str = "cmd", working_dir: str = "") -> 
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             shell=False,
-            **windows_hidden_process_options(),
+            **_process_options(launch_spec),
         )
         stdout, stderr = process.communicate()
     except FileNotFoundError as exc:
         message = f"未找到命令解释器或工作目录: {exc}"
-        return CommandResult(command_args, -1, "", message, message, "not_found")
+        error_kind = backend.classify_launch_error(exc)
+        return CommandResult(command_args, -1, "", message, message, error_kind)
     except PermissionError as exc:
         message = f"没有权限启动命令: {exc}"
-        return CommandResult(command_args, -1, "", message, message, "permission_denied")
+        error_kind = backend.classify_launch_error(exc)
+        return CommandResult(command_args, -1, "", message, message, error_kind)
     except OSError as exc:
         message = f"启动命令时发生系统错误: {exc}"
-        winerror = getattr(exc, "winerror", None)
-        errno = getattr(exc, "errno", None)
-        if winerror in {2, 3, 267} or errno == 2:
-            error_kind = "not_found"
-        elif winerror == 5 or errno == 13:
-            error_kind = "permission_denied"
-        else:
-            error_kind = "system_error"
+        error_kind = backend.classify_launch_error(exc)
         return CommandResult(command_args, -1, "", message, message, error_kind)
 
     return CommandResult(
         command_args=command_args,
         returncode=process.returncode,
-        stdout=_decode_output(stdout),
-        stderr=_decode_output(stderr),
+        stdout=backend.decode_output(stdout),
+        stderr=backend.decode_output(stderr),
     )

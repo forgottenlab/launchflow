@@ -33,6 +33,8 @@ from copy import deepcopy
 from contextlib import contextmanager
 from pathlib import Path
 
+from shared.platform.process import get_command_backend
+
 
 ASSET_DIR_NAME = "launchflow_assets"
 PACKABLE_APP_SUFFIXES = {".exe", ".bat", ".cmd", ".com", ".ps1"}
@@ -234,45 +236,33 @@ def run_url_step(step: dict) -> None:
 
 def run_command_step(step: dict) -> None:
     command = str(step.get("command", "")).strip()
-    shell = str(step.get("shell", "cmd")).lower()
     working_dir = step.get("working_dir") or None
     if not command:
         raise ValueError("命令为空")
 
-    if os.name == "nt":
-        if shell == "powershell":
-            command_args = [
-                "powershell.exe",
-                "-NoLogo",
-                "-NoProfile",
-                "-NonInteractive",
-                "-ExecutionPolicy",
-                "Bypass",
-                "-Command",
-                command,
-            ]
-        else:
-            command_args = ["cmd.exe", "/d", "/s", "/c", command]
-        startupinfo = subprocess.STARTUPINFO()
-        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-        startupinfo.wShowWindow = subprocess.SW_HIDE
-        process_options = {
-            "creationflags": subprocess.CREATE_NO_WINDOW,
-            "startupinfo": startupinfo,
-        }
-    else:
-        command_args = ["/bin/sh", "-c", command]
-        process_options = {}
+    launch = step.get("_command_launch")
+    if not isinstance(launch, dict):
+        raise ValueError("命令启动合同缺失")
+    command_args = list(launch.get("command_args", []))
+    process_args = list(launch.get("process_args", []))
+    if not command_args or not process_args:
+        raise ValueError("命令启动参数无效")
 
-    process_args = command_args
+    process_options = {}
+    creationflags = int(launch.get("creationflags", 0))
+    if creationflags:
+        process_options["creationflags"] = creationflags
+    if launch.get("use_startupinfo", False):
+        startupinfo = subprocess.STARTUPINFO()
+        startupinfo.dwFlags = int(launch.get("startupinfo_dw_flags", 0))
+        startupinfo.wShowWindow = int(launch.get("startupinfo_show_window", 0))
+        process_options["startupinfo"] = startupinfo
+
     process_env = None
-    if os.name == "nt" and shell != "powershell" and '"' in command:
-        quote_variable = f"__LAUNCHFLOW_DQ_{uuid.uuid4().hex.upper()}"
-        while f"%{quote_variable}%" in command:
-            quote_variable = f"__LAUNCHFLOW_DQ_{uuid.uuid4().hex.upper()}"
-        process_args = [*command_args[:4], command.replace('"', f"%{quote_variable}%")]
+    environment_overrides = launch.get("environment_overrides", {})
+    if isinstance(environment_overrides, dict) and environment_overrides:
         process_env = os.environ.copy()
-        process_env[quote_variable] = '"'
+        process_env.update({str(key): str(value) for key, value in environment_overrides.items()})
     try:
         process = subprocess.Popen(
             process_args,
@@ -290,13 +280,13 @@ def run_command_step(step: dict) -> None:
         log(f"[错误] 无法启动命令: {exc}")
         log("[退出码] -1")
         log("[失败] 命令执行失败")
-        log("[提示] 找不到目标文件，请检查路径。")
+        log(f"[提示] {launch.get('not_found_hint')}")
         return
     except PermissionError as exc:
         log(f"[错误] 无法启动命令: {exc}")
         log("[退出码] -1")
         log("[失败] 命令执行失败")
-        log("[提示] 没有权限执行该操作。")
+        log(f"[提示] {launch.get('permission_hint')}")
         return
     except OSError as exc:
         log(f"[错误] 无法启动命令: {exc}")
@@ -305,15 +295,31 @@ def run_command_step(step: dict) -> None:
         winerror = getattr(exc, "winerror", None)
         errno = getattr(exc, "errno", None)
         if winerror in {2, 3, 267} or errno == 2:
-            log("[提示] 找不到目标文件，请检查路径。")
+            log(f"[提示] {launch.get('not_found_hint')}")
         elif winerror == 5 or errno == 13:
-            log("[提示] 没有权限执行该操作。")
+            log(f"[提示] {launch.get('permission_hint')}")
         else:
-            log("[提示] 命令执行失败，请查看退出码和错误输出。")
+            log(f"[提示] {launch.get('generic_hint')}")
         return
-    encoding = locale.getpreferredencoding(False) or "utf-8"
-    stdout = stdout_bytes.decode(encoding, errors="replace")
-    stderr = stderr_bytes.decode(encoding, errors="replace")
+
+    preferred = locale.getpreferredencoding(False) or "utf-8"
+    fallback_encodings = launch.get("fallback_encodings", [])
+
+    def decode_output(data: bytes) -> str:
+        seen = set()
+        for encoding in [preferred, *fallback_encodings]:
+            normalized = str(encoding).lower()
+            if normalized in seen:
+                continue
+            seen.add(normalized)
+            try:
+                return data.decode(encoding)
+            except (LookupError, UnicodeDecodeError):
+                continue
+        return data.decode(preferred, errors="replace")
+
+    stdout = decode_output(stdout_bytes)
+    stderr = decode_output(stderr_bytes)
 
     log(f"[命令] {command}")
     for line in stdout.rstrip().splitlines():
@@ -326,9 +332,9 @@ def run_command_step(step: dict) -> None:
     if returncode != 0:
         log("[失败] 命令执行失败")
         if returncode == 9009:
-            log("[提示] 未找到可执行命令，请检查程序是否安装或是否加入 PATH。")
+            log(f"[提示] {launch.get('returncode_9009_hint')}")
         else:
-            log("[提示] 命令执行失败，请查看退出码和错误输出。")
+            log(f"[提示] {launch.get('generic_hint')}")
         return
 
     log("[成功] 命令执行完成")
@@ -418,6 +424,27 @@ def _safe_asset_name(index: int, path: Path) -> str:
     return f"app_{index}_{stem}{path.suffix.lower()}"
 
 
+def _serialized_command_launch(command: str, shell: str) -> dict:
+    """Materialize the shared CommandBackend contract for a standalone launcher."""
+    backend = get_command_backend()
+    spec = backend.build_launch_spec(command, shell)
+    startupinfo = spec.startupinfo
+    return {
+        "command_args": list(spec.command_args),
+        "process_args": list(spec.process_args),
+        "environment_overrides": dict(spec.environment_overrides),
+        "creationflags": spec.creationflags,
+        "use_startupinfo": startupinfo is not None,
+        "startupinfo_dw_flags": int(getattr(startupinfo, "dwFlags", 0)),
+        "startupinfo_show_window": int(getattr(startupinfo, "wShowWindow", 0)),
+        "fallback_encodings": list(spec.fallback_encodings),
+        "returncode_9009_hint": backend.explain_failure(9009, None),
+        "not_found_hint": backend.explain_failure(-1, "not_found"),
+        "permission_hint": backend.explain_failure(-1, "permission_denied"),
+        "generic_hint": backend.explain_failure(1, None),
+    }
+
+
 def _prepare_embedded_plan_and_assets(plan_dict: dict) -> tuple[dict, list[tuple[Path, str]]]:
     """
     复制一份用于打包的方案数据，并收集可随包携带的本地应用文件。
@@ -435,7 +462,17 @@ def _prepare_embedded_plan_and_assets(plan_dict: dict) -> tuple[dict, list[tuple
         return embedded_plan, assets
 
     for index, step in enumerate(steps, start=1):
-        if not isinstance(step, dict) or step.get("type") != "app":
+        if not isinstance(step, dict):
+            continue
+
+        if step.get("type") == "command":
+            command = str(step.get("command", "")).strip()
+            shell = str(step.get("shell", "cmd")).lower()
+            compatible_shell = "powershell" if shell == "powershell" else "cmd"
+            step["_command_launch"] = _serialized_command_launch(command, compatible_shell)
+            continue
+
+        if step.get("type") != "app":
             continue
 
         raw_path = str(step.get("path", "")).strip()

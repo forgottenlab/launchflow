@@ -27,7 +27,7 @@ from runtime.command_runner import (
 from runtime.launcher_runtime import RuntimeExecutor
 from licensing.hwid import _read_volume_serial
 from shared.models import CommandStep
-from tools.build_single_exe import EMBEDDED_TEMPLATE
+from tools.build_single_exe import EMBEDDED_TEMPLATE, _prepare_embedded_plan_and_assets
 
 
 def _cmd_pids() -> set[int]:
@@ -93,22 +93,26 @@ def _check_embedded_runner_contract(temp_root: Path) -> None:
         ):
             raise AssertionError("embedded Application process did not isolate standard streams")
         run_command_step = namespace["run_command_step"]
-        run_command_step({"command": "vol C:", "shell": "cmd", "working_dir": ""})
-        run_command_step(
-            {
-                "command": 'python -c "print(\'embedded-quoted-command\')"',
-                "shell": "cmd",
-                "working_dir": "",
-            }
-        )
-        run_command_step(
-            {
-                "command": "launchflow-embedded-command-does-not-exist",
-                "shell": "cmd",
-                "working_dir": "",
-            }
-        )
-        run_command_step({"command": "exit /b 9009", "shell": "cmd", "working_dir": ""})
+
+        def command_step(command: str, shell: str = "cmd") -> dict:
+            plan, _assets = _prepare_embedded_plan_and_assets(
+                {
+                    "steps": [
+                        {
+                            "type": "command",
+                            "command": command,
+                            "shell": shell,
+                            "working_dir": "",
+                        }
+                    ]
+                }
+            )
+            return plan["steps"][0]
+
+        run_command_step(command_step("vol C:"))
+        run_command_step(command_step('python -c "print(\'embedded-quoted-command\')"'))
+        run_command_step(command_step("launchflow-embedded-command-does-not-exist"))
+        run_command_step(command_step("exit /b 9009"))
         log_path = namespace["LOG_PATH"]
         log_text = log_path.read_text(encoding="utf-8")
         if "embedded-quoted-command" not in log_text or "[退出码] 0" not in log_text:

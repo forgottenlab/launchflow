@@ -47,7 +47,7 @@ These are conceptual findings. The static checker reports individual source occu
 
 | ID | Area | Severity | File / Symbol | Windows Assumption | Linux Impact | macOS Impact | Recommendation |
 |---|---|---|---|---|---|---|---|
-| CP-01 | Process/shell | P1 | `shared/models.py:102`; `runtime.command_runner.build_command_args` at `runtime/command_runner.py:47-64` | cmd/PowerShell shell IDs | Saved shell is silently run with `/bin/sh` | zsh is not modeled; saved shell is silently run with `/bin/sh` | `CommandBackend`; reject unsupported shell values |
+| CP-01 | Process/shell | P1 | `shared/platform/process.py`; facade in `runtime/command_runner.py`; export materialization in `tools/build_single_exe.py` | cmd/PowerShell shell IDs and Windows LaunchSpec | Unsupported legacy `/bin/sh` fallback remains | Unsupported legacy `/bin/sh` fallback remains; zsh is not modeled | Phase 1b boundary complete; native shell capabilities remain future work |
 | CP-02 | URL launch | P1 | `RuntimeExecutor._run_url` at `runtime/launcher_runtime.py:176-197` | `os.startfile` opens default browser | Default URL fails | Default URL fails | `ApplicationLauncher.open_url` |
 | CP-03 | Application | P1 | `RuntimeExecutor._run_app` at `runtime/launcher_runtime.py:136-174` | `.lnk`, `.ps1`, Windows picker filters | No `.sh`/`.desktop`/AppImage policy | No `.app`/`.command`/open policy | Per-platform application capability/filter |
 | CP-04 | HWID | P1 | `licensing/hwid.py:37-100` | MachineGuid plus `vol C:` | Generic fallback is not stability-proven | Generic fallback is not stability-proven | Versioned `HardwareIdentityProvider` |
@@ -72,7 +72,7 @@ These are conceptual findings. The static checker reports individual source occu
 
 | ID | Severity | Boundary | Evidence and impact |
 |---|---|---|---|
-| CP-01 | P1 | Command backend | `CommandStep.shell` defaults to `cmd` (`shared/models.py:102`), templates repeat that default (`editor/services/plan_service.py:65,263`), the UI only accepts `cmd`/`powershell` (`editor/ui/main_window.py:532,2301`), while every non-Windows host is silently mapped to `/bin/sh` (`runtime/command_runner.py:47-64`). A saved `cmd` plan would therefore change semantics rather than report incompatibility. |
+| CP-01 | P1 | Command backend | Phase 1b moved Windows argv, hiding, quoting, decode candidates, and failure interpretation into `shared/platform/process.py`; `runtime/command_runner.py` executes the LaunchSpec and the standalone export builder materializes it into the copied embedded plan. `CommandStep.shell` still defaults to `cmd`, the UI/schema still expose only `cmd`/`powershell`, and non-Windows retains the old `/bin/sh -c` mapping only as an explicitly unsupported legacy fallback. Native Linux/macOS shell capability and rejection policy remain unresolved. |
 | CP-02 | P1 | Default browser | Default URL launch uses unguarded `os.startfile` (`runtime/launcher_runtime.py:176-197`); the exported launcher duplicates it (`tools/build_single_exe.py:216-232`). URL data is portable, but default-browser execution is not. |
 | CP-03 | P1 | Application launch | Runtime has special `.lnk` and `.ps1` paths (`runtime/launcher_runtime.py:151-167`); the picker advertises only Windows suffixes (`editor/ui/main_window.py:3387-3400`). Generic executable launch is reusable, but Linux desktop files, macOS app bundles, and native open semantics are absent. |
 | CP-04 | P1 | Hardware identity | Windows uses registry `MachineGuid` and `vol C:` (`licensing/hwid.py:37-60,84-100`). Other systems fall back to OS version, hostname, and username (`licensing/hwid.py:63-81`), so identity can change on OS upgrade, hostname change, or account change. Activation may run, but durable binding is not established. |
@@ -95,7 +95,7 @@ These are conceptual findings. The static checker reports individual source occu
 
 ## Process and Shell Execution
 
-`execute_command` already provides the reusable contract of argv execution with `shell=False`, `stdin=DEVNULL`, two pipes, `communicate()`, and raw return data (`runtime/command_runner.py:102-157`). Windows-specific argv, hidden/background flags, quoting, code pages, and error normalization must move behind `CommandBackend`. Linux needs explicit sh/bash capabilities; macOS needs explicit zsh/bash capabilities. Installing another shell must not silently reinterpret an existing plan.
+`execute_command` remains the reusable runtime contract for list argv, `shell=False`, `stdin=DEVNULL`, two pipes, `communicate()`, and raw return data. Phase 1b moved Windows argv, hidden flags, quoting, decoding candidates, and error interpretation behind `CommandBackend`; execution and result assembly remain in runtime. The standalone exporter freezes the same LaunchSpec into its internal plan because the generated onefile must not depend on the editor/source tree. Linux still needs explicit sh/bash capabilities and macOS explicit zsh/bash capabilities; the retained legacy `/bin/sh` fallback is not support and must not silently become a native support claim.
 
 ## Application Launching
 

@@ -73,6 +73,12 @@ Phase 1a now provides stdlib-only normalized platform detection, a minimal path-
 
 This completion records an abstraction boundary, not Linux or macOS product support. The legacy fallback deliberately preserves the previous `~/.local/share/LaunchFlow` result until XDG and macOS-native policies are implemented and validated on real target hosts. Phase 1a does not use Qt or `QStandardPaths`, does not alter resources, migration, identity, licensing, runtime execution, packaging, or plan schemas, and must not be used as evidence of non-Windows support.
 
+### Phase 1b status — completed
+
+Phase 1b adds a stdlib-only `CommandBackend` and frozen `CommandLaunchSpec` under `shared/platform/process.py`. The Windows backend owns exact cmd/PowerShell argv, the existing cmd double-quote environment workaround, `CREATE_NO_WINDOW` plus `STARTF_USESHOWWINDOW`/`SW_HIDE`, output decoding candidates, launch-error classification, and friendly failure explanations. `runtime/command_runner.py` remains the public execution facade and continues to own `Popen`, `shell=False`, `DEVNULL`, both PIPE streams, `communicate()`, and `CommandResult` assembly.
+
+The standalone export builder materializes the same LaunchSpec and explanations into its copied embedded plan, avoiding a runtime dependency on the editor/source tree while removing the second platform-selection/argv implementation. Application, URL, and Wait branches remain unchanged. Non-Windows hosts retain the old `/bin/sh -c` path only through a clearly named legacy backend with no declared supported shells; Linux sh/bash and macOS zsh/bash remain future, separately validated work.
+
 ## Phase 2 — Linux x86_64 source-run experimental target
 
 | Field | Definition |

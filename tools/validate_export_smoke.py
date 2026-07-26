@@ -8,6 +8,7 @@ scripts execute from PyInstaller's extracted launchflow_assets directory.
 
 from __future__ import annotations
 
+import ast
 import json
 import os
 import subprocess
@@ -153,9 +154,41 @@ def main() -> None:
         debug_text = debug_script.read_text(encoding="utf-8")
         if "launchflow_assets" not in debug_text or "_embedded_asset" not in debug_text:
             raise AssertionError("Embedded debug script does not reference bundled assets")
-        for command_contract in ["CREATE_NO_WINDOW", '"cmd.exe", "/d", "/s", "/c"', '"-NonInteractive"']:
-            if command_contract not in debug_text:
-                raise AssertionError(f"Embedded command runner is missing: {command_contract}")
+        debug_tree = ast.parse(debug_text, filename=str(debug_script))
+        embedded_plan = None
+        for node in debug_tree.body:
+            if (
+                isinstance(node, ast.Assign)
+                and any(isinstance(target, ast.Name) and target.id == "EMBEDDED_PLAN" for target in node.targets)
+            ):
+                embedded_plan = ast.literal_eval(node.value)
+                break
+        if not isinstance(embedded_plan, dict):
+            raise AssertionError("Embedded debug script does not contain a literal plan")
+        command_steps = [step for step in embedded_plan.get("steps", []) if step.get("type") == "command"]
+        if len(command_steps) != 2:
+            raise AssertionError("Embedded plan does not contain both Command steps")
+        cmd_launch = command_steps[0].get("_command_launch", {})
+        powershell_launch = command_steps[1].get("_command_launch", {})
+        if cmd_launch.get("command_args", [])[:4] != ["cmd.exe", "/d", "/s", "/c"]:
+            raise AssertionError("Embedded cmd argv does not match CommandBackend")
+        if powershell_launch.get("command_args", [])[:7] != [
+            "powershell.exe",
+            "-NoLogo",
+            "-NoProfile",
+            "-NonInteractive",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-Command",
+        ]:
+            raise AssertionError("Embedded PowerShell argv does not match CommandBackend")
+        for launch in (cmd_launch, powershell_launch):
+            if not launch.get("creationflags", 0) & subprocess.CREATE_NO_WINDOW:
+                raise AssertionError("Embedded Command is missing CREATE_NO_WINDOW")
+            if not launch.get("startupinfo_dw_flags", 0) & subprocess.STARTF_USESHOWWINDOW:
+                raise AssertionError("Embedded Command is missing STARTF_USESHOWWINDOW")
+            if launch.get("startupinfo_show_window") != subprocess.SW_HIDE:
+                raise AssertionError("Embedded Command is missing SW_HIDE")
 
         if json.dumps(original_plan, sort_keys=True) != original_snapshot:
             raise AssertionError("build_single_file_exe mutated the original plan")

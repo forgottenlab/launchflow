@@ -323,147 +323,17 @@
       "allowed_to_remain": true
     },
     {
-      "fingerprint": "0692a1caa5774564e7b2",
-      "path": "runtime/command_runner.py",
-      "rule_id": "WIN-BRANCH-001",
-      "area": "platform-branch",
-      "classification": "platform_adapter_candidate",
-      "reason": "Explicit Windows platform branch",
-      "future_target": "shared/platform/detection.py",
-      "allowed_to_remain": true
-    },
-    {
-      "fingerprint": "cb6fd0b0e50c45b01e27",
+      "fingerprint": "132765e586e38a3b8784",
       "path": "runtime/command_runner.py",
       "rule_id": "WIN-SHELL-001",
       "area": "command-shell",
       "classification": "platform_adapter_candidate",
       "reason": "Windows command shell or command",
       "future_target": "CommandBackend",
-      "allowed_to_remain": true
-    },
-    {
-      "fingerprint": "763c7fe5253348e223c6",
-      "path": "runtime/command_runner.py",
-      "rule_id": "WIN-ASSET-001",
-      "area": "artifacts",
-      "classification": "platform_adapter_candidate",
-      "reason": "Windows artifact or script suffix",
-      "future_target": "ApplicationLauncher or PackagingBackend",
-      "allowed_to_remain": true
-    },
-    {
-      "fingerprint": "967e18fe8d3c7649a953",
-      "path": "runtime/command_runner.py",
-      "rule_id": "WIN-SHELL-001",
-      "area": "command-shell",
-      "classification": "platform_adapter_candidate",
-      "reason": "Windows command shell or command",
-      "future_target": "CommandBackend",
-      "allowed_to_remain": true
-    },
-    {
-      "fingerprint": "174536738fee5c0617c5",
-      "path": "runtime/command_runner.py",
-      "rule_id": "WIN-ASSET-001",
-      "area": "artifacts",
-      "classification": "platform_adapter_candidate",
-      "reason": "Windows artifact or script suffix",
-      "future_target": "ApplicationLauncher or PackagingBackend",
-      "allowed_to_remain": true
-    },
-    {
-      "fingerprint": "ef8564a760e66abd8b15",
-      "path": "runtime/command_runner.py",
-      "rule_id": "WIN-SHELL-001",
-      "area": "command-shell",
-      "classification": "platform_adapter_candidate",
-      "reason": "Windows command shell or command",
-      "future_target": "CommandBackend",
-      "allowed_to_remain": true
-    },
-    {
-      "fingerprint": "4b7a8b607ae63e88a453",
-      "path": "runtime/command_runner.py",
-      "rule_id": "UNIX-ASSUME-001",
-      "area": "unix-assumption",
-      "classification": "platform_adapter_candidate",
-      "reason": "Single Unix fallback used for all non-Windows platforms",
-      "future_target": "platform-specific backend selection",
-      "allowed_to_remain": true
-    },
-    {
-      "fingerprint": "169732de949ab14c96f7",
-      "path": "runtime/command_runner.py",
-      "rule_id": "WIN-BRANCH-001",
-      "area": "platform-branch",
-      "classification": "platform_adapter_candidate",
-      "reason": "Explicit Windows platform branch",
-      "future_target": "shared/platform/detection.py",
-      "allowed_to_remain": true
-    },
-    {
-      "fingerprint": "4a79eb6f3dc9a69c5eeb",
-      "path": "runtime/command_runner.py",
-      "rule_id": "WIN-PROC-001",
-      "area": "process",
-      "classification": "platform_adapter_candidate",
-      "reason": "Windows subprocess flag",
-      "future_target": "CommandBackend",
-      "allowed_to_remain": true
-    },
-    {
-      "fingerprint": "d30add2bef24539b942e",
-      "path": "runtime/command_runner.py",
-      "rule_id": "WIN-PROC-001",
-      "area": "process",
-      "classification": "platform_adapter_candidate",
-      "reason": "Windows subprocess flag",
-      "future_target": "CommandBackend",
-      "allowed_to_remain": true
-    },
-    {
-      "fingerprint": "dfd7df364190288067be",
-      "path": "runtime/command_runner.py",
-      "rule_id": "WIN-PROC-001",
-      "area": "process",
-      "classification": "platform_adapter_candidate",
-      "reason": "Windows subprocess flag",
-      "future_target": "CommandBackend",
-      "allowed_to_remain": true
-    },
-    {
-      "fingerprint": "0692a1caa5774564e7b2",
-      "path": "runtime/command_runner.py",
-      "rule_id": "WIN-BRANCH-001",
-      "area": "platform-branch",
-      "classification": "platform_adapter_candidate",
-      "reason": "Explicit Windows platform branch",
-      "future_target": "shared/platform/detection.py",
       "allowed_to_remain": true
     },
     {
       "fingerprint": "91b3e27794e990dc73f5",
-      "path": "runtime/command_runner.py",
-      "rule_id": "WIN-SHELL-001",
-      "area": "command-shell",
-      "classification": "platform_adapter_candidate",
-      "reason": "Windows command shell or command",
-      "future_target": "CommandBackend",
-      "allowed_to_remain": true
-    },
-    {
-      "fingerprint": "e9ceccf058a44a7bedc5",
-      "path": "runtime/command_runner.py",
-      "rule_id": "WIN-BRANCH-001",
-      "area": "platform-branch",
-      "classification": "platform_adapter_candidate",
-      "reason": "Explicit Windows platform branch",
-      "future_target": "shared/platform/detection.py",
-      "allowed_to_remain": true
-    },
-    {
-      "fingerprint": "ff0ef5ce3446e8a3c2a6",
       "path": "runtime/command_runner.py",
       "rule_id": "WIN-SHELL-001",
       "area": "command-shell",
@@ -680,6 +550,136 @@
       "classification": "allowed_windows_boundary",
       "reason": "Windows user-data path or environment variable",
       "future_target": "PlatformPaths",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "fb3b14d2714d60fa1824",
+      "path": "shared/platform/process.py",
+      "rule_id": "WIN-PROC-001",
+      "area": "process",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows subprocess flag",
+      "future_target": "CommandBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "749d0bda9fad3c7125d0",
+      "path": "shared/platform/process.py",
+      "rule_id": "WIN-PROC-001",
+      "area": "process",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows subprocess flag",
+      "future_target": "CommandBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "dcc615c1628d3ff28da7",
+      "path": "shared/platform/process.py",
+      "rule_id": "WIN-PROC-001",
+      "area": "process",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows subprocess flag",
+      "future_target": "CommandBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "bc16c0359a248836da0c",
+      "path": "shared/platform/process.py",
+      "rule_id": "WIN-SHELL-001",
+      "area": "command-shell",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows command shell or command",
+      "future_target": "CommandBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "05e247c0cba1d979e563",
+      "path": "shared/platform/process.py",
+      "rule_id": "WIN-SHELL-001",
+      "area": "command-shell",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows command shell or command",
+      "future_target": "CommandBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "07571acd8aaa50e4c98a",
+      "path": "shared/platform/process.py",
+      "rule_id": "WIN-SHELL-001",
+      "area": "command-shell",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows command shell or command",
+      "future_target": "CommandBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "eba82a380f1fa677db9f",
+      "path": "shared/platform/process.py",
+      "rule_id": "WIN-ASSET-001",
+      "area": "artifacts",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows artifact or script suffix",
+      "future_target": "ApplicationLauncher or PackagingBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "ece74bb4ef634ffaeaae",
+      "path": "shared/platform/process.py",
+      "rule_id": "WIN-SHELL-001",
+      "area": "command-shell",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows command shell or command",
+      "future_target": "CommandBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "75a7df680683f5c52b28",
+      "path": "shared/platform/process.py",
+      "rule_id": "WIN-ASSET-001",
+      "area": "artifacts",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows artifact or script suffix",
+      "future_target": "ApplicationLauncher or PackagingBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "685ad9c0aa3b2040c7ed",
+      "path": "shared/platform/process.py",
+      "rule_id": "WIN-SHELL-001",
+      "area": "command-shell",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows command shell or command",
+      "future_target": "CommandBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "398872954c07c0b5ad05",
+      "path": "shared/platform/process.py",
+      "rule_id": "WIN-SHELL-001",
+      "area": "command-shell",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows command shell or command",
+      "future_target": "CommandBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "05e247c0cba1d979e563",
+      "path": "shared/platform/process.py",
+      "rule_id": "WIN-SHELL-001",
+      "area": "command-shell",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows command shell or command",
+      "future_target": "CommandBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "a6068134a94f1765c108",
+      "path": "shared/platform/process.py",
+      "rule_id": "UNIX-ASSUME-001",
+      "area": "unix-assumption",
+      "classification": "allowed_windows_boundary",
+      "reason": "Single Unix fallback used for all non-Windows platforms",
+      "future_target": "platform-specific backend selection",
       "allowed_to_remain": true
     },
     {
@@ -943,117 +943,7 @@
       "allowed_to_remain": true
     },
     {
-      "fingerprint": "eb037ecfdf3e118cf42f",
-      "path": "tools/build_single_exe.py",
-      "rule_id": "WIN-BRANCH-001",
-      "area": "platform-branch",
-      "classification": "allowed_windows_boundary",
-      "reason": "Explicit Windows platform branch",
-      "future_target": "shared/platform/detection.py",
-      "allowed_to_remain": true
-    },
-    {
-      "fingerprint": "db59ba000ec7721224e3",
-      "path": "tools/build_single_exe.py",
-      "rule_id": "WIN-SHELL-001",
-      "area": "command-shell",
-      "classification": "allowed_windows_boundary",
-      "reason": "Windows command shell or command",
-      "future_target": "CommandBackend",
-      "allowed_to_remain": true
-    },
-    {
-      "fingerprint": "9125ab72d811051ab0cd",
-      "path": "tools/build_single_exe.py",
-      "rule_id": "WIN-ASSET-001",
-      "area": "artifacts",
-      "classification": "allowed_windows_boundary",
-      "reason": "Windows artifact or script suffix",
-      "future_target": "ApplicationLauncher or PackagingBackend",
-      "allowed_to_remain": true
-    },
-    {
-      "fingerprint": "a23adbd774e559ecf6bb",
-      "path": "tools/build_single_exe.py",
-      "rule_id": "WIN-SHELL-001",
-      "area": "command-shell",
-      "classification": "allowed_windows_boundary",
-      "reason": "Windows command shell or command",
-      "future_target": "CommandBackend",
-      "allowed_to_remain": true
-    },
-    {
-      "fingerprint": "7088f409aa7ce4b955a8",
-      "path": "tools/build_single_exe.py",
-      "rule_id": "WIN-ASSET-001",
-      "area": "artifacts",
-      "classification": "allowed_windows_boundary",
-      "reason": "Windows artifact or script suffix",
-      "future_target": "ApplicationLauncher or PackagingBackend",
-      "allowed_to_remain": true
-    },
-    {
-      "fingerprint": "8da7a02aeea7dae54020",
-      "path": "tools/build_single_exe.py",
-      "rule_id": "WIN-SHELL-001",
-      "area": "command-shell",
-      "classification": "allowed_windows_boundary",
-      "reason": "Windows command shell or command",
-      "future_target": "CommandBackend",
-      "allowed_to_remain": true
-    },
-    {
-      "fingerprint": "4e6012e8caf74bafd7eb",
-      "path": "tools/build_single_exe.py",
-      "rule_id": "WIN-PROC-001",
-      "area": "process",
-      "classification": "allowed_windows_boundary",
-      "reason": "Windows subprocess flag",
-      "future_target": "CommandBackend",
-      "allowed_to_remain": true
-    },
-    {
-      "fingerprint": "5875cf8e9f98008bb666",
-      "path": "tools/build_single_exe.py",
-      "rule_id": "WIN-PROC-001",
-      "area": "process",
-      "classification": "allowed_windows_boundary",
-      "reason": "Windows subprocess flag",
-      "future_target": "CommandBackend",
-      "allowed_to_remain": true
-    },
-    {
-      "fingerprint": "ac77e67fc02b2911aff9",
-      "path": "tools/build_single_exe.py",
-      "rule_id": "WIN-PROC-001",
-      "area": "process",
-      "classification": "allowed_windows_boundary",
-      "reason": "Windows subprocess flag",
-      "future_target": "CommandBackend",
-      "allowed_to_remain": true
-    },
-    {
-      "fingerprint": "b39e243e69f12f8548db",
-      "path": "tools/build_single_exe.py",
-      "rule_id": "UNIX-ASSUME-001",
-      "area": "unix-assumption",
-      "classification": "allowed_windows_boundary",
-      "reason": "Single Unix fallback used for all non-Windows platforms",
-      "future_target": "platform-specific backend selection",
-      "allowed_to_remain": true
-    },
-    {
-      "fingerprint": "fdfcc9a7c010a7386103",
-      "path": "tools/build_single_exe.py",
-      "rule_id": "WIN-BRANCH-001",
-      "area": "platform-branch",
-      "classification": "allowed_windows_boundary",
-      "reason": "Explicit Windows platform branch",
-      "future_target": "shared/platform/detection.py",
-      "allowed_to_remain": true
-    },
-    {
-      "fingerprint": "1b9bc9349ebe457e3873",
+      "fingerprint": "17a6b8b4b0deb3273e02",
       "path": "tools/build_single_exe.py",
       "rule_id": "WIN-SHELL-001",
       "area": "command-shell",
