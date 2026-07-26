@@ -26,11 +26,11 @@ from __future__ import annotations
 import os
 import subprocess
 import time
-from pathlib import Path
-from typing import Callable, Optional
+from typing import Any, Callable, Optional
 
 from runtime.command_runner import CommandResult, execute_command, friendly_command_error
 from shared.models import Plan, AppStep, UrlStep, CommandStep, WaitStep
+from shared.platform.applications import ApplicationLaunchSpec, get_application_launcher
 
 
 LogCallback = Optional[Callable[[str], None]]
@@ -39,18 +39,34 @@ LogCallback = Optional[Callable[[str], None]]
 def application_popen_options(start_minimized: bool = False) -> dict:
     """Return fire-and-forget Application process options isolated from the editor console."""
 
-    options = {
-        "stdin": subprocess.DEVNULL,
-        "stdout": subprocess.DEVNULL,
-        "stderr": subprocess.DEVNULL,
-    }
-    if os.name == "nt":
-        options["creationflags"] = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-        if start_minimized:
-            startupinfo = subprocess.STARTUPINFO()
-            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-            startupinfo.wShowWindow = 6
-            options["startupinfo"] = startupinfo
+    launcher = get_application_launcher(
+        path_exists=lambda _path: True,
+        path_is_directory=lambda _path: False,
+    )
+    spec = launcher.build_launch_spec(
+        "__launchflow_application__",
+        (),
+        "",
+        start_minimized,
+    )
+    return _application_process_options(spec)
+
+
+def _application_process_options(spec: ApplicationLaunchSpec) -> dict[str, Any]:
+    options: dict[str, Any] = {}
+    if spec.use_stdin_devnull:
+        options["stdin"] = subprocess.DEVNULL
+    if spec.use_stdout_devnull:
+        options["stdout"] = subprocess.DEVNULL
+    if spec.use_stderr_devnull:
+        options["stderr"] = subprocess.DEVNULL
+    if spec.creationflags:
+        options["creationflags"] = spec.creationflags
+    if spec.use_startupinfo:
+        startupinfo = subprocess.STARTUPINFO()
+        startupinfo.dwFlags = spec.startupinfo_dw_flags
+        startupinfo.wShowWindow = spec.startupinfo_show_window
+        options["startupinfo"] = startupinfo
     return options
 
 
@@ -143,34 +159,27 @@ class RuntimeExecutor:
         异常：
         - FileNotFoundError: 当程序路径不存在时抛出。
         """
-        if not os.path.exists(step.path):
-            raise FileNotFoundError(f"程序路径不存在: {step.path}")
+        launcher = get_application_launcher()
+        launch_spec = launcher.build_launch_spec(
+            step.path,
+            step.args,
+            step.working_dir,
+            step.start_minimized,
+        )
 
-        ext = Path(step.path).suffix.lower()
-
-        if ext == ".lnk":
-            os.startfile(step.path)
+        if launch_spec.launch_mode == "shell_open":
+            os.startfile(launch_spec.resolved_target)  # type: ignore[attr-defined]
             self.log(f"[成功] 已通过快捷方式启动应用: {step.name}")
             return
 
-        command = [step.path] + list(step.args)
-
-        popen_options = application_popen_options(step.start_minimized)
-
-        if ext == ".ps1":
-            subprocess.Popen(
-                ["powershell", "-ExecutionPolicy", "Bypass", "-File", step.path] + list(step.args),
-                cwd=step.working_dir or None,
-                **popen_options,
-            )
+        subprocess.Popen(
+            list(launch_spec.command_args),
+            cwd=launch_spec.cwd,
+            **_application_process_options(launch_spec),
+        )
+        if launch_spec.target_kind == "powershell_script":
             self.log(f"[成功] 已启动 PowerShell 脚本: {step.name}")
             return
-
-        subprocess.Popen(
-            command,
-            cwd=step.working_dir or None,
-            **popen_options,
-        )
         self.log(f"[成功] 已启动应用: {step.name}")
 
     def run_url_step(self, step: UrlStep) -> None:

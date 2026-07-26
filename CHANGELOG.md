@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added / 新增
+- 新增 stdlib-only `ApplicationLauncher`/`ApplicationLaunchSpec` 平台合同；Windows `.exe`、`.com`、`.bat`、`.cmd`、`.ps1`、`.lnk`、无后缀与其他目标的分类、参数、工作目录、最小化、`DEVNULL` 和 fire-and-forget 行为保持兼容，源码试运行与独立导出启动器消费同一合同。
 - 新增 stdlib-only `CommandBackend`/`CommandLaunchSpec` 平台合同；Windows cmd、PowerShell、引号保护、隐藏窗口、解码和错误说明保持兼容，编辑器试运行与独立导出启动器消费同一合同，并新增 backend 等价性 smoke。
 - 新增 stdlib-only `shared/platform` 检测与路径适配边界；`shared/app_paths.py` 保持原有 API、Windows/Dev/`LAUNCHFLOW_DATA_DIR` 行为及无副作用路径计算，并由独立 smoke 证明非 Windows 仅为旧回退兼容而非支持声明。
 - 新增跨平台耦合审计、支持矩阵与分阶段适配路线图，并加入带审核基线的 stdlib 静态检查，阻止核心包出现未登记的平台耦合。

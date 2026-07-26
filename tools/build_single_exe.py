@@ -33,11 +33,15 @@ from copy import deepcopy
 from contextlib import contextmanager
 from pathlib import Path
 
+from shared.platform.applications import get_application_launcher
 from shared.platform.process import get_command_backend
 
 
 ASSET_DIR_NAME = "launchflow_assets"
 PACKABLE_APP_SUFFIXES = {".exe", ".bat", ".cmd", ".com", ".ps1"}
+APPLICATION_LAUNCH_SCHEMA = 1
+APPLICATION_ASSET_PREFIX = "__LAUNCHFLOW_ASSET__/"
+APPLICATION_ASSET_DIR = "__LAUNCHFLOW_ASSET_DIR__"
 
 
 @contextmanager
@@ -69,6 +73,9 @@ from datetime import datetime
 
 
 EMBEDDED_PLAN = __PLAN_DATA__
+APPLICATION_LAUNCH_SCHEMA = 1
+APPLICATION_ASSET_PREFIX = "__LAUNCHFLOW_ASSET__/"
+APPLICATION_ASSET_DIR = "__LAUNCHFLOW_ASSET_DIR__"
 
 
 def get_base_dir() -> Path:
@@ -149,69 +156,72 @@ def show_error(title: str, message: str) -> None:
             pass
 
 
-def application_popen_options(start_minimized: bool = False) -> dict:
-    options = {
-        "stdin": subprocess.DEVNULL,
-        "stdout": subprocess.DEVNULL,
-        "stderr": subprocess.DEVNULL,
-    }
-    if os.name == "nt":
-        options["creationflags"] = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-        if start_minimized:
-            startupinfo = subprocess.STARTUPINFO()
-            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-            startupinfo.wShowWindow = 6
-            options["startupinfo"] = startupinfo
+def resolve_application_value(value):
+    if value == APPLICATION_ASSET_DIR:
+        return str(get_asset_base_dir() / "launchflow_assets")
+    if isinstance(value, str) and value.startswith(APPLICATION_ASSET_PREFIX):
+        relative_path = value[len(APPLICATION_ASSET_PREFIX):]
+        return str(get_asset_base_dir() / Path(relative_path))
+    return value
+
+
+def application_process_options(launch: dict) -> dict:
+    options = {}
+    if launch.get("use_stdin_devnull", False):
+        options["stdin"] = subprocess.DEVNULL
+    if launch.get("use_stdout_devnull", False):
+        options["stdout"] = subprocess.DEVNULL
+    if launch.get("use_stderr_devnull", False):
+        options["stderr"] = subprocess.DEVNULL
+    creationflags = int(launch.get("creationflags", 0))
+    if creationflags:
+        options["creationflags"] = creationflags
+    if launch.get("use_startupinfo", False):
+        startupinfo = subprocess.STARTUPINFO()
+        startupinfo.dwFlags = int(launch.get("startupinfo_dw_flags", 0))
+        startupinfo.wShowWindow = int(launch.get("startupinfo_show_window", 0))
+        options["startupinfo"] = startupinfo
     return options
 
 
 def run_app_step(step: dict) -> None:
-    path = str(step.get("path", "")).strip()
-    embedded_asset = str(step.get("_embedded_asset", "")).strip()
+    launch = step.get("_application_launch")
+    if not isinstance(launch, dict) or launch.get("schema") != APPLICATION_LAUNCH_SCHEMA:
+        raise ValueError("应用启动合同缺失或版本不受支持")
 
-    if embedded_asset:
-        embedded_path = get_asset_base_dir() / embedded_asset
-        if embedded_path.exists():
-            path = str(embedded_path)
-        else:
-            log(f"[失败] 内置启动文件不存在: {embedded_path}")
-            return
+    path = str(resolve_application_value(launch.get("resolved_target", "")))
+    embedded_asset = str(step.get("_embedded_asset", "")).strip()
 
     if not path:
         log("[失败] 应用路径为空")
         return
 
     if not os.path.exists(path):
-        log(f"[失败] 程序路径不存在: {path}")
+        if embedded_asset:
+            log(f"[失败] 内置启动文件不存在: {path}")
+        else:
+            log(f"[失败] 程序路径不存在: {path}")
         return
 
-    ext = Path(path).suffix.lower()
-    if ext == ".lnk":
+    launch_mode = str(launch.get("launch_mode", ""))
+    target_kind = str(launch.get("target_kind", ""))
+    if launch_mode == "shell_open":
         os.startfile(path)
         log(f"[成功] 已通过快捷方式启动应用: {step.get('name', '应用')}")
         return
 
-    args = step.get("args", [])
-    if not isinstance(args, list):
-        args = []
-
-    working_dir = step.get("working_dir") or None
-    if embedded_asset and not working_dir:
-        working_dir = str(Path(path).parent)
-    start_minimized = bool(step.get("start_minimized", False))
-
-    popen_options = application_popen_options(start_minimized)
-
-    if ext == ".ps1":
-        subprocess.Popen(
-            ["powershell", "-ExecutionPolicy", "Bypass", "-File", path] + list(args),
-            cwd=working_dir,
-            **popen_options,
-        )
+    command_args = [str(resolve_application_value(value)) for value in launch.get("command_args", [])]
+    if not command_args:
+        raise ValueError("应用启动参数无效")
+    working_dir = resolve_application_value(launch.get("cwd"))
+    subprocess.Popen(
+        command_args,
+        cwd=working_dir,
+        **application_process_options(launch),
+    )
+    if target_kind == "powershell_script":
         log(f"[成功] 已启动 PowerShell 脚本: {step.get('name', '应用')}")
         return
-
-    subprocess.Popen([path] + list(args), cwd=working_dir, **popen_options)
     log(f"[成功] 已启动应用: {step.get('name', '应用')}")
 
 
@@ -445,6 +455,37 @@ def _serialized_command_launch(command: str, shell: str) -> dict:
     }
 
 
+def _serialized_application_launch(
+    path: str,
+    arguments: list[str],
+    working_dir: str,
+    start_minimized: bool,
+) -> dict:
+    """Materialize the shared ApplicationLauncher contract for a standalone launcher."""
+
+    launcher = get_application_launcher(
+        path_exists=lambda _path: True,
+        path_is_directory=lambda _path: False,
+    )
+    spec = launcher.build_launch_spec(path, arguments, working_dir, start_minimized)
+    return {
+        "schema": APPLICATION_LAUNCH_SCHEMA,
+        "launch_mode": spec.launch_mode,
+        "target_kind": spec.target_kind,
+        "executable": spec.executable,
+        "command_args": list(spec.command_args),
+        "cwd": spec.cwd,
+        "creationflags": spec.creationflags,
+        "use_startupinfo": spec.use_startupinfo,
+        "startupinfo_dw_flags": spec.startupinfo_dw_flags,
+        "startupinfo_show_window": spec.startupinfo_show_window,
+        "use_stdin_devnull": spec.use_stdin_devnull,
+        "use_stdout_devnull": spec.use_stdout_devnull,
+        "use_stderr_devnull": spec.use_stderr_devnull,
+        "resolved_target": spec.resolved_target,
+    }
+
+
 def _prepare_embedded_plan_and_assets(plan_dict: dict) -> tuple[dict, list[tuple[Path, str]]]:
     """
     复制一份用于打包的方案数据，并收集可随包携带的本地应用文件。
@@ -476,24 +517,32 @@ def _prepare_embedded_plan_and_assets(plan_dict: dict) -> tuple[dict, list[tuple
             continue
 
         raw_path = str(step.get("path", "")).strip()
-        if not raw_path:
-            continue
-
         source_path = Path(raw_path)
-        if source_path.suffix.lower() not in PACKABLE_APP_SUFFIXES:
-            continue
+        launch_path = raw_path
+        launch_working_dir = str(step.get("working_dir", "") or "")
+        if source_path.suffix.lower() in PACKABLE_APP_SUFFIXES and source_path.is_file():
+            source_path = source_path.resolve()
+            asset_name = seen_sources.get(source_path)
+            if asset_name is None:
+                asset_name = _safe_asset_name(len(seen_sources) + 1, source_path)
+                seen_sources[source_path] = asset_name
+                assets.append((source_path, asset_name))
 
-        if not source_path.is_file():
-            continue
+            embedded_asset = f"{ASSET_DIR_NAME}/{asset_name}"
+            step["_embedded_asset"] = embedded_asset
+            launch_path = f"{APPLICATION_ASSET_PREFIX}{embedded_asset}"
+            if not launch_working_dir:
+                launch_working_dir = APPLICATION_ASSET_DIR
 
-        source_path = source_path.resolve()
-        asset_name = seen_sources.get(source_path)
-        if asset_name is None:
-            asset_name = _safe_asset_name(len(seen_sources) + 1, source_path)
-            seen_sources[source_path] = asset_name
-            assets.append((source_path, asset_name))
-
-        step["_embedded_asset"] = f"{ASSET_DIR_NAME}/{asset_name}"
+        arguments = step.get("args", [])
+        if not isinstance(arguments, list):
+            arguments = []
+        step["_application_launch"] = _serialized_application_launch(
+            launch_path,
+            arguments,
+            launch_working_dir,
+            bool(step.get("start_minimized", False)),
+        )
 
     return embedded_plan, assets
 

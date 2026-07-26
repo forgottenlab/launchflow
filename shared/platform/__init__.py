@@ -7,6 +7,13 @@ from shared.platform.paths import (
     WindowsPlatformPaths,
     get_platform_path_provider,
 )
+from shared.platform.applications import (
+    ApplicationLauncher,
+    ApplicationLaunchSpec,
+    LegacyPosixApplicationLauncher,
+    WindowsApplicationLauncher,
+    get_application_launcher,
+)
 from shared.platform.process import (
     CommandBackend,
     CommandLaunchSpec,
@@ -16,16 +23,21 @@ from shared.platform.process import (
 )
 
 __all__ = (
+    "ApplicationLauncher",
+    "ApplicationLaunchSpec",
     "LegacyFallbackPlatformPaths",
+    "LegacyPosixApplicationLauncher",
     "LegacyPosixCommandBackend",
     "CommandBackend",
     "CommandLaunchSpec",
     "PlatformInfo",
     "PlatformPathProvider",
     "WindowsPlatformPaths",
+    "WindowsApplicationLauncher",
     "WindowsCommandBackend",
     "current_platform_info",
     "detect_platform",
     "get_platform_path_provider",
+    "get_application_launcher",
     "get_command_backend",
 )

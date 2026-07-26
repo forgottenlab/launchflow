@@ -307,9 +307,9 @@ LaunchFlow 的核心目标是：
 ## 10. Beta 命令执行与 Windows 身份
 
 - 源码试运行调用链为 `MainWindow` → `TrialRunWorker(QThread)` → `RuntimeExecutor` → `runtime.command_runner`。Qt 主线程只接收 Signal 日志，不直接等待子进程。
-- Command 与 Application 保持不同语义：Command 等待完成并捕获 stdout/stderr/return code；Application 继续按长期 GUI/脚本启动项语义使用 `Popen`。
+- Command 与 Application 保持不同语义：Command 等待完成并捕获 stdout/stderr/return code；Application 由 `shared/platform/applications.py` 构造不可变启动规格，runtime 仍按长期 GUI/脚本启动项语义使用 fire-and-forget `Popen` 或 `.lnk` 的 `os.startfile`。
 - Windows Command 使用 `CREATE_NO_WINDOW`、`STARTF_USESHOWWINDOW`、`SW_HIDE`。cmd 前缀为 `cmd.exe /d /s /c`，PowerShell 为无 Profile、NonInteractive 调用。
-- 导出启动器是独立嵌入式执行器，不直接导入源码 RuntimeExecutor，但同步执行相同的无窗口与结果判断策略；随包应用资产仍从 `_MEIPASS/launchflow_assets` 解析。
+- 导出启动器是独立嵌入式执行器，不直接导入源码 RuntimeExecutor；构建器把 Command 与 Application 的共享启动规格写入深拷贝后的内部方案，随包应用资产仍从 `_MEIPASS/launchflow_assets` 解析，用户方案 JSON 不包含这些内部字段。
 - `editor/main.py` 在创建 QApplication 前设置 `forgottenlab.launchflow.editor`，并从源码 `assets/` 或 frozen `_MEIPASS/assets/` 加载 ICO。
 - PyInstaller 构建必须在完整 Conda 激活环境中执行，尤其需让 `Library/bin` 进入 PATH，以便正确收集运行时 DLL。
 
@@ -348,7 +348,7 @@ LaunchFlow 的核心目标是：
 - Command 文本写回时不裁剪内容；空值判断只在执行预检中使用 `strip()`，因此引号、换行、百分号和中文保持原样。
 - 保存执行结构校验并允许不完整草稿；试运行/导出在任何步骤开始前执行全方案字段预检，定位第一个错误步骤并聚焦字段。
 - 通过预检后对 `Plan` 做 `deepcopy`，`TrialRunWorker` 与 `BuildWorker` 只持有稳定快照。
-- Application 与 Command 语义继续分离：Application 的 `Popen` 立即返回并使用 `DEVNULL` 隔离三路标准流；Command 仍使用双 PIPE、`communicate()`、return code 和日志捕获。
+- Application 与 Command 语义继续分离：`ApplicationLaunchSpec` 只描述目标类型、argv、cwd、窗口和标准流策略；runtime 的 `Popen` 立即返回并使用 `DEVNULL` 隔离三路标准流，Command 仍使用双 PIPE、`communicate()`、return code 和日志捕获。
 
 ## 15. 步骤排序与诊断反馈
 

@@ -9,6 +9,8 @@ scripts execute from PyInstaller's extracted launchflow_assets directory.
 from __future__ import annotations
 
 import ast
+import csv
+import io
 import json
 import os
 import subprocess
@@ -20,7 +22,13 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from tools.build_single_exe import build_single_file_exe, writable_temporary_directory
+from tools.build_single_exe import (
+    APPLICATION_ASSET_DIR,
+    APPLICATION_ASSET_PREFIX,
+    APPLICATION_LAUNCH_SCHEMA,
+    build_single_file_exe,
+    writable_temporary_directory,
+)
 
 
 def _wait_for_files(paths: list[Path], timeout_seconds: float = 35.0) -> None:
@@ -65,6 +73,28 @@ def _stop_process_tree(proc: subprocess.Popen) -> None:
         proc.kill()
 
 
+def _process_pids(image_name: str) -> set[int]:
+    if os.name != "nt":
+        return set()
+    completed = subprocess.run(
+        ["tasklist.exe", "/FI", f"IMAGENAME eq {image_name}", "/FO", "CSV", "/NH"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+    )
+    pids: set[int] = set()
+    for row in csv.reader(io.StringIO(completed.stdout)):
+        if len(row) >= 2 and row[0].lower() == image_name.lower():
+            try:
+                pids.add(int(row[1]))
+            except ValueError:
+                pass
+    return pids
+
+
 def main() -> None:
     smoke_parent = PROJECT_ROOT / "dist" / ".export-smoke-runtime"
     with writable_temporary_directory("launchflow-export-smoke-", smoke_parent) as tmp_dir:
@@ -78,10 +108,12 @@ def main() -> None:
         app_data_dir = tmp_dir / "测试 AppData"
 
         cmd_script.write_text(
-            '@echo off\r\necho %~f0> "%~1"\r\nexit /b 0\r\n',
+            '@echo off\r\necho APP_STDOUT_POLLUTION\r\necho APP_STDERR_POLLUTION 1>&2\r\necho %~f0> "%~1"\r\nexit /b 0\r\n',
             encoding="utf-8",
         )
         ps1_script.write_text(
+            'Write-Output "APP_STDOUT_POLLUTION"\n'
+            '[Console]::Error.WriteLine("APP_STDERR_POLLUTION")\n'
             'Set-Content -LiteralPath $args[0] -Value $PSCommandPath -Encoding UTF8\n',
             encoding="utf-8",
         )
@@ -165,6 +197,42 @@ def main() -> None:
                 break
         if not isinstance(embedded_plan, dict):
             raise AssertionError("Embedded debug script does not contain a literal plan")
+        application_steps = [step for step in embedded_plan.get("steps", []) if step.get("type") == "app"]
+        if len(application_steps) != 2:
+            raise AssertionError("Embedded plan does not contain both Application steps")
+        cmd_application = application_steps[0].get("_application_launch", {})
+        ps1_application = application_steps[1].get("_application_launch", {})
+        for launch in (cmd_application, ps1_application):
+            if launch.get("schema") != APPLICATION_LAUNCH_SCHEMA:
+                raise AssertionError("Embedded Application launch schema is missing")
+            if launch.get("launch_mode") != "process":
+                raise AssertionError("Bundled Application no longer uses process mode")
+            if not launch.get("resolved_target", "").startswith(APPLICATION_ASSET_PREFIX):
+                raise AssertionError("Bundled Application target token is missing")
+            if launch.get("cwd") != APPLICATION_ASSET_DIR:
+                raise AssertionError("Bundled Application cwd no longer follows the asset directory")
+            if not all(
+                launch.get(name, False)
+                for name in ("use_stdin_devnull", "use_stdout_devnull", "use_stderr_devnull")
+            ):
+                raise AssertionError("Embedded Application DEVNULL contract is incomplete")
+            if not launch.get("creationflags", 0) & subprocess.CREATE_NO_WINDOW:
+                raise AssertionError("Embedded Application is missing CREATE_NO_WINDOW")
+        if cmd_application.get("target_kind") != "command_script":
+            raise AssertionError("Bundled cmd Application classification changed")
+        if ps1_application.get("target_kind") != "powershell_script":
+            raise AssertionError("Bundled ps1 Application classification changed")
+        if ps1_application.get("command_args", [])[:4] != [
+            "powershell",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+        ]:
+            raise AssertionError("Embedded ps1 Application argv changed")
+        if "def run_url_step" not in debug_text or "os.startfile(url)" not in debug_text:
+            raise AssertionError("Embedded URL behavior changed")
+        if "def run_wait_step" not in debug_text or "time.sleep(seconds)" not in debug_text:
+            raise AssertionError("Embedded Wait behavior changed")
         command_steps = [step for step in embedded_plan.get("steps", []) if step.get("type") == "command"]
         if len(command_steps) != 2:
             raise AssertionError("Embedded plan does not contain both Command steps")
@@ -195,7 +263,15 @@ def main() -> None:
 
         runtime_env = os.environ.copy()
         runtime_env["LAUNCHFLOW_DATA_DIR"] = str(app_data_dir)
-        proc = subprocess.Popen([str(output_exe)], cwd=tmp_dir, env=runtime_env)
+        monitored_images = ("LaunchFlowSmoke.exe", "cmd.exe", "powershell.exe")
+        before_pids = {name: _process_pids(name) for name in monitored_images}
+        proc = subprocess.Popen(
+            [str(output_exe)],
+            cwd=tmp_dir,
+            env=runtime_env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
         try:
             try:
                 _wait_for_files([cmd_marker, ps1_marker, cmd_command_marker, ps_command_marker])
@@ -221,6 +297,19 @@ def main() -> None:
                 ) from exc
         finally:
             _stop_process_tree(proc)
+        parent_stdout, parent_stderr = proc.communicate(timeout=5)
+        combined_parent_output = parent_stdout + parent_stderr
+        if b"APP_STDOUT_POLLUTION" in combined_parent_output or b"APP_STDERR_POLLUTION" in combined_parent_output:
+            raise AssertionError("Application output polluted the exported launcher parent streams")
+        time.sleep(0.5)
+        after_pids = {name: _process_pids(name) for name in monitored_images}
+        residual = {
+            name: sorted(after_pids[name] - before_pids[name])
+            for name in monitored_images
+            if after_pids[name] - before_pids[name]
+        }
+        if residual:
+            raise AssertionError(f"export smoke left residual processes: {residual}")
 
         cmd_origin = cmd_marker.read_text(encoding="utf-8", errors="replace").strip()
         ps1_origin = ps1_marker.read_text(encoding="utf-8", errors="replace").strip()
@@ -249,6 +338,10 @@ def main() -> None:
         print(f"ps1_origin={ps1_origin}")
         print("command_steps=cmd,powershell")
         print("command_no_window_contract=ok")
+        print("application_contract=shared-launch-spec,cmd,ps1,devnull,hidden")
+        print("application_parent_output_pollution=none")
+        print("url_wait_contract=unchanged")
+        print("residual_processes=0")
         print(f"runtime_log={runtime_logs[-1]}")
         print("launcher_directory_pollution=none")
 

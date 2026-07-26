@@ -86,7 +86,22 @@ def _check_embedded_runner_contract(temp_root: Path) -> None:
         )
         namespace = {"__name__": "launchflow_embedded_smoke"}
         exec(compile(script, "<embedded_launcher_smoke>", "exec"), namespace)
-        app_options = namespace["application_popen_options"]()
+        app_plan, _app_assets = _prepare_embedded_plan_and_assets(
+            {
+                "steps": [
+                    {
+                        "type": "app",
+                        "path": str(Path(sys.executable)),
+                        "args": [],
+                        "working_dir": "",
+                        "start_minimized": False,
+                    }
+                ]
+            }
+        )
+        app_options = namespace["application_process_options"](
+            app_plan["steps"][0]["_application_launch"]
+        )
         if any(
             app_options.get(stream_name) is not subprocess.DEVNULL
             for stream_name in ("stdin", "stdout", "stderr")

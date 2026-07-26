@@ -79,6 +79,12 @@ Phase 1b adds a stdlib-only `CommandBackend` and frozen `CommandLaunchSpec` unde
 
 The standalone export builder materializes the same LaunchSpec and explanations into its copied embedded plan, avoiding a runtime dependency on the editor/source tree while removing the second platform-selection/argv implementation. Application, URL, and Wait branches remain unchanged. Non-Windows hosts retain the old `/bin/sh -c` path only through a clearly named legacy backend with no declared supported shells; Linux sh/bash and macOS zsh/bash remain future, separately validated work.
 
+### Phase 1c status — completed
+
+Phase 1c adds a stdlib-only `ApplicationLauncher` and frozen `ApplicationLaunchSpec` under `shared/platform/applications.py`. The Windows backend owns the existing target classification, direct-process versus `.lnk` shell-open mode, exact PowerShell script argv, working directory, argument order, `CREATE_NO_WINDOW`, optional minimized startup info, and three `DEVNULL` streams. `runtime/launcher_runtime.py` still owns `Popen`/`os.startfile`, keeps Application fire-and-forget, and does not wait, capture, or write internal launch metadata into user plan JSON.
+
+The standalone export builder materializes the same Application spec into its deep-copied embedded plan and resolves bundled assets under `_MEIPASS/launchflow_assets`; the original plan and Application schema remain unchanged. URL, Command, and Wait execution are unchanged. `LegacyPosixApplicationLauncher` retains only the prior generic fallback and declares no supported target kinds, so this boundary is not Linux or macOS Application support.
+
 ## Phase 2 — Linux x86_64 source-run experimental target
 
 | Field | Definition |

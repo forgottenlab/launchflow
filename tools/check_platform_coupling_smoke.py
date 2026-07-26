@@ -165,6 +165,20 @@ FUTURE_TARGETS = {
 }
 
 
+def _future_target(finding: Finding) -> str:
+    if finding.path == "shared/platform/applications.py" and finding.category in {
+        "process",
+        "command-shell",
+    }:
+        return "ApplicationLauncher"
+    if finding.path == "tools/build_single_exe.py" and finding.category in {
+        "process",
+        "command-shell",
+    }:
+        return "CommandBackend or ApplicationLauncher"
+    return FUTURE_TARGETS[finding.category]
+
+
 def _normalized_evidence(line: str) -> str:
     return " ".join(line.strip().split())[:240]
 
@@ -321,7 +335,7 @@ def write_baseline(path: Path, findings: list[Finding]) -> None:
                 "reason": next(
                     rule.description for rule in RULES if rule.rule_id == finding.rule_id
                 ),
-                "future_target": FUTURE_TARGETS[finding.category],
+                "future_target": _future_target(finding),
                 "allowed_to_remain": True,
             }
             for finding in tracked
