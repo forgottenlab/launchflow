@@ -1,4 +1,4 @@
-"""Verify Phase 1e DesktopIntegration behavior and Windows equivalence."""
+"""Verify DesktopIntegration directory and application-identity equivalence."""
 
 from __future__ import annotations
 
@@ -57,19 +57,24 @@ class RecordingPath:
 
 def _assert_backend_selection() -> None:
     opener_calls: list[str] = []
+    identity_calls: list[str] = []
     windows = get_desktop_integration(
         platform_info=_platform("Windows", "win32", "nt"),
         shell_opener=opener_calls.append,
+        identity_setter=identity_calls.append,
     )
     require(isinstance(windows, WindowsDesktopIntegration), "Windows desktop integration was not selected")
     require(isinstance(windows, DesktopIntegration), "Windows integration does not satisfy Protocol")
     require(opener_calls == [], "Windows factory opened a directory")
+    require(identity_calls == [], "Windows factory configured application identity")
 
     for system, sys_platform in (("Linux", "linux"), ("Darwin", "darwin"), ("Other", "other")):
         calls: list[str] = []
+        identity_calls = []
         integration = get_desktop_integration(
             platform_info=_platform(system, sys_platform),
             shell_opener=calls.append,
+            identity_setter=identity_calls.append,
         )
         require(
             isinstance(integration, LegacyPosixDesktopIntegration),
@@ -78,7 +83,14 @@ def _assert_backend_selection() -> None:
         events: list[object] = []
         path = RecordingPath("must-not-be-converted", events)
         require(integration.open_directory(path) is None, "legacy open-directory return changed")
-        require(calls == [] and events == [], f"legacy backend performed an open action: {system}")
+        require(
+            integration.configure_application_identity("must.not.be.used") is False,
+            "legacy application-identity return changed",
+        )
+        require(
+            calls == [] and identity_calls == [] and events == [],
+            f"legacy backend performed a desktop action: {system}",
+        )
 
 
 def _assert_windows_directory_open() -> None:
@@ -155,6 +167,82 @@ def _assert_error_identity_and_delayed_opener() -> None:
             raise AssertionError("unavailable default opener did not raise AttributeError")
     finally:
         desktop.os.startfile = original_startfile  # type: ignore[attr-defined]
+
+
+def _assert_windows_application_identity() -> None:
+    windows_info = _platform("Windows", "win32", "nt")
+    calls: list[str] = []
+    integration = WindowsDesktopIntegration(
+        windows_info,
+        lambda _path: None,
+        calls.append,
+    )
+    before_cwd = Path.cwd()
+    before_environment = os.environ.copy()
+    before_threads = tuple(thread.ident for thread in threading.enumerate())
+    require(
+        integration.configure_application_identity("forgottenlab.launchflow.editor") is True,
+        "Windows application-identity success return changed",
+    )
+    require(
+        integration.configure_application_identity("custom.launchflow.identity") is True,
+        "Windows explicit application-identity return changed",
+    )
+    require(
+        calls == ["forgottenlab.launchflow.editor", "custom.launchflow.identity"],
+        "Windows application identity value/order/call count changed",
+    )
+    require(Path.cwd() == before_cwd, "application identity changed cwd")
+    require(os.environ == before_environment, "application identity changed the environment")
+    require(
+        tuple(thread.ident for thread in threading.enumerate()) == before_threads,
+        "application identity created a thread",
+    )
+
+    for error in (AttributeError("raw missing"), OSError("raw system")):
+        error_calls: list[str] = []
+
+        def raise_handled(app_id: str, error: BaseException = error) -> object:
+            error_calls.append(app_id)
+            raise error
+
+        handled = WindowsDesktopIntegration(windows_info, lambda _path: None, raise_handled)
+        require(
+            handled.configure_application_identity("handled.identity") is False,
+            f"Windows identity no longer handles {type(error).__name__}",
+        )
+        require(error_calls == ["handled.identity"], "handled identity setter call count changed")
+
+    sentinel = RuntimeError("raw identity failure")
+
+    def raise_other(_app_id: str) -> object:
+        raise sentinel
+
+    unhandled = WindowsDesktopIntegration(windows_info, lambda _path: None, raise_other)
+    try:
+        unhandled.configure_application_identity("unhandled.identity")
+    except BaseException as caught:
+        require(caught is sentinel, "Windows identity replaced an unhandled error")
+    else:
+        raise AssertionError("Windows identity swallowed an unhandled error")
+
+    original_ctypes = desktop.ctypes
+    desktop.ctypes = object()  # type: ignore[assignment]
+    try:
+        require(
+            WindowsDesktopIntegration(windows_info).configure_application_identity("missing.windll") is False,
+            "missing ctypes.windll no longer maps to False",
+        )
+    finally:
+        desktop.ctypes = original_ctypes  # type: ignore[assignment]
+
+    frozen = WindowsDesktopIntegration(windows_info, lambda _path: None, calls.append)
+    try:
+        frozen.identity_setter = lambda _app_id: None  # type: ignore[misc]
+    except FrozenInstanceError:
+        pass
+    else:
+        raise AssertionError("WindowsDesktopIntegration identity setter is not frozen")
 
 
 def _assert_diagnostics_compatibility() -> None:
@@ -264,18 +352,25 @@ def _assert_import_and_dependency_boundaries(probe_cwd: Path) -> None:
         "subprocess",
         "threading",
         "winreg",
-        "ctypes",
     )
     require(not any(value in text for value in forbidden), "desktop integration gained a forbidden dependency/opener")
+    require(
+        text.count("ctypes.windll.shell32") == 1
+        and text.count("shell32.SetCurrentProcessExplicitAppUserModelID(app_id)") == 1,
+        "desktop integration lost the exact delayed shell32 identity call",
+    )
 
     before_environment = os.environ.copy()
     before_cwd = Path.cwd()
     injected_calls: list[str] = []
+    injected_identity_calls: list[str] = []
     get_desktop_integration(
         platform_info=_platform("Windows", "win32", "nt"),
         shell_opener=injected_calls.append,
+        identity_setter=injected_identity_calls.append,
     )
     require(injected_calls == [], "factory opened a directory")
+    require(injected_identity_calls == [], "factory configured application identity")
     require(os.environ == before_environment and Path.cwd() == before_cwd, "factory changed process state")
 
     env = os.environ.copy()
@@ -287,9 +382,9 @@ def _assert_import_and_dependency_boundaries(probe_cwd: Path) -> None:
         "os.startfile=lambda path: calls.append(path); "
         "import shared.platform.desktop as desktop; "
         "from shared.platform.base import PlatformInfo; "
-        "info=PlatformInfo('windows','x86_64','nt','win32'); "
-        "desktop.get_desktop_integration(platform_info=info); "
-        "assert calls==[] and os.getcwd()==cwd and dict(os.environ)==before; "
+        "info=PlatformInfo('windows','x86_64','nt','win32'); identity_calls=[]; "
+        "desktop.get_desktop_integration(platform_info=info,identity_setter=identity_calls.append); "
+        "assert calls==[] and identity_calls==[] and os.getcwd()==cwd and dict(os.environ)==before; "
         "added=set(sys.modules)-before_modules; "
         "assert not any(name.startswith('PySide') or name=='winreg' for name in added)"
     )
@@ -315,11 +410,13 @@ def main() -> None:
     _assert_backend_selection()
     _assert_windows_directory_open()
     _assert_error_identity_and_delayed_opener()
+    _assert_windows_application_identity()
     _assert_diagnostics_compatibility()
     _assert_import_and_dependency_boundaries(PROJECT_ROOT)
     print("desktop integration smoke ok")
     print("backend=windows,legacy-posix,unknown-not-windows")
     print("windows=startfile-once,path-string-exact,no-existence-probe")
+    print("identity=shell32-once,value-exact,true-false-and-error-compatible")
     print("non_windows=mkdir-then-silent-no-op,no-support-claim")
     print("diagnostics=public-api,path-source,mkdir-order,return-value-compatible")
     print("errors=mkdir,startfile,not-found,permission,oserror,raw-preserved")

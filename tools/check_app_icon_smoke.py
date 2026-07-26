@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import inspect
 import os
 import shutil
 import sys
@@ -22,6 +23,7 @@ from PySide6.QtWidgets import QApplication  # noqa: E402
 
 from editor.ui.activation_window import ActivationWindow  # noqa: E402
 from editor.ui.main_window import MainWindow  # noqa: E402
+import shared.app_icon as app_icon  # noqa: E402
 from shared.app_icon import (  # noqa: E402
     APP_USER_MODEL_ID,
     apply_application_icon,
@@ -41,13 +43,74 @@ def check_entry_order() -> None:
     tree = ast.parse((ROOT / "editor" / "main.py").read_text(encoding="utf-8"))
     main_node = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "main")
     calls = [node for node in ast.walk(main_node) if isinstance(node, ast.Call)]
-    configure_line = min(
-        node.lineno for node in calls if isinstance(node.func, ast.Name) and node.func.id == "configure_windows_app_id"
+    configure_calls = [
+        node for node in calls if isinstance(node.func, ast.Name) and node.func.id == "configure_windows_app_id"
+    ]
+    application_calls = [
+        node for node in calls if isinstance(node.func, ast.Name) and node.func.id == "QApplication"
+    ]
+    require(len(configure_calls) == 1, "editor entry must configure AppUserModelID exactly once")
+    require(len(application_calls) == 1, "editor entry QApplication construction count changed")
+    require(
+        configure_calls[0].lineno < application_calls[0].lineno,
+        "Windows AppUserModelID is not configured before QApplication",
     )
-    application_line = min(
-        node.lineno for node in calls if isinstance(node.func, ast.Name) and node.func.id == "QApplication"
+
+
+def check_public_identity_facade() -> None:
+    require(
+        str(inspect.signature(configure_windows_app_id))
+        == "(app_id: 'str' = 'forgottenlab.launchflow.editor') -> 'bool'",
+        "configure_windows_app_id public signature changed",
     )
-    require(configure_line < application_line, "Windows AppUserModelID is not configured before QApplication")
+    source = inspect.getsource(configure_windows_app_id)
+    require("get_desktop_integration()" in source, "identity facade bypasses DesktopIntegration")
+    require("ctypes.windll" not in source and "sys.platform" not in source, "identity facade retained OS coupling")
+
+    original_factory = app_icon.get_desktop_integration
+    factory_calls: list[bool] = []
+    identity_calls: list[str] = []
+
+    class RecordingIntegration:
+        def __init__(self, result: bool = True, error: BaseException | None = None) -> None:
+            self.result = result
+            self.error = error
+
+        def configure_application_identity(self, app_id: str) -> bool:
+            identity_calls.append(app_id)
+            if self.error is not None:
+                raise self.error
+            return self.result
+
+    try:
+        integration = RecordingIntegration()
+        app_icon.get_desktop_integration = (  # type: ignore[assignment]
+            lambda: factory_calls.append(True) or integration
+        )
+        require(configure_windows_app_id() is True, "identity facade changed the success return")
+        require(
+            configure_windows_app_id("custom.launchflow.identity") is True,
+            "identity facade changed the explicit-ID return",
+        )
+        require(factory_calls == [True, True], "identity facade factory call count changed")
+        require(
+            identity_calls == [APP_USER_MODEL_ID, "custom.launchflow.identity"],
+            "identity facade changed AppUserModelID forwarding",
+        )
+
+        integration.result = False
+        require(configure_windows_app_id() is False, "identity facade changed the false return")
+
+        sentinel = RuntimeError("raw identity error")
+        integration.error = sentinel
+        try:
+            configure_windows_app_id()
+        except BaseException as caught:
+            require(caught is sentinel, "identity facade replaced an unhandled backend error")
+        else:
+            raise AssertionError("identity facade swallowed an unhandled backend error")
+    finally:
+        app_icon.get_desktop_integration = original_factory  # type: ignore[assignment]
 
 
 def main() -> int:
@@ -76,6 +139,7 @@ def main() -> int:
     check_entry_order()
     require(APP_USER_MODEL_ID == "forgottenlab.launchflow.editor", "unstable Windows AppUserModelID")
     require(callable(configure_windows_app_id), "Windows AppUserModelID configuration entry is missing")
+    check_public_identity_facade()
 
     app = QApplication.instance() or QApplication([])
     app.setWindowIcon(QIcon())
@@ -104,6 +168,7 @@ def main() -> int:
     print("app icon smoke ok")
     print("source_frozen_resolution=shared-app-icon")
     print("windows_app_id=before-QApplication")
+    print("identity_facade=signature,constant,delegation,return,error-compatible")
     print("qt_icons=application,main-window,activation-window")
     print("release_icon=--icon,--add-data")
     print("taskbar_display=manual-check-required")

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import ctypes
 import logging
 import sys
 from pathlib import Path
@@ -10,6 +9,8 @@ from typing import Optional
 
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication, QWidget
+
+from shared.platform.desktop import get_desktop_integration
 
 
 APP_USER_MODEL_ID = "forgottenlab.launchflow.editor"
@@ -30,13 +31,7 @@ def resolve_app_icon_path(project_root: Optional[Path] = None) -> Path:
 def configure_windows_app_id(app_id: str = APP_USER_MODEL_ID) -> bool:
     """Set the Windows process identity before QApplication/window creation."""
 
-    if sys.platform != "win32":
-        return False
-    try:
-        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(app_id)
-        return True
-    except (AttributeError, OSError):
-        return False
+    return get_desktop_integration().configure_application_identity(app_id)
 
 
 def load_app_icon(

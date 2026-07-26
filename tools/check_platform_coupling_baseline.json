@@ -393,36 +393,6 @@
       "allowed_to_remain": true
     },
     {
-      "fingerprint": "09862f3ed9f3fe53c5bb",
-      "path": "shared/app_icon.py",
-      "rule_id": "WIN-BRANCH-001",
-      "area": "platform-branch",
-      "classification": "platform_adapter_candidate",
-      "reason": "Explicit Windows platform branch",
-      "future_target": "shared/platform/detection.py",
-      "allowed_to_remain": true
-    },
-    {
-      "fingerprint": "344cfd46fe765e0429b5",
-      "path": "shared/app_icon.py",
-      "rule_id": "WIN-API-001",
-      "area": "windows-api",
-      "classification": "platform_adapter_candidate",
-      "reason": "Windows-only API",
-      "future_target": "DesktopIntegration, ApplicationLauncher, or UrlOpener",
-      "allowed_to_remain": true
-    },
-    {
-      "fingerprint": "ef2897bc48d215cd25e9",
-      "path": "shared/app_icon.py",
-      "rule_id": "WIN-DESKTOP-001",
-      "area": "desktop-integration",
-      "classification": "platform_adapter_candidate",
-      "reason": "Windows desktop integration or font",
-      "future_target": "DesktopIntegration",
-      "allowed_to_remain": true
-    },
-    {
       "fingerprint": "27691f212eb08286bc08",
       "path": "shared/data_migration.py",
       "rule_id": "WIN-ASSET-001",
@@ -549,6 +519,26 @@
       "area": "windows-api",
       "classification": "allowed_windows_boundary",
       "reason": "Windows-only API",
+      "future_target": "DesktopIntegration",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "8e9027cad46727819fd3",
+      "path": "shared/platform/desktop.py",
+      "rule_id": "WIN-API-001",
+      "area": "windows-api",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows-only API",
+      "future_target": "DesktopIntegration",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "077c20f20a739928b813",
+      "path": "shared/platform/desktop.py",
+      "rule_id": "WIN-DESKTOP-001",
+      "area": "desktop-integration",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows desktop integration or font",
       "future_target": "DesktopIntegration",
       "allowed_to_remain": true
     },

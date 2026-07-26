@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added / 新增
+- 扩展 stdlib-only `DesktopIntegration`，将既有 Windows AppUserModelID setter 收敛到 `shared/platform/desktop.py`；`shared/app_icon.configure_windows_app_id()` 保持常量、签名、布尔返回、异常边界和 QApplication 前调用顺序，所有 ICO/Qt/PyInstaller 图标行为不变。
 - 新增 stdlib-only `DesktopIntegration` 最小平台合同；Windows 打开日志目录继续使用单次 `os.startfile(str(path))`，`shared/diagnostics.py` 不再直接持有 Windows API，非 Windows 继续保持静默 no-op，图标与 AppUserModelID 未纳入本阶段。
 - 新增 stdlib-only `UrlOpener`/`UrlOpenSpec` 平台合同；Windows 默认浏览器继续使用 `os.startfile`，显式浏览器继续使用精确的 `[browser_path, url]` fire-and-forget 参数，源码试运行与独立导出启动器消费同一内部合同，并新增 URL backend smoke。
 - 新增 stdlib-only `ApplicationLauncher`/`ApplicationLaunchSpec` 平台合同；Windows `.exe`、`.com`、`.bat`、`.cmd`、`.ps1`、`.lnk`、无后缀与其他目标的分类、参数、工作目录、最小化、`DEVNULL` 和 fire-and-forget 行为保持兼容，源码试运行与独立导出启动器消费同一合同。

@@ -24,7 +24,7 @@ shared/platform/
   applications.py  # ApplicationLauncher and native application targets
   urls.py          # UrlOpener and default/explicit browser specifications
   identity.py      # HardwareIdentityProvider
-  desktop.py       # DesktopIntegration: current folder opening; other desktop areas remain separate
+  desktop.py       # DesktopIntegration: current folder opening and process identity
   packaging.py     # PackagingBackend and artifact capabilities
 ```
 
@@ -38,7 +38,7 @@ Suggested contracts:
 | `ApplicationLauncher` | validate/launch native applications, scripts, and working directories | URL opening, packaging, or plan serialization |
 | `UrlOpener` | choose default-browser versus explicit-browser mode and construct an immutable open specification | URL parsing, browser discovery, process execution, or plan serialization |
 | `HardwareIdentityProvider` | versioned identity inputs and privacy-safe diagnostics | RSA signing, entitlement, or silent identity migration |
-| `DesktopIntegration` | perform narrowly introduced desktop operations, currently open-directory only | paths/data creation, app identity/icon until separately audited, or core execution decisions |
+| `DesktopIntegration` | perform narrowly introduced desktop operations: open-directory and process application identity | paths/data creation, icon/resource loading, packaging, or core execution decisions |
 | `PackagingBackend` | host-native artifact name, icon/bundle resources, PyInstaller invocation, output verification | cross-compilation claims or plan schema changes |
 
 Backends should return structured results/capabilities. Core code should reject unsupported operations before dispatch rather than silently map a saved Windows shell to an unrelated Unix shell.
@@ -102,6 +102,12 @@ Phase 1e adds a stdlib-only `DesktopIntegration` under `shared/platform/desktop.
 On Windows, `WindowsDesktopIntegration` performs the existing one-shot `os.startfile(str(path))` action with a delayed, injectable shell opener. It does not use explorer.exe, `cmd /c start`, `shell=True`, Qt, a process wait, return code, thread, cwd change, environment mutation, path-existence probe, or new logging. Linux, macOS, and unknown platforms use a compatibility-only silent no-op, exactly matching the previous guarded branch; no native support is claimed.
 
 AppUserModelID and all icon/resource behavior remain in `shared/app_icon.py` and were intentionally not merged into this slice. Phase 1e also leaves diagnostic labels/redaction, AppPaths, Command, Application, URL, Wait, editor UI, packaging, plans, HWID, and licensing unchanged.
+
+### Phase 1f status — completed
+
+Phase 1f adds `DesktopIntegration.configure_application_identity(app_id)` without introducing a new module or changing any caller. `shared.app_icon.configure_windows_app_id()` remains the stable public facade with the exact `forgottenlab.launchflow.editor` default, `-> bool` result, handled `AttributeError`/`OSError`, and propagation of every other exception. `editor/main.py` still calls it exactly once before constructing QApplication.
+
+The Windows backend resolves `ctypes.windll.shell32` only when identity is configured and forwards the AppUserModelID exactly once. Linux, macOS, and unknown backends preserve the previous `False` no-op without accessing a Windows API. Source/frozen ICO resolution, QIcon loading, QApplication/MainWindow/ActivationWindow icons, PyInstaller icon arguments, directory opening, diagnostics, runtime backends, plans, HWID, licensing, and release artifacts are unchanged. This is an identity boundary, not native Linux/macOS desktop integration.
 
 ## Phase 2 — Linux x86_64 source-run experimental target
 
@@ -173,4 +179,4 @@ PyInstaller may remain an implementation, but Windows builds Windows, Linux buil
 
 ## Recommended next implementation task
 
-Prepare a separately scoped **Phase 1f Windows AppUserModelID boundary**. Freeze `shared.app_icon.configure_windows_app_id()` first, isolate only the existing Windows process-identity call, and leave icon files/loading, Qt widgets, packaging, directory opening, diagnostics, HWID, licensing, and Linux/macOS native behavior unchanged.
+Prepare a separately scoped **Phase 1g diagnostics platform-label boundary**. Freeze the current diagnostic text, redaction aliases, line limits, clipboard behavior, and privacy exclusions first; then isolate only the misleading `Windows:`/`%USERPROFILE%` presentation behind injected platform metadata. Leave directory opening, AppUserModelID/icons, paths, runtime backends, editor layout, HWID, licensing, schemas, packaging, and Linux/macOS support claims unchanged.

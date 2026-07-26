@@ -398,3 +398,11 @@ LaunchFlow 的核心目标是：
 - 非 Windows backend 保留原先的 silent no-op，同时仍返回由 diagnostics 创建的原 `Path`。本阶段没有实现 `xdg-open`、`gio open`、macOS `open`、Finder 或 Qt `QDesktopServices`，Linux/macOS 继续为 Planned。
 - `FileNotFoundError`、`PermissionError`、一般 `OSError` 及 opener 不可用错误不被替换或吞掉；现有 UI 调用者继续按原方式捕获 `OSError` 并展示状态/错误。
 - Phase 1e 只隔离目录打开。`shared/app_icon.py`、AppUserModelID、ICO/Qt 图标、诊断文本 `Windows:` 标签与 `%USERPROFILE%` 脱敏均保持原状。
+
+## 20. Windows 应用进程身份合同
+
+- `shared/app_icon.configure_windows_app_id(app_id: str = APP_USER_MODEL_ID) -> bool` 继续作为稳定公开入口，`APP_USER_MODEL_ID` 仍为 `forgottenlab.launchflow.editor`。
+- `editor/main.py` 继续且仅调用该入口一次，并严格位于 `QApplication(sys.argv)` 之前。MainWindow、ActivationWindow 与其他 editor 代码不直接访问平台 backend。
+- Windows 的实际 setter 由 `DesktopIntegration.configure_application_identity(app_id)` 承担：延迟访问 `ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID`，精确转发字符串一次，成功返回 `True`。
+- `AttributeError` 与 `OSError` 继续转换为 `False`，其他异常继续原样传播。Linux、macOS 与 unknown backend 继续返回 `False` 且不访问 Windows API；这只是兼容行为，不是原生桌面支持声明。
+- AppUserModelID 的平台调用虽与打开目录共用最小 `DesktopIntegration` 边界，但 ICO 路径、frozen `_MEIPASS/assets/launchflow.ico`、`QIcon` 加载、QApplication/顶层窗口图标及 PyInstaller `--icon`/`--add-data` 仍完全由原有图标与包装代码负责。
