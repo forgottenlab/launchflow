@@ -453,26 +453,6 @@
       "allowed_to_remain": true
     },
     {
-      "fingerprint": "da7a920d1b9a7b0a62d6",
-      "path": "shared/diagnostics.py",
-      "rule_id": "WIN-BRANCH-001",
-      "area": "platform-branch",
-      "classification": "platform_adapter_candidate",
-      "reason": "Explicit Windows platform branch",
-      "future_target": "shared/platform/detection.py",
-      "allowed_to_remain": true
-    },
-    {
-      "fingerprint": "d4610dd7aa87ced95b83",
-      "path": "shared/diagnostics.py",
-      "rule_id": "WIN-API-001",
-      "area": "windows-api",
-      "classification": "platform_adapter_candidate",
-      "reason": "Windows-only API",
-      "future_target": "DesktopIntegration, ApplicationLauncher, or UrlOpener",
-      "allowed_to_remain": true
-    },
-    {
       "fingerprint": "19fdb0fba6f8070a49f9",
       "path": "shared/models.py",
       "rule_id": "WIN-SHELL-001",
@@ -560,6 +540,16 @@
       "classification": "allowed_windows_boundary",
       "reason": "Windows command shell or command",
       "future_target": "ApplicationLauncher",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "836b649880736bff66b3",
+      "path": "shared/platform/desktop.py",
+      "rule_id": "WIN-API-001",
+      "area": "windows-api",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows-only API",
+      "future_target": "DesktopIntegration",
       "allowed_to_remain": true
     },
     {

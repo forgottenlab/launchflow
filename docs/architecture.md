@@ -358,6 +358,7 @@ LaunchFlow 的核心目标是：
 - `Alt+Up` / `Alt+Down` 在步骤列表聚焦时调用相同入口；输入控件聚焦时不触发移动。
 - `shared/diagnostics.py` 只读取当前 UI 日志或 LaunchFlow 日志文件，不读取 license；输出限制为最近 200 行以内并进行路径与标识符掩码。
 - 反馈对话框是本地预览/复制入口，不包含网络上传、邮件或 GitHub 调用。日志目录始终由 `shared.app_paths.get_logs_dir()` 解析。
+- 打开日志目录仍由 `shared.diagnostics.open_logs_directory()` 作为公开入口；目录解析和 `mkdir(parents=True, exist_ok=True)` 保持在 diagnostics，实际桌面打开动作委托给 `shared/platform/desktop.py`。
 
 ## 16. 应用身份、历史载入与日志呈现
 
@@ -388,3 +389,12 @@ LaunchFlow 的核心目标是：
 - 导出器只在深拷贝上写入 `_url_open`，嵌入 runtime 直接消费 spec，不重新推断默认/显式模式，也不把浏览器当作 bundled Application asset。
 - 成功日志继续包含完整 URL，这是既有诊断行为与隐私边界；本阶段不新增 URL 日志。含敏感查询参数的方案仍应谨慎分享日志。
 - 非 Windows 只保留显式浏览器的旧 `Popen` 兼容路径；默认浏览器明确未支持。本阶段没有加入 `webbrowser`、Qt `QDesktopServices`、Linux `xdg-open`/`gio open` 或 macOS `open`，也不构成 Linux/macOS 支持声明。
+
+## 19. 日志目录桌面集成合同
+
+- `shared.diagnostics.open_logs_directory() -> Path` 保持公开签名、返回值和两个 editor 调用点不变；source 与 frozen editor 继续使用同一入口。
+- 日志目录仍由 `shared.app_paths.get_logs_dir()` 提供，并在选择平台 backend 前执行 `mkdir(parents=True, exist_ok=True)`。路径、Dev override、AppData 和 source/frozen 隔离均未改变。
+- `shared/platform/desktop.py` 提供最小 `DesktopIntegration.open_directory(path)`。Windows backend 在方法调用时执行一次 `os.startfile(str(path))`，不启动 explorer/cmd、不等待、不读取 return code、不创建线程，也不修改 cwd 或环境。
+- 非 Windows backend 保留原先的 silent no-op，同时仍返回由 diagnostics 创建的原 `Path`。本阶段没有实现 `xdg-open`、`gio open`、macOS `open`、Finder 或 Qt `QDesktopServices`，Linux/macOS 继续为 Planned。
+- `FileNotFoundError`、`PermissionError`、一般 `OSError` 及 opener 不可用错误不被替换或吞掉；现有 UI 调用者继续按原方式捕获 `OSError` 并展示状态/错误。
+- Phase 1e 只隔离目录打开。`shared/app_icon.py`、AppUserModelID、ICO/Qt 图标、诊断文本 `Windows:` 标签与 `%USERPROFILE%` 脱敏均保持原状。

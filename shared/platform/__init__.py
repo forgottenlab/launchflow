@@ -2,6 +2,12 @@
 
 from shared.platform.base import PlatformInfo, PlatformPathProvider
 from shared.platform.detection import current_platform_info, detect_platform
+from shared.platform.desktop import (
+    DesktopIntegration,
+    LegacyPosixDesktopIntegration,
+    WindowsDesktopIntegration,
+    get_desktop_integration,
+)
 from shared.platform.paths import (
     LegacyFallbackPlatformPaths,
     WindowsPlatformPaths,
@@ -38,6 +44,8 @@ __all__ = (
     "LegacyPosixUrlOpener",
     "CommandBackend",
     "CommandLaunchSpec",
+    "DesktopIntegration",
+    "LegacyPosixDesktopIntegration",
     "PlatformInfo",
     "PlatformPathProvider",
     "UrlOpener",
@@ -45,11 +53,13 @@ __all__ = (
     "WindowsPlatformPaths",
     "WindowsApplicationLauncher",
     "WindowsCommandBackend",
+    "WindowsDesktopIntegration",
     "WindowsUrlOpener",
     "current_platform_info",
     "detect_platform",
     "get_platform_path_provider",
     "get_application_launcher",
     "get_command_backend",
+    "get_desktop_integration",
     "get_url_opener",
 )

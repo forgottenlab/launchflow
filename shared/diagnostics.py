@@ -11,6 +11,7 @@ from pathlib import Path
 
 from shared.app_info import APP_NAME, APP_VERSION
 from shared.app_paths import get_app_data_dir, get_logs_dir
+from shared.platform.desktop import get_desktop_integration
 
 
 _SENSITIVE_VALUE = re.compile(
@@ -105,6 +106,5 @@ def open_logs_directory() -> Path:
 
     logs_dir = get_logs_dir()
     logs_dir.mkdir(parents=True, exist_ok=True)
-    if os.name == "nt":
-        os.startfile(str(logs_dir))
+    get_desktop_integration().open_directory(logs_dir)
     return logs_dir

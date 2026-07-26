@@ -24,7 +24,7 @@ shared/platform/
   applications.py  # ApplicationLauncher and native application targets
   urls.py          # UrlOpener and default/explicit browser specifications
   identity.py      # HardwareIdentityProvider
-  integration.py   # DesktopIntegration: icons, folders, notifications
+  desktop.py       # DesktopIntegration: current folder opening; other desktop areas remain separate
   packaging.py     # PackagingBackend and artifact capabilities
 ```
 
@@ -38,7 +38,7 @@ Suggested contracts:
 | `ApplicationLauncher` | validate/launch native applications, scripts, and working directories | URL opening, packaging, or plan serialization |
 | `UrlOpener` | choose default-browser versus explicit-browser mode and construct an immutable open specification | URL parsing, browser discovery, process execution, or plan serialization |
 | `HardwareIdentityProvider` | versioned identity inputs and privacy-safe diagnostics | RSA signing, entitlement, or silent identity migration |
-| `DesktopIntegration` | app identity/icon, reveal/open folder, native messages where needed | core execution decisions |
+| `DesktopIntegration` | perform narrowly introduced desktop operations, currently open-directory only | paths/data creation, app identity/icon until separately audited, or core execution decisions |
 | `PackagingBackend` | host-native artifact name, icon/bundle resources, PyInstaller invocation, output verification | cross-compilation claims or plan schema changes |
 
 Backends should return structured results/capabilities. Core code should reject unsupported operations before dispatch rather than silently map a saved Windows shell to an unrelated Unix shell.
@@ -94,6 +94,14 @@ Phase 1d adds a stdlib-only `UrlOpener` and frozen `UrlOpenSpec` under `shared/p
 The standalone export builder materializes the same URL spec into its deep-copied internal plan, while preserving the embedded launcher's pre-existing string-trimming and failure-log boundary. A real temporary onefile smoke proves the explicit-browser branch with a local marker substitute; the default-browser call is verified through a mocked embedded runtime so automation never opens a real browser or external site. Command, Application, Wait, `UrlStep`, plan JSON, licensing, and packaging suffixes remain unchanged.
 
 `LegacyPosixUrlOpener` retains only the prior explicit-browser process fallback and rejects default-browser opening as unsupported. Phase 1d does not implement `xdg-open`, `gio open`, macOS `open`, `webbrowser`, or Qt `QDesktopServices`; Linux and macOS URL support remain Planned and require native-host validation.
+
+### Phase 1e status — completed
+
+Phase 1e adds a stdlib-only `DesktopIntegration` under `shared/platform/desktop.py`, deliberately exposing only `open_directory(path)`. `shared.diagnostics.open_logs_directory()` remains the public facade and still obtains `get_logs_dir()`, creates it with `mkdir(parents=True, exist_ok=True)`, returns the same `Path`, and leaves raw errors to the existing callers.
+
+On Windows, `WindowsDesktopIntegration` performs the existing one-shot `os.startfile(str(path))` action with a delayed, injectable shell opener. It does not use explorer.exe, `cmd /c start`, `shell=True`, Qt, a process wait, return code, thread, cwd change, environment mutation, path-existence probe, or new logging. Linux, macOS, and unknown platforms use a compatibility-only silent no-op, exactly matching the previous guarded branch; no native support is claimed.
+
+AppUserModelID and all icon/resource behavior remain in `shared/app_icon.py` and were intentionally not merged into this slice. Phase 1e also leaves diagnostic labels/redaction, AppPaths, Command, Application, URL, Wait, editor UI, packaging, plans, HWID, and licensing unchanged.
 
 ## Phase 2 — Linux x86_64 source-run experimental target
 
@@ -165,4 +173,4 @@ PyInstaller may remain an implementation, but Windows builds Windows, Linux buil
 
 ## Recommended next implementation task
 
-Implement **Phase 1a only**: add `shared/platform/base.py`, `detection.py`, and `paths.py` plus a Windows backend, then route `shared/app_paths.py` through it while proving exact Windows path compatibility. Do not touch process execution, HWID, license formats, packaging, or step models in the same task.
+Prepare a separately scoped **Phase 1f Windows AppUserModelID boundary**. Freeze `shared.app_icon.configure_windows_app_id()` first, isolate only the existing Windows process-identity call, and leave icon files/loading, Qt widgets, packaging, directory opening, diagnostics, HWID, licensing, and Linux/macOS native behavior unchanged.

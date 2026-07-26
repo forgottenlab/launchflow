@@ -4,7 +4,7 @@
 
 This audit records the current `v0.1.0-beta.2` Windows baseline. It is an architecture and coupling assessment and makes no support claim for Linux or macOS. No runtime, editor, license, schema, or packaging behavior was changed as part of the audit.
 
-The repository has **no identified P0 import/startup blocker caused solely by importing a Windows-only Python module**. Windows-only calls are generally inside functions or guarded branches, for example `shared/app_icon.py` and `licensing/hwid.py`. However, the main workflows are not cross-platform: Phase 1d now isolates Windows URL mode/spec construction in `shared/platform/urls.py`, but default opening still executes `os.startfile` at the runtime boundary; Application supports Windows entry types, Command is modeled and edited as `cmd`/PowerShell, and all production packaging outputs are Windows EXE.
+The repository has **no identified P0 import/startup blocker caused solely by importing a Windows-only Python module**. Windows-only calls are generally inside functions or guarded branches, for example `shared/app_icon.py` and `licensing/hwid.py`. Phase 1e moves the logs-directory `os.startfile` action from diagnostics into `shared/platform/desktop.py`, while AppUserModelID/icon remain separate. The main workflows are still not cross-platform: Application and URL retain Windows launch semantics, Command is modeled and edited as `cmd`/PowerShell, and all production packaging outputs are Windows EXE.
 
 ## Current Support Boundary
 
@@ -55,7 +55,7 @@ These are conceptual findings. The static checker reports individual source occu
 | CP-06 | Launcher export | P1 | `tools/build_single_exe.py:38,421-461,498-577` | Windows packable suffixes and EXE output | No ELF/AppImage export | No `.app`/`.dmg` export | Current-host packaging only |
 | CP-07 | Export runtime | P1 | `EMBEDDED_TEMPLATE` in `tools/build_single_exe.py` | AppData/MessageBox remain embedded; Command, Application, and URL specs are materialized from shared contracts | Native runtime remains absent | Native runtime remains absent | Continue extracting one execution area at a time without changing schemas |
 | CP-08 | Paths | P2 | `shared/platform/paths.py`; public facade in `shared/app_paths.py` | `%LOCALAPPDATA%`, explicit override, one legacy fallback | XDG config/cache split missing | Application Support/Logs/Caches missing | Phase 1a boundary complete; native providers remain future work |
-| CP-09 | Desktop | P2 | `shared/app_icon.py:15-39`; `shared/diagnostics.py:103-110` | AppUserModelID, ICO, startfile | No desktop/icon/open-folder integration | No icns/Info.plist/Dock/open integration | `DesktopIntegration` |
+| CP-09 | Desktop | P2 | `shared/platform/desktop.py`; facade in `shared/diagnostics.py`; remaining identity/icon in `shared/app_icon.py` | Log-directory open is isolated; AppUserModelID/ICO remain | Native directory open and desktop/icon integration absent | Native directory open, icns/Info.plist/Dock absent | Phase 1e open-directory boundary complete; identity/icon remain separate future work |
 | CP-10 | Diagnostics | P2 | `build_diagnostic_text` at `shared/diagnostics.py:22-33,76-100` | `Windows:` and `%USERPROFILE%` labels | Mislabels Linux | Mislabels macOS | Platform label/path aliases; keep redaction |
 | CP-11 | Shortcuts | P2 | `SHORTCUTS`/QAction setup at `editor/ui/main_window.py:115-122,2198-2223` | Literal Ctrl sequences | Native mapping unverified | Command-key/menu convention unverified | Qt StandardKey plus native validation |
 | CP-12 | Qt UI | P2 | theme/control QSS at `editor/ui/main_window.py:602-800` | Windows fonts and measured control geometry | WM/font/DPI unverified | native menu/font/Retina unverified | Offscreen plus physical matrices |
@@ -80,7 +80,7 @@ These are conceptual findings. The static checker reports individual source occu
 | CP-06 | P1 | Plan launcher export | Packable assets are Windows suffixes (`tools/build_single_exe.py:38,421-461`), the builder expects an EXE (`tools/build_single_exe.py:498-577`), and the UI presents an EXE-only destination (`editor/ui/main_window.py:3812-3827`). Linux/macOS launcher artifacts do not exist. |
 | CP-07 | P1 | Embedded launcher runtime | The generated launcher still independently embeds Windows AppData, MessageBox, logging, and execution control. Command, Application, and URL platform choices are versioned primitive specs materialized from shared contracts, reducing drift without adding a source-tree runtime dependency. |
 | CP-08 | P2 | User-data paths | Phase 1a moved calculation behind `shared/platform/paths.py` while preserving `%LOCALAPPDATA%\LaunchFlow`, `LAUNCHFLOW_DATA_DIR`, and the previous non-Windows `~/.local/share/LaunchFlow` fallback. The fallback remains compatibility-only: it does not separate XDG config/cache/data and is not the standard macOS Application Support location. |
-| CP-09 | P2 | Desktop integration | App identity/icon integration is Windows AppUserModelID plus ICO (`shared/app_icon.py:15-39`); opening logs is Windows-only and otherwise a silent no-op (`shared/diagnostics.py:103-110`). |
+| CP-09 | P2 | Desktop integration | Phase 1e moves only log-directory opening behind `DesktopIntegration.open_directory()`: Windows still calls `os.startfile(str(path))` once and non-Windows remains a silent no-op. Directory calculation/creation and the public diagnostics API stay outside the adapter. AppUserModelID and icon behavior remain unchanged in `shared/app_icon.py` and require separate audits. |
 | CP-10 | P2 | Diagnostics | Diagnostics label every OS as `Windows` and mask home as `%USERPROFILE%` (`shared/diagnostics.py:22-33,88`). Redaction still protects the resolved home path, but output is misleading on Linux/macOS. |
 | CP-11 | P2 | Keyboard conventions | Actions use literal `Ctrl+...` strings (`editor/ui/main_window.py:115-122,2198-2223`) instead of Qt standard keys. macOS Command-key conventions and menu presentation have not been validated. |
 | CP-12 | P2 | Qt presentation | Global font favors Windows families (`editor/ui/main_window.py:796-800`); custom controls and frameless windows depend on pixel metrics and native subcontrol geometry (`editor/ui/main_window.py:602-784`, `editor/ui/activation_window.py:203-217`). Offscreen tests cannot establish Linux window-manager or macOS native behavior. |
@@ -115,6 +115,8 @@ The embedded launcher consumes `_url_open` from its copied plan and does not re-
 
 Qt is reusable, but AppUserModelID/ICO, Linux desktop files and PNG/SVG, macOS icns/Info.plist/Dock, native menu shortcuts, file filters, font fallback, frameless windows, and control geometry are separate platform evidence. Offscreen success is only a construction/rendering signal.
 
+Phase 1e isolates only the logs-directory desktop action. `open_logs_directory()` still resolves and creates the AppPaths-owned logs directory before calling `DesktopIntegration`; Windows uses one delayed `os.startfile(str(path))`, while Linux/macOS/unknown preserve the prior silent no-op. No explorer process, shell command, Qt opener, `xdg-open`, `gio open`, macOS `open`, Finder behavior, icon, or AppUserModelID change is included.
+
 ## Packaging and Export
 
 PyInstaller must build on the target OS: Windows builds Windows, Linux builds Linux, macOS builds macOS. Linux artifact choice (ELF/AppImage) is undecided. macOS needs `.app`/`.dmg`, Code Signing, Hardened Runtime, Notarization, Gatekeeper, and arm64-first architecture validation; x86_64/universal2 remain future considerations.
@@ -143,7 +145,7 @@ Existing redaction masks resolved home/local paths and machine/request/signature
 - Sequential dispatch, delay, stop state, and structured results in `runtime/launcher_runtime.py:90-134,199-225` are reusable once launch/process operations are injected.
 - Plan save/load/history uses ordinary JSON and paths (`editor/services/plan_service.py:295-316`) and should not be forked per OS.
 - Request token canonicalization/checksum (`licensing/request_token.py:61-135`), license shape/version checks (`licensing/license_schema.py:46-69`), RSA verification in `LicenseManager` (`licensing/license_manager.py:196-253`), and frozen public-key lookup (`licensing/license_manager.py:73-90`) are conceptually platform-neutral.
-- Diagnostics redaction and bounded log collection are reusable (`shared/diagnostics.py:16-74`); only labels, path aliases, and folder opening need adapters.
+- Diagnostics redaction and bounded log collection are reusable (`shared/diagnostics.py:16-100`); folder opening now uses the Phase 1e adapter, while labels and path aliases remain future work.
 - Qt widgets, model/editor synchronization, dirty state, and ordering logic are mostly reusable, but each platform still needs offscreen plus physical UI validation.
 
 ## Platform-Specific Components
@@ -154,7 +156,7 @@ Existing redaction masks resolved home/local paths and machine/request/signature
 
 ## Recommended Platform Abstraction
 
-Use `shared/platform/{base,detection,paths,process,applications,urls,identity,integration,packaging}.py`. Centralize platform selection there; business modules should consume `PlatformInfo`, `PlatformPaths`, `CommandBackend`, `ApplicationLauncher`, `UrlOpener`, `HardwareIdentityProvider`, `DesktopIntegration`, and `PackagingBackend` instead of adding scattered `sys.platform` branches. Detailed responsibilities and phases are in `docs/cross-platform-roadmap.md`.
+Use `shared/platform/{base,detection,paths,process,applications,urls,desktop,identity,packaging}.py`. Centralize platform selection there; business modules should consume `PlatformInfo`, `PlatformPaths`, `CommandBackend`, `ApplicationLauncher`, `UrlOpener`, `DesktopIntegration`, `HardwareIdentityProvider`, and `PackagingBackend` instead of adding scattered platform branches. Detailed responsibilities and phases are in `docs/cross-platform-roadmap.md`.
 
 ## Tests
 

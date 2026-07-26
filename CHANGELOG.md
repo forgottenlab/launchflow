@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added / 新增
+- 新增 stdlib-only `DesktopIntegration` 最小平台合同；Windows 打开日志目录继续使用单次 `os.startfile(str(path))`，`shared/diagnostics.py` 不再直接持有 Windows API，非 Windows 继续保持静默 no-op，图标与 AppUserModelID 未纳入本阶段。
 - 新增 stdlib-only `UrlOpener`/`UrlOpenSpec` 平台合同；Windows 默认浏览器继续使用 `os.startfile`，显式浏览器继续使用精确的 `[browser_path, url]` fire-and-forget 参数，源码试运行与独立导出启动器消费同一内部合同，并新增 URL backend smoke。
 - 新增 stdlib-only `ApplicationLauncher`/`ApplicationLaunchSpec` 平台合同；Windows `.exe`、`.com`、`.bat`、`.cmd`、`.ps1`、`.lnk`、无后缀与其他目标的分类、参数、工作目录、最小化、`DEVNULL` 和 fire-and-forget 行为保持兼容，源码试运行与独立导出启动器消费同一合同。
 - 新增 stdlib-only `CommandBackend`/`CommandLaunchSpec` 平台合同；Windows cmd、PowerShell、引号保护、隐藏窗口、解码和错误说明保持兼容，编辑器试运行与独立导出启动器消费同一合同，并新增 backend 等价性 smoke。
@@ -50,6 +51,7 @@ All notable changes to this project will be documented in this file.
 - Application 子进程改为 fire-and-forget 且 stdin/stdout/stderr 指向 `DEVNULL`，避免 GUI/Electron 子进程输出污染开发终端；Command 捕获语义不变。
 
 ### Tests / 测试
+- 新增 `tools/check_desktop_integration_smoke.py`，覆盖 backend 选择、Windows 路径原样传递、单次 shell-open、非 Windows no-op、diagnostics API/目录创建/异常兼容以及 import/构造/factory 无副作用。
 - 新增 `tools/check_url_backend_smoke.py`，覆盖默认/显式浏览器 spec、参数与 URL 原样保留、fire-and-forget、原始异常、无副作用、导出内部 metadata 和非 Windows 未支持边界；真实 onefile smoke 使用 mock 默认打开和本地显式浏览器替身，不访问网络或真实浏览器。
 - 新增 `tools/check_step_editor_sync_smoke.py`，覆盖保存/快捷键、试运行快照、选择切换、dirty 状态、全方案阻断和 Application 输出隔离。
 
