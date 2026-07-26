@@ -35,11 +35,13 @@ from pathlib import Path
 
 from shared.platform.applications import get_application_launcher
 from shared.platform.process import get_command_backend
+from shared.platform.urls import get_url_opener
 
 
 ASSET_DIR_NAME = "launchflow_assets"
 PACKABLE_APP_SUFFIXES = {".exe", ".bat", ".cmd", ".com", ".ps1"}
 APPLICATION_LAUNCH_SCHEMA = 1
+URL_OPEN_SCHEMA = 1
 APPLICATION_ASSET_PREFIX = "__LAUNCHFLOW_ASSET__/"
 APPLICATION_ASSET_DIR = "__LAUNCHFLOW_ASSET_DIR__"
 
@@ -74,6 +76,7 @@ from datetime import datetime
 
 EMBEDDED_PLAN = __PLAN_DATA__
 APPLICATION_LAUNCH_SCHEMA = 1
+URL_OPEN_SCHEMA = 1
 APPLICATION_ASSET_PREFIX = "__LAUNCHFLOW_ASSET__/"
 APPLICATION_ASSET_DIR = "__LAUNCHFLOW_ASSET_DIR__"
 
@@ -225,21 +228,53 @@ def run_app_step(step: dict) -> None:
     log(f"[成功] 已启动应用: {step.get('name', '应用')}")
 
 
+def url_process_options(launch: dict) -> dict:
+    options = {}
+    cwd = launch.get("cwd")
+    if cwd is not None:
+        options["cwd"] = cwd
+    if launch.get("use_stdin_devnull", False):
+        options["stdin"] = subprocess.DEVNULL
+    if launch.get("use_stdout_devnull", False):
+        options["stdout"] = subprocess.DEVNULL
+    if launch.get("use_stderr_devnull", False):
+        options["stderr"] = subprocess.DEVNULL
+    creationflags = int(launch.get("creationflags", 0))
+    if creationflags:
+        options["creationflags"] = creationflags
+    if launch.get("use_startupinfo", False):
+        startupinfo = subprocess.STARTUPINFO()
+        startupinfo.dwFlags = int(launch.get("startupinfo_dw_flags", 0))
+        startupinfo.wShowWindow = int(launch.get("startupinfo_show_window", 0))
+        options["startupinfo"] = startupinfo
+    return options
+
+
 def run_url_step(step: dict) -> None:
-    url = str(step.get("url", "")).strip()
-    browser_path = str(step.get("browser_path", "")).strip()
+    launch = step.get("_url_open")
+    if not isinstance(launch, dict) or launch.get("schema") != URL_OPEN_SCHEMA:
+        raise ValueError("URL 打开合同缺失或版本不受支持")
+
+    url = str(launch.get("url", ""))
 
     if not url:
         log("[失败] URL 为空")
         return
 
-    if browser_path:
+    open_mode = str(launch.get("open_mode", ""))
+    if open_mode == "process":
+        browser_path = str(launch.get("executable", ""))
         if not os.path.exists(browser_path):
             log(f"[失败] 浏览器路径不存在: {browser_path}")
             return
-        subprocess.Popen([browser_path, url])
-    else:
+        command_args = [str(value) for value in launch.get("command_args", [])]
+        if not command_args:
+            raise ValueError("URL 打开参数无效")
+        subprocess.Popen(command_args, **url_process_options(launch))
+    elif open_mode == "shell_open":
         os.startfile(url)
+    else:
+        raise ValueError(f"不支持的 URL 打开模式: {open_mode}")
 
     log(f"[成功] 已打开网址: {url}")
 
@@ -486,6 +521,28 @@ def _serialized_application_launch(
     }
 
 
+def _serialized_url_open(url: str, browser_path: str) -> dict:
+    """Materialize the shared UrlOpener contract for a standalone launcher."""
+
+    opener = get_url_opener(path_exists=lambda _path: True)
+    spec = opener.build_open_spec(url, browser_path)
+    return {
+        "schema": URL_OPEN_SCHEMA,
+        "open_mode": spec.open_mode,
+        "url": spec.url,
+        "executable": spec.executable,
+        "command_args": list(spec.command_args),
+        "cwd": spec.cwd,
+        "creationflags": spec.creationflags,
+        "use_startupinfo": spec.use_startupinfo,
+        "startupinfo_dw_flags": spec.startupinfo_dw_flags,
+        "startupinfo_show_window": spec.startupinfo_show_window,
+        "use_stdin_devnull": spec.use_stdin_devnull,
+        "use_stdout_devnull": spec.use_stdout_devnull,
+        "use_stderr_devnull": spec.use_stderr_devnull,
+    }
+
+
 def _prepare_embedded_plan_and_assets(plan_dict: dict) -> tuple[dict, list[tuple[Path, str]]]:
     """
     复制一份用于打包的方案数据，并收集可随包携带的本地应用文件。
@@ -511,6 +568,12 @@ def _prepare_embedded_plan_and_assets(plan_dict: dict) -> tuple[dict, list[tuple
             shell = str(step.get("shell", "cmd")).lower()
             compatible_shell = "powershell" if shell == "powershell" else "cmd"
             step["_command_launch"] = _serialized_command_launch(command, compatible_shell)
+            continue
+
+        if step.get("type") == "url":
+            url = str(step.get("url", "")).strip()
+            browser_path = str(step.get("browser_path", "")).strip()
+            step["_url_open"] = _serialized_url_open(url, browser_path)
             continue
 
         if step.get("type") != "app":

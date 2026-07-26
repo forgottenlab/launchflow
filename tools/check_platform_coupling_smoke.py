@@ -151,7 +151,7 @@ RULES = (
 )
 
 FUTURE_TARGETS = {
-    "windows-api": "DesktopIntegration or ApplicationLauncher",
+    "windows-api": "DesktopIntegration, ApplicationLauncher, or UrlOpener",
     "process": "CommandBackend",
     "command-shell": "CommandBackend",
     "paths": "PlatformPaths",
@@ -166,6 +166,11 @@ FUTURE_TARGETS = {
 
 
 def _future_target(finding: Finding) -> str:
+    if finding.path == "runtime/launcher_runtime.py" and finding.category == "windows-api":
+        if "open_spec.url" in finding.evidence:
+            return "UrlOpener"
+        if "launch_spec.resolved_target" in finding.evidence:
+            return "ApplicationLauncher"
     if finding.path == "shared/platform/applications.py" and finding.category in {
         "process",
         "command-shell",
@@ -176,6 +181,12 @@ def _future_target(finding: Finding) -> str:
         "command-shell",
     }:
         return "CommandBackend or ApplicationLauncher"
+    if finding.path == "tools/build_single_exe.py" and finding.category == "windows-api":
+        if "os.startfile(url)" in finding.evidence:
+            return "UrlOpener"
+        if "os.startfile(path)" in finding.evidence:
+            return "ApplicationLauncher"
+        return "DesktopIntegration"
     return FUTURE_TARGETS[finding.category]
 
 

@@ -21,6 +21,13 @@ from shared.platform.process import (
     WindowsCommandBackend,
     get_command_backend,
 )
+from shared.platform.urls import (
+    LegacyPosixUrlOpener,
+    UrlOpener,
+    UrlOpenSpec,
+    WindowsUrlOpener,
+    get_url_opener,
+)
 
 __all__ = (
     "ApplicationLauncher",
@@ -28,16 +35,21 @@ __all__ = (
     "LegacyFallbackPlatformPaths",
     "LegacyPosixApplicationLauncher",
     "LegacyPosixCommandBackend",
+    "LegacyPosixUrlOpener",
     "CommandBackend",
     "CommandLaunchSpec",
     "PlatformInfo",
     "PlatformPathProvider",
+    "UrlOpener",
+    "UrlOpenSpec",
     "WindowsPlatformPaths",
     "WindowsApplicationLauncher",
     "WindowsCommandBackend",
+    "WindowsUrlOpener",
     "current_platform_info",
     "detect_platform",
     "get_platform_path_provider",
     "get_application_launcher",
     "get_command_backend",
+    "get_url_opener",
 )

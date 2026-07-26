@@ -21,7 +21,8 @@ shared/platform/
   detection.py     # PlatformInfo and backend selection
   paths.py         # PlatformPaths and resource/user-data locations
   process.py       # CommandBackend and process error normalization
-  applications.py  # ApplicationLauncher and default URL/file opening
+  applications.py  # ApplicationLauncher and native application targets
+  urls.py          # UrlOpener and default/explicit browser specifications
   identity.py      # HardwareIdentityProvider
   integration.py   # DesktopIntegration: icons, folders, notifications
   packaging.py     # PackagingBackend and artifact capabilities
@@ -34,7 +35,8 @@ Suggested contracts:
 | `PlatformInfo` | normalized OS, architecture, frozen state, capability flags | plan mutation or license decisions |
 | `PlatformPaths` | config/data/cache/log/temp/resource locations and conservative legacy roots | file migration policy or user-selected save/export destinations |
 | `CommandBackend` | supported shell IDs, argv construction, process flags, decoding hints, friendly error classification | command text rewriting beyond documented backend rules |
-| `ApplicationLauncher` | validate/launch native applications, scripts, URLs, and working directories | packaging or plan serialization |
+| `ApplicationLauncher` | validate/launch native applications, scripts, and working directories | URL opening, packaging, or plan serialization |
+| `UrlOpener` | choose default-browser versus explicit-browser mode and construct an immutable open specification | URL parsing, browser discovery, process execution, or plan serialization |
 | `HardwareIdentityProvider` | versioned identity inputs and privacy-safe diagnostics | RSA signing, entitlement, or silent identity migration |
 | `DesktopIntegration` | app identity/icon, reveal/open folder, native messages where needed | core execution decisions |
 | `PackagingBackend` | host-native artifact name, icon/bundle resources, PyInstaller invocation, output verification | cross-compilation claims or plan schema changes |
@@ -84,6 +86,14 @@ The standalone export builder materializes the same LaunchSpec and explanations 
 Phase 1c adds a stdlib-only `ApplicationLauncher` and frozen `ApplicationLaunchSpec` under `shared/platform/applications.py`. The Windows backend owns the existing target classification, direct-process versus `.lnk` shell-open mode, exact PowerShell script argv, working directory, argument order, `CREATE_NO_WINDOW`, optional minimized startup info, and three `DEVNULL` streams. `runtime/launcher_runtime.py` still owns `Popen`/`os.startfile`, keeps Application fire-and-forget, and does not wait, capture, or write internal launch metadata into user plan JSON.
 
 The standalone export builder materializes the same Application spec into its deep-copied embedded plan and resolves bundled assets under `_MEIPASS/launchflow_assets`; the original plan and Application schema remain unchanged. URL, Command, and Wait execution are unchanged. `LegacyPosixApplicationLauncher` retains only the prior generic fallback and declares no supported target kinds, so this boundary is not Linux or macOS Application support.
+
+### Phase 1d status — completed
+
+Phase 1d adds a stdlib-only `UrlOpener` and frozen `UrlOpenSpec` under `shared/platform/urls.py`. On Windows, an empty or missing browser value still selects one `os.startfile(url)` call at the runtime boundary. An explicit browser path still selects one fire-and-forget `Popen([browser_path, url])` call with no cwd, stream redirection, hidden-window flags, startup info, wait, communicate, return-code read, or browser asset bundling. URL values are not parsed, repaired, or given an automatic scheme.
+
+The standalone export builder materializes the same URL spec into its deep-copied internal plan, while preserving the embedded launcher's pre-existing string-trimming and failure-log boundary. A real temporary onefile smoke proves the explicit-browser branch with a local marker substitute; the default-browser call is verified through a mocked embedded runtime so automation never opens a real browser or external site. Command, Application, Wait, `UrlStep`, plan JSON, licensing, and packaging suffixes remain unchanged.
+
+`LegacyPosixUrlOpener` retains only the prior explicit-browser process fallback and rejects default-browser opening as unsupported. Phase 1d does not implement `xdg-open`, `gio open`, macOS `open`, `webbrowser`, or Qt `QDesktopServices`; Linux and macOS URL support remain Planned and require native-host validation.
 
 ## Phase 2 — Linux x86_64 source-run experimental target
 

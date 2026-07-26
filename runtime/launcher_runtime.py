@@ -31,6 +31,7 @@ from typing import Any, Callable, Optional
 from runtime.command_runner import CommandResult, execute_command, friendly_command_error
 from shared.models import Plan, AppStep, UrlStep, CommandStep, WaitStep
 from shared.platform.applications import ApplicationLaunchSpec, get_application_launcher
+from shared.platform.urls import UrlOpenSpec, get_url_opener
 
 
 LogCallback = Optional[Callable[[str], None]]
@@ -54,6 +55,28 @@ def application_popen_options(start_minimized: bool = False) -> dict:
 
 def _application_process_options(spec: ApplicationLaunchSpec) -> dict[str, Any]:
     options: dict[str, Any] = {}
+    if spec.use_stdin_devnull:
+        options["stdin"] = subprocess.DEVNULL
+    if spec.use_stdout_devnull:
+        options["stdout"] = subprocess.DEVNULL
+    if spec.use_stderr_devnull:
+        options["stderr"] = subprocess.DEVNULL
+    if spec.creationflags:
+        options["creationflags"] = spec.creationflags
+    if spec.use_startupinfo:
+        startupinfo = subprocess.STARTUPINFO()
+        startupinfo.dwFlags = spec.startupinfo_dw_flags
+        startupinfo.wShowWindow = spec.startupinfo_show_window
+        options["startupinfo"] = startupinfo
+    return options
+
+
+def _url_process_options(spec: UrlOpenSpec) -> dict[str, Any]:
+    """Materialize only the process options declared by a URL open spec."""
+
+    options: dict[str, Any] = {}
+    if spec.cwd is not None:
+        options["cwd"] = spec.cwd
     if spec.use_stdin_devnull:
         options["stdin"] = subprocess.DEVNULL
     if spec.use_stdout_devnull:
@@ -196,12 +219,17 @@ class RuntimeExecutor:
         if not step.url.strip():
             raise ValueError("URL 为空")
 
-        if step.browser_path:
-            if not os.path.exists(step.browser_path):
-                raise FileNotFoundError(f"浏览器路径不存在: {step.browser_path}")
-            subprocess.Popen([step.browser_path, step.url])
+        opener = get_url_opener()
+        open_spec = opener.build_open_spec(step.url, step.browser_path)
+        if open_spec.open_mode == "shell_open":
+            os.startfile(open_spec.url)  # type: ignore[attr-defined]
+        elif open_spec.open_mode == "process":
+            subprocess.Popen(
+                list(open_spec.command_args),
+                **_url_process_options(open_spec),
+            )
         else:
-            os.startfile(step.url)
+            raise ValueError(f"不支持的 URL 打开模式: {open_spec.open_mode}")
 
         self.log(f"[成功] 已打开网址: {step.url}")
 

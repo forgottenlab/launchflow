@@ -199,7 +199,7 @@
       "area": "windows-api",
       "classification": "platform_adapter_candidate",
       "reason": "Windows-only API",
-      "future_target": "DesktopIntegration or ApplicationLauncher",
+      "future_target": "DesktopIntegration, ApplicationLauncher, or UrlOpener",
       "allowed_to_remain": true
     },
     {
@@ -209,7 +209,7 @@
       "area": "windows-api",
       "classification": "platform_adapter_candidate",
       "reason": "Windows-only API",
-      "future_target": "DesktopIntegration or ApplicationLauncher",
+      "future_target": "DesktopIntegration, ApplicationLauncher, or UrlOpener",
       "allowed_to_remain": true
     },
     {
@@ -229,7 +229,7 @@
       "area": "windows-api",
       "classification": "platform_adapter_candidate",
       "reason": "Windows-only API",
-      "future_target": "DesktopIntegration or ApplicationLauncher",
+      "future_target": "DesktopIntegration, ApplicationLauncher, or UrlOpener",
       "allowed_to_remain": true
     },
     {
@@ -349,17 +349,17 @@
       "area": "windows-api",
       "classification": "platform_adapter_candidate",
       "reason": "Windows-only API",
-      "future_target": "DesktopIntegration or ApplicationLauncher",
+      "future_target": "ApplicationLauncher",
       "allowed_to_remain": true
     },
     {
-      "fingerprint": "4a4170c4fcfb9ccf4c52",
+      "fingerprint": "87c1329b8a792481c810",
       "path": "runtime/launcher_runtime.py",
       "rule_id": "WIN-API-001",
       "area": "windows-api",
       "classification": "platform_adapter_candidate",
       "reason": "Windows-only API",
-      "future_target": "DesktopIntegration or ApplicationLauncher",
+      "future_target": "UrlOpener",
       "allowed_to_remain": true
     },
     {
@@ -409,7 +409,7 @@
       "area": "windows-api",
       "classification": "platform_adapter_candidate",
       "reason": "Windows-only API",
-      "future_target": "DesktopIntegration or ApplicationLauncher",
+      "future_target": "DesktopIntegration, ApplicationLauncher, or UrlOpener",
       "allowed_to_remain": true
     },
     {
@@ -469,7 +469,7 @@
       "area": "windows-api",
       "classification": "platform_adapter_candidate",
       "reason": "Windows-only API",
-      "future_target": "DesktopIntegration or ApplicationLauncher",
+      "future_target": "DesktopIntegration, ApplicationLauncher, or UrlOpener",
       "allowed_to_remain": true
     },
     {
@@ -849,7 +849,7 @@
       "area": "windows-api",
       "classification": "allowed_windows_boundary",
       "reason": "Windows-only API",
-      "future_target": "DesktopIntegration or ApplicationLauncher",
+      "future_target": "DesktopIntegration",
       "allowed_to_remain": true
     },
     {
@@ -869,7 +869,7 @@
       "area": "windows-api",
       "classification": "allowed_windows_boundary",
       "reason": "Windows-only API",
-      "future_target": "DesktopIntegration or ApplicationLauncher",
+      "future_target": "DesktopIntegration",
       "allowed_to_remain": true
     },
     {
@@ -879,7 +879,7 @@
       "area": "windows-api",
       "classification": "allowed_windows_boundary",
       "reason": "Windows-only API",
-      "future_target": "DesktopIntegration or ApplicationLauncher",
+      "future_target": "ApplicationLauncher",
       "allowed_to_remain": true
     },
     {
@@ -889,7 +889,7 @@
       "area": "windows-api",
       "classification": "allowed_windows_boundary",
       "reason": "Windows-only API",
-      "future_target": "DesktopIntegration or ApplicationLauncher",
+      "future_target": "UrlOpener",
       "allowed_to_remain": true
     },
     {

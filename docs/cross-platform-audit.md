@@ -4,7 +4,7 @@
 
 This audit records the current `v0.1.0-beta.2` Windows baseline. It is an architecture and coupling assessment and makes no support claim for Linux or macOS. No runtime, editor, license, schema, or packaging behavior was changed as part of the audit.
 
-The repository has **no identified P0 import/startup blocker caused solely by importing a Windows-only Python module**. Windows-only calls are generally inside functions or guarded branches, for example `shared/app_icon.py:33-36` and `licensing/hwid.py:49-57`. However, the main workflows are not cross-platform: default URL opening calls `os.startfile` (`runtime/launcher_runtime.py:195`), Application supports Windows entry types (`runtime/launcher_runtime.py:151-167`), Command is modeled and edited as `cmd`/PowerShell (`shared/models.py:102`, `editor/ui/main_window.py:2301`), and all production packaging outputs are Windows EXE (`tools/build_editor_release.py:88-144`, `tools/build_single_exe.py:549-572`).
+The repository has **no identified P0 import/startup blocker caused solely by importing a Windows-only Python module**. Windows-only calls are generally inside functions or guarded branches, for example `shared/app_icon.py` and `licensing/hwid.py`. However, the main workflows are not cross-platform: Phase 1d now isolates Windows URL mode/spec construction in `shared/platform/urls.py`, but default opening still executes `os.startfile` at the runtime boundary; Application supports Windows entry types, Command is modeled and edited as `cmd`/PowerShell, and all production packaging outputs are Windows EXE.
 
 ## Current Support Boundary
 
@@ -48,12 +48,12 @@ These are conceptual findings. The static checker reports individual source occu
 | ID | Area | Severity | File / Symbol | Windows Assumption | Linux Impact | macOS Impact | Recommendation |
 |---|---|---|---|---|---|---|---|
 | CP-01 | Process/shell | P1 | `shared/platform/process.py`; facade in `runtime/command_runner.py`; export materialization in `tools/build_single_exe.py` | cmd/PowerShell shell IDs and Windows LaunchSpec | Unsupported legacy `/bin/sh` fallback remains | Unsupported legacy `/bin/sh` fallback remains; zsh is not modeled | Phase 1b boundary complete; native shell capabilities remain future work |
-| CP-02 | URL launch | P1 | `RuntimeExecutor._run_url` at `runtime/launcher_runtime.py:176-197` | `os.startfile` opens default browser | Default URL fails | Default URL fails | `ApplicationLauncher.open_url` |
+| CP-02 | URL launch | P1 | `shared/platform/urls.py`; runtime facade in `runtime/launcher_runtime.py`; export materialization in `tools/build_single_exe.py` | Windows default browser is `os.startfile`; explicit browser is exact `Popen([browser_path, url])` | Native default URL absent | Native default URL absent | Phase 1d boundary complete; native openers remain future work |
 | CP-03 | Application | P1 | `shared/platform/applications.py`; facade in `runtime/launcher_runtime.py`; export materialization in `tools/build_single_exe.py` | Windows target kinds, `.lnk` shell-open, PowerShell script argv and process flags | No `.sh`/`.desktop`/AppImage policy | No `.app`/`.command`/open policy | Phase 1c boundary complete; native capabilities/filters remain future work |
 | CP-04 | HWID | P1 | `licensing/hwid.py:37-100` | MachineGuid plus `vol C:` | Generic fallback is not stability-proven | Generic fallback is not stability-proven | Versioned `HardwareIdentityProvider` |
 | CP-05 | Editor package | P1 | `tools.build_editor_release.build_release` at `tools/build_editor_release.py:85-148` | ICO and `.exe` onefile | No native artifact | No app bundle, signing, or notarization | Per-host `PackagingBackend` |
 | CP-06 | Launcher export | P1 | `tools/build_single_exe.py:38,421-461,498-577` | Windows packable suffixes and EXE output | No ELF/AppImage export | No `.app`/`.dmg` export | Current-host packaging only |
-| CP-07 | Export runtime | P1 | `EMBEDDED_TEMPLATE` in `tools/build_single_exe.py` | AppData/MessageBox/default URL still embedded; Command and Application specs are materialized from shared contracts | Native runtime remains absent | Native runtime remains absent | Continue extracting one execution area at a time without changing schemas |
+| CP-07 | Export runtime | P1 | `EMBEDDED_TEMPLATE` in `tools/build_single_exe.py` | AppData/MessageBox remain embedded; Command, Application, and URL specs are materialized from shared contracts | Native runtime remains absent | Native runtime remains absent | Continue extracting one execution area at a time without changing schemas |
 | CP-08 | Paths | P2 | `shared/platform/paths.py`; public facade in `shared/app_paths.py` | `%LOCALAPPDATA%`, explicit override, one legacy fallback | XDG config/cache split missing | Application Support/Logs/Caches missing | Phase 1a boundary complete; native providers remain future work |
 | CP-09 | Desktop | P2 | `shared/app_icon.py:15-39`; `shared/diagnostics.py:103-110` | AppUserModelID, ICO, startfile | No desktop/icon/open-folder integration | No icns/Info.plist/Dock/open integration | `DesktopIntegration` |
 | CP-10 | Diagnostics | P2 | `build_diagnostic_text` at `shared/diagnostics.py:22-33,76-100` | `Windows:` and `%USERPROFILE%` labels | Mislabels Linux | Mislabels macOS | Platform label/path aliases; keep redaction |
@@ -63,7 +63,7 @@ These are conceptual findings. The static checker reports individual source occu
 | CP-14 | Errors | P2 | `friendly_command_error`/decode at `runtime/command_runner.py:34-44,81-99` | 9009 and Windows code pages | POSIX errno/signals unmapped | POSIX/launch errors unmapped | Backend error normalization; retain raw data |
 | CP-15 | Migration | P3 | `_candidate_legacy_roots` at `shared/data_migration.py:50-66` | `LaunchFlow.exe` probe | Linux legacy roots undefined | macOS legacy roots undefined | Backend supplies explicit roots |
 | CP-16 | Cache names | P3 | `PlanService.get_cached_exe_path` at `editor/services/plan_service.py:338-349` | Cache artifact ends `.exe` | Misnamed/inapplicable | Misnamed/inapplicable | Packaging backend owns artifact name |
-| CP-17 | Duplication | P3 | `tools/build_single_exe.py` | Separate Windows-biased runtime remains, but Command and Application platform selection/argv are no longer independently duplicated | Drift risk remains for URL, paths, desktop messages and logging | Same | Continue shared/generated contracts in separately scoped phases |
+| CP-17 | Duplication | P3 | `tools/build_single_exe.py` | Separate Windows-biased runtime remains, but Command, Application, and URL platform selection/spec construction are no longer independently duplicated | Drift risk remains for paths, desktop messages and logging | Same | Continue shared/generated contracts in separately scoped phases |
 | CP-18 | Tests | P3 | `tools/validate_release_smoke.py:54-109`; `tools/validate_export_smoke.py:70-203` | EXE/taskkill/cmd/PowerShell | No native release gates | No native release gates | Explicit platform labels and jobs |
 | CP-19 | Docs | P3 | `README.md:5,92-105,193`; `docs/architecture.md:251-260` | Current product is intentionally Windows-only | Must stay a target, not claim | Must stay a target, not claim | Update only after release gates pass |
 | CP-20 | License metadata | P3 | `licensing/request_token.py:45-55`; `licensing/license_schema.py:10-24` | Signed payload has no platform/arch | Future entitlement policy unresolved | Future arch/universal policy unresolved | New versioned design only; do not alter current schemas |
@@ -73,12 +73,12 @@ These are conceptual findings. The static checker reports individual source occu
 | ID | Severity | Boundary | Evidence and impact |
 |---|---|---|---|
 | CP-01 | P1 | Command backend | Phase 1b moved Windows argv, hiding, quoting, decode candidates, and failure interpretation into `shared/platform/process.py`; `runtime/command_runner.py` executes the LaunchSpec and the standalone export builder materializes it into the copied embedded plan. `CommandStep.shell` still defaults to `cmd`, the UI/schema still expose only `cmd`/`powershell`, and non-Windows retains the old `/bin/sh -c` mapping only as an explicitly unsupported legacy fallback. Native Linux/macOS shell capability and rejection policy remain unresolved. |
-| CP-02 | P1 | Default browser | Default URL launch uses unguarded `os.startfile` (`runtime/launcher_runtime.py:176-197`); the exported launcher duplicates it (`tools/build_single_exe.py:216-232`). URL data is portable, but default-browser execution is not. |
+| CP-02 | P1 | URL opener | Phase 1d moves Windows default/explicit mode selection and immutable spec construction into `shared/platform/urls.py`. Source runtime and standalone export consume that contract while retaining one runtime `os.startfile(url)` or exact fire-and-forget `Popen([browser_path, url])`. The legacy non-Windows backend rejects default opening, so URL data may be portable but native default-browser execution remains unsupported. |
 | CP-03 | P1 | Application launch | Phase 1c moved target classification and immutable launch construction into `shared/platform/applications.py`; runtime consumes the spec while retaining `Popen`/`os.startfile` and fire-and-forget semantics, and export materializes the same spec into its copied embedded plan. The picker and schema are unchanged. Linux desktop files, macOS app bundles, and native open semantics remain absent. |
 | CP-04 | P1 | Hardware identity | Windows uses registry `MachineGuid` and `vol C:` (`licensing/hwid.py:37-60,84-100`). Other systems fall back to OS version, hostname, and username (`licensing/hwid.py:63-81`), so identity can change on OS upgrade, hostname change, or account change. Activation may run, but durable binding is not established. |
 | CP-05 | P1 | Editor packaging | Release packaging requires `launchflow.ico`, passes `--onefile`, and expects `<name>.exe` (`tools/build_editor_release.py:85-144`). PyInstaller cannot cross-compile these missing platform artifacts from one Windows job. |
 | CP-06 | P1 | Plan launcher export | Packable assets are Windows suffixes (`tools/build_single_exe.py:38,421-461`), the builder expects an EXE (`tools/build_single_exe.py:498-577`), and the UI presents an EXE-only destination (`editor/ui/main_window.py:3812-3827`). Linux/macOS launcher artifacts do not exist. |
-| CP-07 | P1 | Embedded launcher runtime | The generated launcher still independently embeds Windows AppData, MessageBox, default-URL `os.startfile`, logging, and execution control. Command and Application platform choices are now versioned primitive specs materialized from shared contracts, reducing drift without adding a source-tree runtime dependency. |
+| CP-07 | P1 | Embedded launcher runtime | The generated launcher still independently embeds Windows AppData, MessageBox, logging, and execution control. Command, Application, and URL platform choices are versioned primitive specs materialized from shared contracts, reducing drift without adding a source-tree runtime dependency. |
 | CP-08 | P2 | User-data paths | Phase 1a moved calculation behind `shared/platform/paths.py` while preserving `%LOCALAPPDATA%\LaunchFlow`, `LAUNCHFLOW_DATA_DIR`, and the previous non-Windows `~/.local/share/LaunchFlow` fallback. The fallback remains compatibility-only: it does not separate XDG config/cache/data and is not the standard macOS Application Support location. |
 | CP-09 | P2 | Desktop integration | App identity/icon integration is Windows AppUserModelID plus ICO (`shared/app_icon.py:15-39`); opening logs is Windows-only and otherwise a silent no-op (`shared/diagnostics.py:103-110`). |
 | CP-10 | P2 | Diagnostics | Diagnostics label every OS as `Windows` and mask home as `%USERPROFILE%` (`shared/diagnostics.py:22-33,88`). Redaction still protects the resolved home path, but output is misleading on Linux/macOS. |
@@ -100,6 +100,12 @@ These are conceptual findings. The static checker reports individual source occu
 ## Application Launching
 
 Phase 1c freezes Windows Application behavior through `ApplicationLauncher`/`ApplicationLaunchSpec`: case-insensitive target classification, direct process versus `.lnk` shell-open, exact `.ps1` argv, arguments/cwd, hidden/minimized flags, three `DEVNULL` streams, and fire-and-forget ownership in runtime. The exported launcher receives a JSON-safe versioned spec and resolves bundled targets under `_MEIPASS/launchflow_assets` without mutating the source plan. Linux executable/`.sh`/`.desktop`/AppImage and macOS Unix executable/`.command`/`.app` still need platform capability rules and physical validation. Application paths remain inherently local; diagnostics are safer than rewriting the current schema.
+
+## URL Opening
+
+Phase 1d freezes Windows URL behavior through `UrlOpener`/`UrlOpenSpec`. Empty or missing browser data selects shell-open and runtime performs the existing `os.startfile(url)` call. A truthy explicit browser selects process mode with exact `(browser_path, url)` argv and no cwd, standard-stream redirection, process flags, wait, communicate, return-code read, or bundled browser. The source runtime preserves the original URL after empty checking; export preserves its historical string-trimming boundary before materializing metadata. Both retain existing full-URL success logging, which is a documented privacy boundary for query parameters.
+
+The embedded launcher consumes `_url_open` from its copied plan and does not re-infer mode or argv. Automated onefile validation mocks default shell-open and uses a local explicit-browser marker, so it does not open a real browser or use the network. Linux/macOS default-browser commands remain unimplemented and unsupported.
 
 ## Data and Configuration Paths
 
@@ -125,7 +131,7 @@ Existing redaction masks resolved home/local paths and machine/request/signature
 
 ## Plan Portability
 
-- URL values and Wait durations are portable data; default-browser execution still needs a backend.
+- URL values and Wait durations are portable data; the Windows URL backend is frozen, while Linux/macOS default-browser execution still needs native backends and real-host evidence.
 - Application paths, local assets, arguments, working directories, and path separators are normally host-specific.
 - Command text is only partially portable; shell identity and external program availability determine meaning.
 - Windows paths on Linux/macOS should be diagnosed before run, not rewritten automatically.
@@ -148,7 +154,7 @@ Existing redaction masks resolved home/local paths and machine/request/signature
 
 ## Recommended Platform Abstraction
 
-Use `shared/platform/{base,detection,paths,process,applications,identity,integration,packaging}.py`. Centralize platform selection there; business modules should consume `PlatformInfo`, `PlatformPaths`, `CommandBackend`, `ApplicationLauncher`, `HardwareIdentityProvider`, `DesktopIntegration`, and `PackagingBackend` instead of adding scattered `sys.platform` branches. Detailed responsibilities and phases are in `docs/cross-platform-roadmap.md`.
+Use `shared/platform/{base,detection,paths,process,applications,urls,identity,integration,packaging}.py`. Centralize platform selection there; business modules should consume `PlatformInfo`, `PlatformPaths`, `CommandBackend`, `ApplicationLauncher`, `UrlOpener`, `HardwareIdentityProvider`, `DesktopIntegration`, and `PackagingBackend` instead of adding scattered `sys.platform` branches. Detailed responsibilities and phases are in `docs/cross-platform-roadmap.md`.
 
 ## Tests
 

@@ -26,6 +26,7 @@ from tools.build_single_exe import (
     APPLICATION_ASSET_DIR,
     APPLICATION_ASSET_PREFIX,
     APPLICATION_LAUNCH_SCHEMA,
+    URL_OPEN_SCHEMA,
     build_single_file_exe,
     writable_temporary_directory,
 )
@@ -104,6 +105,8 @@ def main() -> None:
         ps1_marker = tmp_dir / "ps1_marker.txt"
         cmd_command_marker = tmp_dir / "cmd_command_marker.txt"
         ps_command_marker = tmp_dir / "ps_command_marker.txt"
+        url_marker = tmp_dir / "url_marker.txt"
+        browser_script = tmp_dir / "smoke_browser.cmd"
         output_exe = tmp_dir / "LaunchFlowSmoke.exe"
         app_data_dir = tmp_dir / "测试 AppData"
 
@@ -115,6 +118,13 @@ def main() -> None:
             'Write-Output "APP_STDOUT_POLLUTION"\n'
             '[Console]::Error.WriteLine("APP_STDERR_POLLUTION")\n'
             'Set-Content -LiteralPath $args[0] -Value $PSCommandPath -Encoding UTF8\n',
+            encoding="utf-8",
+        )
+        explicit_url = "launchflow-smoke://explicit-browser/value"
+        browser_script.write_text(
+            '@echo off\r\n'
+            f'> "{url_marker}" <nul set /p "=%~1"\r\n'
+            'exit /b 0\r\n',
             encoding="utf-8",
         )
 
@@ -154,6 +164,24 @@ def main() -> None:
                     "shell": "powershell",
                     "working_dir": "",
                     "new_window": True,
+                },
+                {
+                    "id": "step-url-default",
+                    "type": "url",
+                    "name": "Smoke default browser contract",
+                    "enabled": False,
+                    "delay_after": 0.0,
+                    "url": "launchflow-smoke://default-browser/value",
+                    "browser_path": "",
+                },
+                {
+                    "id": "step-url-explicit",
+                    "type": "url",
+                    "name": "Smoke explicit browser substitute",
+                    "enabled": True,
+                    "delay_after": 0.0,
+                    "url": explicit_url,
+                    "browser_path": str(browser_script),
                 },
                 {
                     "id": "step-wait",
@@ -229,8 +257,8 @@ def main() -> None:
             "-File",
         ]:
             raise AssertionError("Embedded ps1 Application argv changed")
-        if "def run_url_step" not in debug_text or "os.startfile(url)" not in debug_text:
-            raise AssertionError("Embedded URL behavior changed")
+        if "def run_url_step" not in debug_text or "os.startfile(url)" not in debug_text or "_url_open" not in debug_text:
+            raise AssertionError("Embedded URL contract is missing")
         if "def run_wait_step" not in debug_text or "time.sleep(seconds)" not in debug_text:
             raise AssertionError("Embedded Wait behavior changed")
         command_steps = [step for step in embedded_plan.get("steps", []) if step.get("type") == "command"]
@@ -258,6 +286,70 @@ def main() -> None:
             if launch.get("startupinfo_show_window") != subprocess.SW_HIDE:
                 raise AssertionError("Embedded Command is missing SW_HIDE")
 
+        url_steps = [step for step in embedded_plan.get("steps", []) if step.get("type") == "url"]
+        if len(url_steps) != 2:
+            raise AssertionError("Embedded plan does not contain both URL steps")
+        default_url_step, explicit_url_step = url_steps
+        default_url_launch = default_url_step.get("_url_open", {})
+        explicit_url_launch = explicit_url_step.get("_url_open", {})
+        if default_url_launch.get("schema") != URL_OPEN_SCHEMA:
+            raise AssertionError("Embedded default URL launch schema is missing")
+        if default_url_launch.get("open_mode") != "shell_open":
+            raise AssertionError("Embedded default URL no longer uses shell-open mode")
+        if default_url_launch.get("url") != default_url_step.get("url"):
+            raise AssertionError("Embedded default URL value changed")
+        if default_url_launch.get("command_args") or default_url_launch.get("executable") is not None:
+            raise AssertionError("Embedded default URL gained process fields")
+        if explicit_url_launch.get("schema") != URL_OPEN_SCHEMA:
+            raise AssertionError("Embedded explicit URL launch schema is missing")
+        if explicit_url_launch.get("open_mode") != "process":
+            raise AssertionError("Embedded explicit URL no longer uses process mode")
+        if explicit_url_launch.get("command_args") != [str(browser_script), explicit_url]:
+            raise AssertionError("Embedded explicit-browser argv changed")
+        if explicit_url_launch.get("cwd") is not None:
+            raise AssertionError("Embedded explicit browser gained a cwd")
+        if explicit_url_launch.get("creationflags", 0) or explicit_url_launch.get("use_startupinfo", False):
+            raise AssertionError("Embedded explicit browser gained hidden-window process flags")
+        if any(
+            explicit_url_launch.get(name, False)
+            for name in ("use_stdin_devnull", "use_stdout_devnull", "use_stderr_devnull")
+        ):
+            raise AssertionError("Embedded explicit browser gained DEVNULL streams")
+        if "_embedded_asset" in explicit_url_step:
+            raise AssertionError("Explicit browser path was bundled as an Application asset")
+
+        old_data_root = os.environ.get("LAUNCHFLOW_DATA_DIR")
+        try:
+            os.environ["LAUNCHFLOW_DATA_DIR"] = str(app_data_dir / "mocked-default")
+            namespace = {
+                "__name__": "launchflow_export_url_contract_smoke",
+                "__file__": str(debug_script),
+            }
+            exec(compile(debug_text, str(debug_script), "exec"), namespace)
+            mocked_default_calls: list[str] = []
+
+            class MockPath:
+                @staticmethod
+                def exists(_path: str) -> bool:
+                    return True
+
+            class MockOs:
+                path = MockPath()
+
+                @staticmethod
+                def startfile(url: str) -> None:
+                    mocked_default_calls.append(url)
+
+            namespace["os"] = MockOs
+            namespace["run_url_step"](default_url_step)
+            if mocked_default_calls != [default_url_launch["url"]]:
+                raise AssertionError("Embedded default-browser contract did not call shell-open exactly once")
+        finally:
+            if old_data_root is None:
+                os.environ.pop("LAUNCHFLOW_DATA_DIR", None)
+            else:
+                os.environ["LAUNCHFLOW_DATA_DIR"] = old_data_root
+
         if json.dumps(original_plan, sort_keys=True) != original_snapshot:
             raise AssertionError("build_single_file_exe mutated the original plan")
 
@@ -274,7 +366,7 @@ def main() -> None:
         )
         try:
             try:
-                _wait_for_files([cmd_marker, ps1_marker, cmd_command_marker, ps_command_marker])
+                _wait_for_files([cmd_marker, ps1_marker, cmd_command_marker, ps_command_marker, url_marker])
             except Exception as exc:
                 runtime_logs = sorted(
                     (app_data_dir / "logs" / "launchers" / "LaunchFlowSmoke").glob("runtime_*.log")
@@ -324,6 +416,8 @@ def main() -> None:
             raise AssertionError("Exported cmd Command step did not complete")
         if "command-powershell" not in ps_command_marker.read_text(encoding="utf-8-sig", errors="replace"):
             raise AssertionError("Exported PowerShell Command step did not complete")
+        if url_marker.read_text(encoding="utf-8", errors="replace").strip() != explicit_url:
+            raise AssertionError("Exported explicit-browser URL step did not preserve its URL argument")
         if (tmp_dir / "logs").exists():
             raise AssertionError("Exported launcher polluted its own directory with logs")
         runtime_logs = sorted(
@@ -331,6 +425,12 @@ def main() -> None:
         )
         if not runtime_logs:
             raise AssertionError("Exported launcher did not write its AppData runtime log")
+        runtime_log_text = "\n".join(
+            path.read_text(encoding="utf-8", errors="replace")
+            for path in runtime_logs
+        )
+        if f"[成功] 已打开网址: {explicit_url}" not in runtime_log_text:
+            raise AssertionError("Exported launcher lacks URL branch execution evidence")
 
         print("export smoke ok")
         print(f"exe_size_bytes={output_exe.stat().st_size}")
@@ -340,7 +440,9 @@ def main() -> None:
         print("command_no_window_contract=ok")
         print("application_contract=shared-launch-spec,cmd,ps1,devnull,hidden")
         print("application_parent_output_pollution=none")
-        print("url_wait_contract=unchanged")
+        print("url_contract=shared-open-spec,default-mocked,explicit-local-marker,no-browser-asset")
+        print("browser_safety=no-network,no-real-browser")
+        print("url_wait_contract=delay-owned-by-embedded-loop")
         print("residual_processes=0")
         print(f"runtime_log={runtime_logs[-1]}")
         print("launcher_directory_pollution=none")

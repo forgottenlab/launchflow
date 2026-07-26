@@ -307,9 +307,9 @@ LaunchFlow 的核心目标是：
 ## 10. Beta 命令执行与 Windows 身份
 
 - 源码试运行调用链为 `MainWindow` → `TrialRunWorker(QThread)` → `RuntimeExecutor` → `runtime.command_runner`。Qt 主线程只接收 Signal 日志，不直接等待子进程。
-- Command 与 Application 保持不同语义：Command 等待完成并捕获 stdout/stderr/return code；Application 由 `shared/platform/applications.py` 构造不可变启动规格，runtime 仍按长期 GUI/脚本启动项语义使用 fire-and-forget `Popen` 或 `.lnk` 的 `os.startfile`。
+- Command、Application 与 URL 保持独立语义：Command 等待完成并捕获 stdout/stderr/return code；Application 与 URL 分别由 `shared/platform/applications.py` 和 `shared/platform/urls.py` 构造不可变启动规格，runtime 仍拥有 fire-and-forget `Popen` 或 `os.startfile` 的实际执行。
 - Windows Command 使用 `CREATE_NO_WINDOW`、`STARTF_USESHOWWINDOW`、`SW_HIDE`。cmd 前缀为 `cmd.exe /d /s /c`，PowerShell 为无 Profile、NonInteractive 调用。
-- 导出启动器是独立嵌入式执行器，不直接导入源码 RuntimeExecutor；构建器把 Command 与 Application 的共享启动规格写入深拷贝后的内部方案，随包应用资产仍从 `_MEIPASS/launchflow_assets` 解析，用户方案 JSON 不包含这些内部字段。
+- 导出启动器是独立嵌入式执行器，不直接导入源码 RuntimeExecutor；构建器把 Command、Application 与 URL 的共享启动规格写入深拷贝后的内部方案，随包应用资产仍从 `_MEIPASS/launchflow_assets` 解析，用户方案 JSON 不包含这些内部字段。
 - `editor/main.py` 在创建 QApplication 前设置 `forgottenlab.launchflow.editor`，并从源码 `assets/` 或 frozen `_MEIPASS/assets/` 加载 ICO。
 - PyInstaller 构建必须在完整 Conda 激活环境中执行，尤其需让 `Library/bin` 进入 PATH，以便正确收集运行时 DLL。
 
@@ -378,3 +378,13 @@ LaunchFlow 的核心目标是：
 - `FieldThemeTokens` 是 LineEdit、TextEdit/PlainTextEdit、ComboBox、DoubleSpinBox/SpinBox 边框、focus 和背景的共享来源，也是分段控件 subcontrol、separator 与箭头颜色来源。多行日志控件不继承字段最小高度，避免压低显式日志高度。
 - SpinBox 不固定单个 up/down subcontrol 高度，而给整体控件提供偶数可分内容区，由 Qt 生成相同尺寸命中区；主题绘制只在真实 `SC_SpinBoxUp/Down` 矩形内居中箭头。
 - `TopBar` 使用 60px 固定高度、8px 上下 margin 和 `AlignVCenter`；标签显式透明，避免浅色主题出现继承背景块。
+
+## 18. URL 打开平台合同
+
+- 编辑器试运行仍沿用 `MainWindow` → `TrialRunWorker` → `RuntimeExecutor.run_plan()` → `run_url_step()`，没有新增 editor 平台分支或改变 `UrlStep`/方案 JSON。
+- `shared/platform/urls.py` 只构造 frozen `UrlOpenSpec`。Windows 的空 `browser_path` 产生 `shell_open`，由 runtime 继续执行一次 `os.startfile(url)`；显式路径产生 `process`，argv 仍精确为 `[browser_path, url]`。
+- 显式浏览器仍不设置 cwd、标准流、creation flags 或 startup info，且不 wait、communicate、读取 return code 或保留 Process handle。后续步骤仍由 `run_plan()`/嵌入主循环中的 `delay_after` 驱动。
+- 源码 runtime 只用 `strip()` 判断空 URL，随后传递并记录原字符串；独立导出 runtime 保留历史上的 `str(...).strip()` 边界。两者都不解析 URL、不补协议、不使用 shell 字符串。
+- 导出器只在深拷贝上写入 `_url_open`，嵌入 runtime 直接消费 spec，不重新推断默认/显式模式，也不把浏览器当作 bundled Application asset。
+- 成功日志继续包含完整 URL，这是既有诊断行为与隐私边界；本阶段不新增 URL 日志。含敏感查询参数的方案仍应谨慎分享日志。
+- 非 Windows 只保留显式浏览器的旧 `Popen` 兼容路径；默认浏览器明确未支持。本阶段没有加入 `webbrowser`、Qt `QDesktopServices`、Linux `xdg-open`/`gio open` 或 macOS `open`，也不构成 Linux/macOS 支持声明。
