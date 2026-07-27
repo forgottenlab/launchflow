@@ -126,6 +126,12 @@ The QAction attributes, Chinese text, Window/WidgetWithChildren contexts, enable
 
 Linux, macOS, and unknown use `LegacyShortcutPolicy` with the historical Ctrl/Alt strings. This is compatibility-only and does not implement Command-key conventions, native menu presentation, or physical keyboard support. Those claims still require real target-host validation.
 
+### Phase 1i status — audit completed
+
+Phase 1i freezes the existing hardware-identity contract without changing production licensing code. Synthetic-only fixtures cover the Windows registry value, complete volume-command stdout, always-included fallback, exact source order, empty/error behavior, `||` serialization, UTF-8 uppercase SHA-256, display formatting, legacy non-Windows behavior, and direct `LFREQ1`/`lflic-1` machine binding.
+
+The privacy and compatibility analysis is recorded in `docs/hardware-identity-audit.md`. It confirms that the unsalted digest is a persistent identifier, source/locale/host/account changes can invalidate existing licenses, cloned machines can share an identifier, and current request/license schemas contain no HWID algorithm version. `HardwareIdentityProvider` remains a design sketch only; native Linux/macOS identity and any migration are not implemented.
+
 ## Phase 2 — Linux x86_64 source-run experimental target
 
 | Field | Definition |
@@ -196,4 +202,4 @@ PyInstaller may remain an implementation, but Windows builds Windows, Linux buil
 
 ## Recommended next implementation task
 
-Prepare a separately scoped **Phase 1i HardwareIdentityProvider audit**. Freeze the current Windows MachineGuid/volume/fallback inputs, canonical machine ID output, accepted license compatibility, error boundaries, and privacy behavior before proposing an adapter. This recommendation is planning only: do not change HWID, `LFREQ1`, `lflic-1`, RSA, licensing, packaging, or support claims without a new explicit task.
+Prepare a separately authorized **Phase 1j HardwareIdentityProvider implementation-readiness review**. Any implementation must keep the frozen legacy-v1 calculation authoritative for existing requests and licenses, decide how provider injection avoids source drift, and define an explicitly versioned migration/reissue path before a new algorithm is considered. This recommendation is planning only: do not change HWID, `LFREQ1`, `lflic-1`, RSA, licensing, packaging, or support claims without a new explicit task.

@@ -422,3 +422,11 @@ LaunchFlow 的核心目标是：
 - 保存、另存为、运行、导出和删除 QAction 仍为 `WindowShortcut`；上移/下移仍为 `WidgetWithChildrenShortcut` 并只添加到步骤列表。顶部操作区继续使用独立 QPushButton，但与菜单 action 复用相同 handler。
 - Windows PySide6 6.9.3 探针确认 `StandardKey.Save`、`SaveAs`、`Delete` 分别呈现 `Ctrl+S`、`Ctrl+Shift+S`、`Del` 且各只有一个 binding；运行和导出没有对应 StandardKey。为保持七项同源字符串、现有 tooltip 的 `Delete` 文本和完整跨 action 一致性，本阶段不采用 StandardKey。
 - `LegacyShortcutPolicy` 在 Linux、macOS 和 unknown 上保留历史 Ctrl/Alt 字符串，仅用于兼容，不表示 Command 键、原生菜单或真实键盘支持。原生映射必须在目标主机验证菜单、焦点、文本输入和物理键盘后另行设计。
+
+## 23. Hardware Identity legacy-v1 合同
+
+- Phase 1i 仅审计并冻结 `licensing/hwid.py` 的现有行为，没有实现 `HardwareIdentityProvider`，也没有修改 licensing、请求/许可证 schema 或 RSA 流程。完整证据与风险矩阵见 `docs/hardware-identity-audit.md`。
+- Windows 依次读取 stripped `MachineGuid`、完整 stripped `vol C:` stdout，并始终加入 `platform.system/release/version`、hostname、username 的 `|` 连接 fallback；字典中的 Python 版本和 `platform.platform()` 不参与最终 Hash。
+- legacy-v1 只按 `machine_guid + "||" + volume_serial + "||" + fallback` 序列化，UTF-8 后计算 SHA-256 uppercase hex。注册表/volume 异常变为空字符串，fallback 源异常继续传播；Linux、macOS 和 unknown 仅保留既有 fallback，仍不构成支持声明。
+- `LFREQ1` 和 `lflic-1` 都直接绑定规范化后的 64 字符 machine ID，但 schema 中没有 identity algorithm version。现有许可证必须继续走完全相同的 legacy-v1 验证；任何新算法都需要独立版本、签名覆盖、迁移/补发策略，不能原地替换。
+- machine ID 是稳定可关联的设备标识而非匿名数据。原始 parts、完整 digest、请求码和许可证内容不得进入日志、诊断、文档 fixture 或支持材料；自动测试只允许明显 synthetic 输入与固定 synthetic Hash。
