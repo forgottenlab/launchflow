@@ -109,6 +109,12 @@ Phase 1f adds `DesktopIntegration.configure_application_identity(app_id)` withou
 
 The Windows backend resolves `ctypes.windll.shell32` only when identity is configured and forwards the AppUserModelID exactly once. Linux, macOS, and unknown backends preserve the previous `False` no-op without accessing a Windows API. Source/frozen ICO resolution, QIcon loading, QApplication/MainWindow/ActivationWindow icons, PyInstaller icon arguments, directory opening, diagnostics, runtime backends, plans, HWID, licensing, and release artifacts are unchanged. This is an identity boundary, not native Linux/macOS desktop integration.
 
+### Phase 1g status — completed
+
+Phase 1g adds a stdlib-only `DiagnosticsPresentationProvider` under `shared/platform/diagnostics.py`. It owns only the exact platform field label and ordered path aliases consumed by `shared/diagnostics.py`; log reading, report field order, masking, clipboard, UI presentation, and logs-directory opening remain with their existing owners. The Windows provider keeps `Windows`, `%LOCALAPPDATA%`, and `%USERPROFILE%` exactly, including LOCALAPPDATA-first replacement and empty-source suppression.
+
+Linux, macOS, and unknown selection uses `LegacyPosixDiagnosticsPresentationProvider`, not the Windows provider. That fallback deliberately emits the historical Windows label and aliases so existing output remains compatible; it is not native diagnostics presentation or a support claim. A fixed full-report fixture verifies character-for-character Windows output, while native Linux/macOS labels and aliases remain Planned and require separately scoped host validation.
+
 ## Phase 2 — Linux x86_64 source-run experimental target
 
 | Field | Definition |
@@ -179,4 +185,4 @@ PyInstaller may remain an implementation, but Windows builds Windows, Linux buil
 
 ## Recommended next implementation task
 
-Prepare a separately scoped **Phase 1g diagnostics platform-label boundary**. Freeze the current diagnostic text, redaction aliases, line limits, clipboard behavior, and privacy exclusions first; then isolate only the misleading `Windows:`/`%USERPROFILE%` presentation behind injected platform metadata. Leave directory opening, AppUserModelID/icons, paths, runtime backends, editor layout, HWID, licensing, schemas, packaging, and Linux/macOS support claims unchanged.
+Prepare a separately scoped **Phase 1h native shortcut-presentation audit**. Freeze the existing QAction bindings, menu text, tooltips, text-entry behavior, and Windows `Ctrl` contract before deciding whether Qt `StandardKey` can represent platform-native shortcuts without changing editor behavior. Do not combine it with native diagnostics labels, runtime backends, packaging, HWID/licensing, schema changes, or a Linux/macOS support claim.

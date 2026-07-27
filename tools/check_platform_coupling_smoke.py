@@ -166,6 +166,8 @@ FUTURE_TARGETS = {
 
 
 def _future_target(finding: Finding) -> str:
+    if finding.path == "shared/platform/diagnostics.py" and finding.category == "paths":
+        return "DiagnosticsPresentation"
     if finding.path == "shared/platform/desktop.py" and finding.category == "windows-api":
         return "DesktopIntegration"
     if finding.path == "runtime/launcher_runtime.py" and finding.category == "windows-api":

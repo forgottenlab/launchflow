@@ -403,26 +403,6 @@
       "allowed_to_remain": true
     },
     {
-      "fingerprint": "4034e22c8cdf797d65d9",
-      "path": "shared/diagnostics.py",
-      "rule_id": "WIN-PATH-001",
-      "area": "paths",
-      "classification": "platform_adapter_candidate",
-      "reason": "Windows user-data path or environment variable",
-      "future_target": "PlatformPaths",
-      "allowed_to_remain": true
-    },
-    {
-      "fingerprint": "e2b8be01bb66e86a9a27",
-      "path": "shared/diagnostics.py",
-      "rule_id": "WIN-PATH-001",
-      "area": "paths",
-      "classification": "platform_adapter_candidate",
-      "reason": "Windows user-data path or environment variable",
-      "future_target": "PlatformPaths",
-      "allowed_to_remain": true
-    },
-    {
       "fingerprint": "19fdb0fba6f8070a49f9",
       "path": "shared/models.py",
       "rule_id": "WIN-SHELL-001",
@@ -540,6 +520,36 @@
       "classification": "allowed_windows_boundary",
       "reason": "Windows desktop integration or font",
       "future_target": "DesktopIntegration",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "ca0b1023f1e52a9d2129",
+      "path": "shared/platform/diagnostics.py",
+      "rule_id": "WIN-PATH-001",
+      "area": "paths",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows user-data path or environment variable",
+      "future_target": "DiagnosticsPresentation",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "37342d2a8a711fc7f652",
+      "path": "shared/platform/diagnostics.py",
+      "rule_id": "WIN-PATH-001",
+      "area": "paths",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows user-data path or environment variable",
+      "future_target": "DiagnosticsPresentation",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "73ca402a67c32d9494e7",
+      "path": "shared/platform/diagnostics.py",
+      "rule_id": "WIN-PATH-001",
+      "area": "paths",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows user-data path or environment variable",
+      "future_target": "DiagnosticsPresentation",
       "allowed_to_remain": true
     },
     {

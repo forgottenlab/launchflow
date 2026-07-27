@@ -12,6 +12,10 @@ from pathlib import Path
 from shared.app_info import APP_NAME, APP_VERSION
 from shared.app_paths import get_app_data_dir, get_logs_dir
 from shared.platform.desktop import get_desktop_integration
+from shared.platform.diagnostics import (
+    DiagnosticsPresentation,
+    get_diagnostics_presentation_provider,
+)
 
 
 _SENSITIVE_VALUE = re.compile(
@@ -20,23 +24,23 @@ _SENSITIVE_VALUE = re.compile(
 _LFREQ1 = re.compile(r"LFREQ1\.[A-Za-z0-9_-]{16,}(?:\.[A-Za-z0-9_-]{4,})?")
 
 
-def normalize_user_paths(text: str) -> str:
-    """Replace common user-specific path prefixes with stable environment labels."""
-
-    replacements = [
-        (os.environ.get("LOCALAPPDATA", ""), "%LOCALAPPDATA%"),
-        (str(Path.home()), "%USERPROFILE%"),
-    ]
+def _normalize_user_paths(text: str, presentation: DiagnosticsPresentation) -> str:
     result = text
-    for source, replacement in replacements:
+    for alias in presentation.path_aliases:
+        source, replacement = alias.source, alias.replacement
         if source:
             result = re.sub(re.escape(source), replacement, result, flags=re.IGNORECASE)
     return result
 
 
-def redact_diagnostic_text(text: str) -> str:
-    """Mask known identifiers/tokens and suppress private-key references."""
+def normalize_user_paths(text: str) -> str:
+    """Replace common user-specific path prefixes with stable environment labels."""
 
+    provider = get_diagnostics_presentation_provider()
+    return _normalize_user_paths(text, provider.build_presentation(os.environ, Path.home()))
+
+
+def _redact_diagnostic_text(text: str, presentation: DiagnosticsPresentation) -> str:
     safe_lines: list[str] = []
     for line in text.splitlines():
         if "private_key.pem" in line.lower():
@@ -45,7 +49,15 @@ def redact_diagnostic_text(text: str) -> str:
         line = _LFREQ1.sub("LFREQ1.[MASKED]", line)
         line = _SENSITIVE_VALUE.sub(lambda match: f"{match.group(1)}{match.group(2)}[MASKED]", line)
         safe_lines.append(line)
-    return normalize_user_paths("\n".join(safe_lines))
+    return _normalize_user_paths("\n".join(safe_lines), presentation)
+
+
+def redact_diagnostic_text(text: str) -> str:
+    """Mask known identifiers/tokens and suppress private-key references."""
+
+    provider = get_diagnostics_presentation_provider()
+    presentation = provider.build_presentation(os.environ, Path.home())
+    return _redact_diagnostic_text(text, presentation)
 
 
 def _latest_log_file() -> Path:
@@ -81,12 +93,13 @@ def collect_diagnostics(
     max_log_lines = max(1, min(max_log_lines, 200))
     recent_log, log_path = _recent_log_text(visible_log, max_log_lines)
     frozen = bool(getattr(sys, "frozen", False))
+    presentation_provider = get_diagnostics_presentation_provider()
     lines = [
         f"{APP_NAME} 诊断信息",
         f"版本: {APP_VERSION}",
         f"构建渠道: {'frozen' if frozen else 'source'}",
         f"当前时间: {datetime.now().astimezone().isoformat(timespec='seconds')}",
-        f"Windows: {platform.platform()}",
+        f"{presentation_provider.platform_label}: {platform.platform()}",
         f"Python: {sys.version.split()[0] if not frozen else 'embedded'}",
         f"Frozen: {frozen}",
         f"当前方案: {plan_name or '未命名方案'}",
@@ -98,7 +111,8 @@ def collect_diagnostics(
         f"最近日志（最多 {max_log_lines} 行）:",
         recent_log or "（无可用日志）",
     ]
-    return redact_diagnostic_text("\n".join(lines))
+    presentation = presentation_provider.build_presentation(os.environ, Path.home())
+    return _redact_diagnostic_text("\n".join(lines), presentation)
 
 
 def open_logs_directory() -> Path:

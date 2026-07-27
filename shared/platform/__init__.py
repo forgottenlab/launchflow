@@ -8,6 +8,14 @@ from shared.platform.desktop import (
     WindowsDesktopIntegration,
     get_desktop_integration,
 )
+from shared.platform.diagnostics import (
+    DiagnosticPathAlias,
+    DiagnosticsPresentation,
+    DiagnosticsPresentationProvider,
+    LegacyPosixDiagnosticsPresentationProvider,
+    WindowsDiagnosticsPresentationProvider,
+    get_diagnostics_presentation_provider,
+)
 from shared.platform.paths import (
     LegacyFallbackPlatformPaths,
     WindowsPlatformPaths,
@@ -45,7 +53,11 @@ __all__ = (
     "CommandBackend",
     "CommandLaunchSpec",
     "DesktopIntegration",
+    "DiagnosticPathAlias",
+    "DiagnosticsPresentation",
+    "DiagnosticsPresentationProvider",
     "LegacyPosixDesktopIntegration",
+    "LegacyPosixDiagnosticsPresentationProvider",
     "PlatformInfo",
     "PlatformPathProvider",
     "UrlOpener",
@@ -54,6 +66,7 @@ __all__ = (
     "WindowsApplicationLauncher",
     "WindowsCommandBackend",
     "WindowsDesktopIntegration",
+    "WindowsDiagnosticsPresentationProvider",
     "WindowsUrlOpener",
     "current_platform_info",
     "detect_platform",
@@ -61,5 +74,6 @@ __all__ = (
     "get_application_launcher",
     "get_command_backend",
     "get_desktop_integration",
+    "get_diagnostics_presentation_provider",
     "get_url_opener",
 )

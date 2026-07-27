@@ -357,6 +357,7 @@ LaunchFlow 的核心目标是：
 - 排序完成只刷新一次列表，并按 `step_id` 恢复选择和右侧编辑器。保存、运行快照与导出快照自然继承 `current_plan.steps` 新顺序。
 - `Alt+Up` / `Alt+Down` 在步骤列表聚焦时调用相同入口；输入控件聚焦时不触发移动。
 - `shared/diagnostics.py` 只读取当前 UI 日志或 LaunchFlow 日志文件，不读取 license；输出限制为最近 200 行以内并进行路径与标识符掩码。
+- `shared/platform/diagnostics.py` 只提供 frozen 平台标签和有序路径别名；Windows 保持精确 `Windows`、`%LOCALAPPDATA%`、`%USERPROFILE%`，完整报告的字段顺序、标点、换行和脱敏算法仍由 `shared/diagnostics.py` 负责。
 - 反馈对话框是本地预览/复制入口，不包含网络上传、邮件或 GitHub 调用。日志目录始终由 `shared.app_paths.get_logs_dir()` 解析。
 - 打开日志目录仍由 `shared.diagnostics.open_logs_directory()` 作为公开入口；目录解析和 `mkdir(parents=True, exist_ok=True)` 保持在 diagnostics，实际桌面打开动作委托给 `shared/platform/desktop.py`。
 
@@ -406,3 +407,10 @@ LaunchFlow 的核心目标是：
 - Windows 的实际 setter 由 `DesktopIntegration.configure_application_identity(app_id)` 承担：延迟访问 `ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID`，精确转发字符串一次，成功返回 `True`。
 - `AttributeError` 与 `OSError` 继续转换为 `False`，其他异常继续原样传播。Linux、macOS 与 unknown backend 继续返回 `False` 且不访问 Windows API；这只是兼容行为，不是原生桌面支持声明。
 - AppUserModelID 的平台调用虽与打开目录共用最小 `DesktopIntegration` 边界，但 ICO 路径、frozen `_MEIPASS/assets/launchflow.ico`、`QIcon` 加载、QApplication/顶层窗口图标及 PyInstaller `--icon`/`--add-data` 仍完全由原有图标与包装代码负责。
+
+## 21. Diagnostics Presentation 合同
+
+- `DiagnosticsPresentationProvider` 只构造 `platform_label` 与 `path_aliases`，不读取日志、不格式化完整报告、不访问 clipboard、不创建或打开目录，也不依赖 Qt、editor 或 licensing。
+- Windows alias 顺序固定为非空 `LOCALAPPDATA` 后 `Path.home()`；替换继续使用 escaped literal 与 `re.IGNORECASE`，不执行 resolve、expand 或分隔符归一化。相同、嵌套、Unicode、空路径行为均由独立 smoke 冻结。
+- `collect_diagnostics()`、`normalize_user_paths()`、`redact_diagnostic_text()` 与 `open_logs_directory()` 的公开签名保持不变；UI 私有 `_build_diagnostic_text(self) -> str`、完整文本、clipboard 及隐私说明保持不变。
+- Linux、macOS 与 unknown 不选择 Windows provider，但 `LegacyPosixDiagnosticsPresentationProvider` 刻意保留旧 `Windows` 标签和 Windows 风格别名。这只是兼容 fallback；原生标签和别名仍为 Planned。
