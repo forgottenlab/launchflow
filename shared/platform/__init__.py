@@ -42,6 +42,13 @@ from shared.platform.urls import (
     WindowsUrlOpener,
     get_url_opener,
 )
+from shared.platform.shortcuts import (
+    LegacyShortcutPolicy,
+    ShortcutPolicy,
+    ShortcutProfile,
+    WindowsShortcutPolicy,
+    get_shortcut_policy,
+)
 
 __all__ = (
     "ApplicationLauncher",
@@ -50,6 +57,7 @@ __all__ = (
     "LegacyPosixApplicationLauncher",
     "LegacyPosixCommandBackend",
     "LegacyPosixUrlOpener",
+    "LegacyShortcutPolicy",
     "CommandBackend",
     "CommandLaunchSpec",
     "DesktopIntegration",
@@ -60,9 +68,12 @@ __all__ = (
     "LegacyPosixDiagnosticsPresentationProvider",
     "PlatformInfo",
     "PlatformPathProvider",
+    "ShortcutPolicy",
+    "ShortcutProfile",
     "UrlOpener",
     "UrlOpenSpec",
     "WindowsPlatformPaths",
+    "WindowsShortcutPolicy",
     "WindowsApplicationLauncher",
     "WindowsCommandBackend",
     "WindowsDesktopIntegration",
@@ -71,6 +82,7 @@ __all__ = (
     "current_platform_info",
     "detect_platform",
     "get_platform_path_provider",
+    "get_shortcut_policy",
     "get_application_launcher",
     "get_command_backend",
     "get_desktop_integration",

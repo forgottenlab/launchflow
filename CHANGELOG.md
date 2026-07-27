@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added / 新增
+- 新增 stdlib-only `ShortcutPolicy` 与 frozen `ShortcutProfile`，将保存、另存为、试运行、导出、删除、上移和下移的既有 Windows 字符串集中到 `shared/platform/shortcuts.py`；QAction、菜单、顶部按钮、tooltip、ShortcutContext、焦点和业务 handler 保持兼容，非 Windows 仅保留 Legacy Ctrl fallback。
 - 新增 stdlib-only `DiagnosticsPresentationProvider` 平台合同，将精确的 `Windows` 标签以及 `%LOCALAPPDATA%`、`%USERPROFILE%` 路径别名集中到 `shared/platform/diagnostics.py`；Windows 完整 diagnostics 文本、字段顺序、换行、脱敏顺序与隐私边界保持逐字符兼容，Linux/macOS 仅保留旧展示 fallback。
 - 新增独立 `check_diagnostics_presentation_smoke.py`，覆盖 provider 选择、frozen 数据、完整文本 fixture、别名顺序、空/相同/嵌套/Unicode/分隔符路径和无副作用边界。
 - 扩展 stdlib-only `DesktopIntegration`，将既有 Windows AppUserModelID setter 收敛到 `shared/platform/desktop.py`；`shared/app_icon.configure_windows_app_id()` 保持常量、签名、布尔返回、异常边界和 QApplication 前调用顺序，所有 ICO/Qt/PyInstaller 图标行为不变。
@@ -54,6 +55,7 @@ All notable changes to this project will be documented in this file.
 - Application 子进程改为 fire-and-forget 且 stdin/stdout/stderr 指向 `DEVNULL`，避免 GUI/Electron 子进程输出污染开发终端；Command 捕获语义不变。
 
 ### Tests / 测试
+- 新增 `tools/check_shortcut_policy_smoke.py`，覆盖 provider 选择、frozen 七字段 profile、无副作用导入、Windows `QKeySequence`、Qt StandardKey 探针、QAction/菜单/按钮合同、保存/另存/运行/导出/删除以及文本输入焦点行为。
 - 新增 `tools/check_desktop_integration_smoke.py`，覆盖 backend 选择、Windows 路径原样传递、单次 shell-open、非 Windows no-op、diagnostics API/目录创建/异常兼容以及 import/构造/factory 无副作用。
 - 新增 `tools/check_url_backend_smoke.py`，覆盖默认/显式浏览器 spec、参数与 URL 原样保留、fire-and-forget、原始异常、无副作用、导出内部 metadata 和非 Windows 未支持边界；真实 onefile smoke 使用 mock 默认打开和本地显式浏览器替身，不访问网络或真实浏览器。
 - 新增 `tools/check_step_editor_sync_smoke.py`，覆盖保存/快捷键、试运行快照、选择切换、dirty 状态、全方案阻断和 Application 输出隔离。

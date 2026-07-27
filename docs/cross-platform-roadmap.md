@@ -25,6 +25,8 @@ shared/platform/
   urls.py          # UrlOpener and default/explicit browser specifications
   identity.py      # HardwareIdentityProvider
   desktop.py       # DesktopIntegration: current folder opening and process identity
+  diagnostics.py   # diagnostics platform labels and ordered path aliases
+  shortcuts.py     # frozen editor shortcut strings and policy selection
   packaging.py     # PackagingBackend and artifact capabilities
 ```
 
@@ -39,6 +41,7 @@ Suggested contracts:
 | `UrlOpener` | choose default-browser versus explicit-browser mode and construct an immutable open specification | URL parsing, browser discovery, process execution, or plan serialization |
 | `HardwareIdentityProvider` | versioned identity inputs and privacy-safe diagnostics | RSA signing, entitlement, or silent identity migration |
 | `DesktopIntegration` | perform narrowly introduced desktop operations: open-directory and process application identity | paths/data creation, icon/resource loading, packaging, or core execution decisions |
+| `ShortcutPolicy` | provide frozen shortcut strings for the existing editor action set | QAction creation, signal wiring, keyboard events, focus, persistence, or UI execution |
 | `PackagingBackend` | host-native artifact name, icon/bundle resources, PyInstaller invocation, output verification | cross-compilation claims or plan schema changes |
 
 Backends should return structured results/capabilities. Core code should reject unsupported operations before dispatch rather than silently map a saved Windows shell to an unrelated Unix shell.
@@ -115,6 +118,14 @@ Phase 1g adds a stdlib-only `DiagnosticsPresentationProvider` under `shared/plat
 
 Linux, macOS, and unknown selection uses `LegacyPosixDiagnosticsPresentationProvider`, not the Windows provider. That fallback deliberately emits the historical Windows label and aliases so existing output remains compatible; it is not native diagnostics presentation or a support claim. A fixed full-report fixture verifies character-for-character Windows output, while native Linux/macOS labels and aliases remain Planned and require separately scoped host validation.
 
+### Phase 1h status — completed
+
+Phase 1h adds a stdlib-only `ShortcutPolicy` and frozen seven-field `ShortcutProfile` under `shared/platform/shortcuts.py`. The Windows provider owns the exact `Ctrl+S`, `Ctrl+Shift+S`, `Ctrl+R`, `Ctrl+E`, `Delete`, `Alt+Up`, and `Alt+Down` strings. `editor/ui/main_window.py` retains the existing `SHORTCUTS` dict name/type/key set and consumes profile values without moving or recreating any QAction.
+
+The QAction attributes, Chinese text, Window/WidgetWithChildren contexts, enabled/checkable state, menu order, top-button order, tooltips, signal handlers, draft commit, deep-copied trial/export snapshots, Delete focus semantics, and ordinary text editing shortcuts remain frozen by an independent offscreen smoke. Qt StandardKey Save/SaveAs/Delete each resolved to one equivalent Windows sequence, but there is no Run/Export StandardKey and a partial conversion would split the seven-item source of truth and the maintained `Delete` tooltip label. StandardKey was therefore audited but not adopted.
+
+Linux, macOS, and unknown use `LegacyShortcutPolicy` with the historical Ctrl/Alt strings. This is compatibility-only and does not implement Command-key conventions, native menu presentation, or physical keyboard support. Those claims still require real target-host validation.
+
 ## Phase 2 — Linux x86_64 source-run experimental target
 
 | Field | Definition |
@@ -185,4 +196,4 @@ PyInstaller may remain an implementation, but Windows builds Windows, Linux buil
 
 ## Recommended next implementation task
 
-Prepare a separately scoped **Phase 1h native shortcut-presentation audit**. Freeze the existing QAction bindings, menu text, tooltips, text-entry behavior, and Windows `Ctrl` contract before deciding whether Qt `StandardKey` can represent platform-native shortcuts without changing editor behavior. Do not combine it with native diagnostics labels, runtime backends, packaging, HWID/licensing, schema changes, or a Linux/macOS support claim.
+Prepare a separately scoped **Phase 1i HardwareIdentityProvider audit**. Freeze the current Windows MachineGuid/volume/fallback inputs, canonical machine ID output, accepted license compatibility, error boundaries, and privacy behavior before proposing an adapter. This recommendation is planning only: do not change HWID, `LFREQ1`, `lflic-1`, RSA, licensing, packaging, or support claims without a new explicit task.

@@ -107,19 +107,21 @@ from shared.plan_schema import validate_plan_dict
 from shared.app_logging import get_app_logger
 from shared.app_icon import apply_window_icon, load_app_icon
 from shared.diagnostics import collect_diagnostics, open_logs_directory
+from shared.platform.shortcuts import get_shortcut_policy
 from editor.services.plan_service import PlanService
 from editor.ui.log_console import LogConsole, LogKind, infer_log_kind
 from tools.build_single_exe import PACKABLE_APP_SUFFIXES, build_single_file_exe
 
 
+_SHORTCUT_PROFILE = get_shortcut_policy().profile
 SHORTCUTS = {
-    "save": "Ctrl+S",
-    "save_as": "Ctrl+Shift+S",
-    "trial_run": "Ctrl+R",
-    "export": "Ctrl+E",
-    "delete": "Delete",
-    "move_up": "Alt+Up",
-    "move_down": "Alt+Down",
+    "save": _SHORTCUT_PROFILE.save,
+    "save_as": _SHORTCUT_PROFILE.save_as,
+    "trial_run": _SHORTCUT_PROFILE.trial_run,
+    "export": _SHORTCUT_PROFILE.export,
+    "delete": _SHORTCUT_PROFILE.delete_step,
+    "move_up": _SHORTCUT_PROFILE.move_up,
+    "move_down": _SHORTCUT_PROFILE.move_down,
 }
 
 

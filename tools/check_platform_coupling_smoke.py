@@ -146,7 +146,7 @@ RULES = (
         "ui-input",
         "P2",
         re.compile(r"Ctrl\+(?:S|Shift\+S|R|E)"),
-        "Literal Ctrl shortcut instead of a platform standard key",
+        "Literal Ctrl shortcut requiring a reviewed platform policy boundary",
     ),
 )
 
@@ -166,6 +166,8 @@ FUTURE_TARGETS = {
 
 
 def _future_target(finding: Finding) -> str:
+    if finding.path == "shared/platform/shortcuts.py" and finding.category == "ui-input":
+        return "ShortcutPolicy"
     if finding.path == "shared/platform/diagnostics.py" and finding.category == "paths":
         return "DiagnosticsPresentation"
     if finding.path == "shared/platform/desktop.py" and finding.category == "windows-api":

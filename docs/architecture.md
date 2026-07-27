@@ -414,3 +414,11 @@ LaunchFlow 的核心目标是：
 - Windows alias 顺序固定为非空 `LOCALAPPDATA` 后 `Path.home()`；替换继续使用 escaped literal 与 `re.IGNORECASE`，不执行 resolve、expand 或分隔符归一化。相同、嵌套、Unicode、空路径行为均由独立 smoke 冻结。
 - `collect_diagnostics()`、`normalize_user_paths()`、`redact_diagnostic_text()` 与 `open_logs_directory()` 的公开签名保持不变；UI 私有 `_build_diagnostic_text(self) -> str`、完整文本、clipboard 及隐私说明保持不变。
 - Linux、macOS 与 unknown 不选择 Windows provider，但 `LegacyPosixDiagnosticsPresentationProvider` 刻意保留旧 `Windows` 标签和 Windows 风格别名。这只是兼容 fallback；原生标签和别名仍为 Planned。
+
+## 22. Shortcut Policy 合同
+
+- `shared/platform/shortcuts.py` 提供 stdlib-only `ShortcutPolicy` 与 frozen `ShortcutProfile`，集中保存、另存为、试运行、导出、删除、上移和下移的字符串，不导入 Qt、editor、models 或 licensing，也不创建 UI、文件或平台输入 hook。
+- Windows profile 精确保留 `Ctrl+S`、`Ctrl+Shift+S`、`Ctrl+R`、`Ctrl+E`、`Delete`、`Alt+Up` 和 `Alt+Down`。`editor/ui/main_window.py` 的公开 `SHORTCUTS` 仍是原 key 集合的普通 `dict`，QAction 创建位置、属性名、文本、菜单顺序和 signal/slot 均未改变。
+- 保存、另存为、运行、导出和删除 QAction 仍为 `WindowShortcut`；上移/下移仍为 `WidgetWithChildrenShortcut` 并只添加到步骤列表。顶部操作区继续使用独立 QPushButton，但与菜单 action 复用相同 handler。
+- Windows PySide6 6.9.3 探针确认 `StandardKey.Save`、`SaveAs`、`Delete` 分别呈现 `Ctrl+S`、`Ctrl+Shift+S`、`Del` 且各只有一个 binding；运行和导出没有对应 StandardKey。为保持七项同源字符串、现有 tooltip 的 `Delete` 文本和完整跨 action 一致性，本阶段不采用 StandardKey。
+- `LegacyShortcutPolicy` 在 Linux、macOS 和 unknown 上保留历史 Ctrl/Alt 字符串，仅用于兼容，不表示 Command 键、原生菜单或真实键盘支持。原生映射必须在目标主机验证菜单、焦点、文本输入和物理键盘后另行设计。
