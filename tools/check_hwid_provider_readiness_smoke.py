@@ -19,7 +19,9 @@ ENVIRONMENT_BEFORE = dict(os.environ)
 WINREG_BEFORE = sys.modules.get("winreg")
 
 HWID_PATH = ROOT / "licensing" / "hwid.py"
+IDENTITY_PATH = ROOT / "shared" / "platform" / "identity.py"
 LICENSE_MANAGER_PATH = ROOT / "licensing" / "license_manager.py"
+ACTIVATION_SERVICE_PATH = ROOT / "licensing" / "activation_service.py"
 REQUEST_TOKEN_PATH = ROOT / "licensing" / "request_token.py"
 LICENSE_SCHEMA_PATH = ROOT / "licensing" / "license_schema.py"
 READINESS_DOC_PATH = ROOT / "docs" / "hardware-identity-provider-readiness.md"
@@ -28,11 +30,6 @@ ADMIN_PATHS = (
     ROOT / "tools" / "license_admin_core.py",
     ROOT / "tools" / "license_generator.py",
 )
-PRODUCTION_IDENTITY_PATHS = tuple((ROOT / "licensing").glob("*.py")) + tuple(
-    (ROOT / "shared" / "platform").glob("*.py")
-)
-
-
 def require(condition: bool, message: str) -> None:
     if not condition:
         raise AssertionError(message)
@@ -80,11 +77,10 @@ def check_public_signatures_and_facade() -> None:
 
     function = find_function(parse(HWID_PATH), "get_machine_id")
     calls = [called_name(node) for node in ast.walk(function) if isinstance(node, ast.Call)]
-    constants = string_constants(function)
     require(calls.count("get_machine_fingerprint_parts") == 1, "get_machine_id facade source changed")
-    for required_call in ("join", "get", "encode", "sha256", "hexdigest", "upper"):
-        require(required_call in calls, f"get_machine_id lost {required_call}")
-    require("||" in constants and "utf-8" in constants, "legacy serialization/encoding changed")
+    require(calls.count("build_legacy_v1_machine_id") == 1, "get_machine_id lost legacy-v1 builder")
+    require("collect_parts" not in calls, "get_machine_id bypasses fingerprint facade")
+    require("get_hardware_identity_provider" not in calls, "get_machine_id constructs a second provider")
 
     get_keys = [
         node.args[0].value
@@ -135,8 +131,35 @@ def check_admin_boundary() -> None:
             isinstance(node, ast.ImportFrom) and node.module == "licensing.hwid"
             for node in ast.walk(tree)
         )
+        imports_provider = any(
+            isinstance(node, ast.ImportFrom) and node.module == "shared.platform.identity"
+            for node in ast.walk(tree)
+        )
+        provider_names = {
+            node.id
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Name) and "IdentityProvider" in node.id
+        }
         require(not imports_hwid, f"admin tool imports licensing.hwid: {path.name}")
+        require(not imports_provider and not provider_names, f"admin tool imports identity provider: {path.name}")
         require("get_machine_id" not in calls, f"admin tool recalculates customer identity: {path.name}")
+
+
+def check_activation_service_boundary() -> None:
+    tree = parse(ACTIVATION_SERVICE_PATH)
+    imports_facade = any(
+        isinstance(node, ast.ImportFrom)
+        and node.module == "licensing.hwid"
+        and any(alias.name == "get_machine_id" for alias in node.names)
+        for node in ast.walk(tree)
+    )
+    imports_provider = any(
+        isinstance(node, ast.ImportFrom) and node.module == "shared.platform.identity"
+        for node in ast.walk(tree)
+    )
+    calls = [called_name(node) for node in ast.walk(tree) if isinstance(node, ast.Call)]
+    require(imports_facade and "get_machine_id" in calls, "ActivationService no longer uses HWID facade")
+    require(not imports_provider, "ActivationService imports identity provider")
 
 
 def is_strip_upper_chain(node: ast.AST) -> bool:
@@ -180,17 +203,34 @@ def check_request_normalization_and_schema() -> None:
     require("lflic-1" in license_constants, "license schema changed")
 
 
-def check_no_provider_implementation() -> None:
-    for path in PRODUCTION_IDENTITY_PATHS:
-        source = path.read_text(encoding="utf-8")
-        require("HardwareIdentityProvider" not in source, f"provider implementation appeared in {path}")
-        tree = ast.parse(source, filename=str(path))
-        provider_classes = [
-            node.name
-            for node in ast.walk(tree)
-            if isinstance(node, ast.ClassDef) and "IdentityProvider" in node.name
-        ]
-        require(not provider_classes, f"identity provider class appeared in {path}: {provider_classes}")
+def check_legacy_provider_implementation_only() -> None:
+    source = IDENTITY_PATH.read_text(encoding="utf-8")
+    tree = ast.parse(source, filename=str(IDENTITY_PATH))
+    class_names = {node.name for node in ast.walk(tree) if isinstance(node, ast.ClassDef)}
+    function_names = {node.name for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)}
+    required_classes = {
+        "HardwareIdentityParts",
+        "HardwareIdentityProvider",
+        "WindowsHardwareIdentityProvider",
+        "LegacyPosixHardwareIdentityProvider",
+    }
+    required_functions = {
+        "serialize_legacy_v1",
+        "hash_legacy_v1_serialized",
+        "build_legacy_v1_machine_id",
+        "get_hardware_identity_provider",
+    }
+    require(required_classes <= class_names, "legacy-v1 provider types are incomplete")
+    require(required_functions <= function_names, "legacy-v1 pure functions/factory are incomplete")
+    for forbidden in (
+        "identity_version",
+        "hwid_version",
+        "HardwareIdentityV2",
+        "build_v2",
+        "candidate_ids",
+        "match_any",
+    ):
+        require(forbidden not in source, f"future identity behavior appeared: {forbidden}")
 
 
 def check_readiness_document() -> None:
@@ -211,7 +251,11 @@ def check_readiness_document() -> None:
         "Phase 1l",
         "Phase 1m",
         "legacy-v1 is permanent verification behavior",
-        "HardwareIdentityProvider is not implemented",
+        "Phase 1k behavior-equivalent legacy-v1 Provider extraction is implemented",
+        "Provider status: legacy-v1-extracted",
+        "HWID v2 status: not-implemented",
+        "Schema status: unchanged",
+        "Migration status: not-implemented",
     )
     for marker in required:
         require(marker.casefold() in folded, f"readiness decision missing: {marker}")
@@ -241,8 +285,9 @@ def main() -> int:
     check_public_signatures_and_facade()
     check_license_validation_order()
     check_admin_boundary()
+    check_activation_service_boundary()
     check_request_normalization_and_schema()
-    check_no_provider_implementation()
+    check_legacy_provider_implementation_only()
     check_readiness_document()
     rerun_phase_1i_fixture()
     check_no_side_effects()
@@ -251,9 +296,10 @@ def main() -> int:
     print("facade=unchanged,legacy-v1")
     print("validation_order=schema,signature,identity")
     print("admin_identity=copy-only,no-recalculation")
-    print("schema=lfreq-1-and-lflic-1,unversioned")
-    print("provider=decision-only,not-implemented")
-    print("migration=option-b,versioned,no-match-any-fallback")
+    print("schema=unchanged,lfreq-1-and-lflic-1,unversioned")
+    print("provider=legacy-v1-extracted")
+    print("v2=not-implemented")
+    print("migration=not-implemented,option-b-decision-retained,no-match-any-fallback")
     print("phase1i_fixture=synthetic,reused")
     print("side_effects=registry:none,process:none,host:none,user:none,key:none,appdata:none")
     return 0

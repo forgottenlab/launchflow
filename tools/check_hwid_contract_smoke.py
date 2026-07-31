@@ -399,6 +399,28 @@ def check_hash_input_boundary() -> None:
     require(calculate({}) == empty_hash, "missing-key empty serialization changed")
 
 
+def check_single_collection_per_machine_id() -> None:
+    calls = 0
+    parts = {
+        "machine_guid": SYNTHETIC_GUID,
+        "volume_serial": SYNTHETIC_VOLUME,
+        "fallback": SYNTHETIC_FALLBACK,
+        "python": "3.13.9",
+        "platform": "Windows-SYNTHETIC",
+    }
+
+    def collect_parts() -> dict[str, str]:
+        nonlocal calls
+        calls += 1
+        return dict(parts)
+
+    with patch.object(hwid, "get_machine_fingerprint_parts", collect_parts):
+        require(hwid.get_machine_id() == SYNTHETIC_HWID, "single-collection ID changed")
+        require(calls == 1, "get_machine_id collected fingerprint more than once")
+        require(hwid.get_machine_id() == SYNTHETIC_HWID, "repeated ID changed")
+        require(calls == 2, "consecutive get_machine_id calls reused cached collection")
+
+
 def check_non_windows_contract() -> None:
     for label, (system, release, version, platform_text, expected_hash) in NON_WINDOWS_FIXTURES.items():
         calls: list[str] = []
@@ -543,6 +565,7 @@ def main() -> int:
         check_fallback_inputs()
         check_windows_fixture()
         check_hash_input_boundary()
+        check_single_collection_per_machine_id()
         check_non_windows_contract()
         check_request_and_license_binding()
         check_no_side_effects()
@@ -557,6 +580,7 @@ def main() -> int:
     print("windows_sources=machine-guid,volume-stdout,fallback")
     print("hash_contract=double-pipe,utf-8,sha256,uppercase-64")
     print("ignored_hash_fields=python,platform")
+    print("collection=fingerprint-once-per-id,recollect-each-call")
     print("registry=delayed,exact-path-and-value,errors-to-empty")
     print("volume=vol-c-cmd,stdout-strip,returncode-and-stderr-ignored,errors-to-empty")
     print("legacy_non_windows=linux,macos,unknown")

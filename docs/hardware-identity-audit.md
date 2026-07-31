@@ -20,6 +20,10 @@ Client display and request flow:
 ActivationWindow
   -> ActivationService.get_display_machine_id()
        -> licensing.hwid.get_machine_id()
+            -> licensing.hwid.get_machine_fingerprint_parts()
+                 -> shared.platform.identity HardwareIdentityProvider.collect_parts()
+                 -> HardwareIdentityParts.to_legacy_dict()
+            -> shared.platform.identity.build_legacy_v1_machine_id(parts)
        -> licensing.hwid.format_machine_id()
   -> ActivationService.generate_request_payload()
        -> licensing.request_token.build_request_payload(machine_id)
@@ -278,9 +282,11 @@ mean an old license can still match after the serialized input changes.
 | macOS system upgrade | release/version fallback changes | Invalid | Legacy fallback only | High | Yes before support |
 | macOS host/account rename | fallback changes | Invalid | Legacy fallback only | High | Yes before support |
 
-## 13. Proposed HardwareIdentityProvider design
+## 13. Phase 1i design and Phase 1k extraction status
 
-This is a design sketch only; no adapter is implemented in Phase 1i.
+Phase 1i recorded the following design without implementing it. Phase 1k now
+implements that exact behavior-equivalent legacy-v1 boundary in
+`shared/platform/identity.py`:
 
 ```text
 frozen HardwareIdentityParts
@@ -304,10 +310,13 @@ LegacyPosixHardwareIdentityProvider
   - no native-support claim
 ```
 
-The provider should collect inputs only. Legacy v1 serialization and hashing
-must remain in a separately named compatibility function with the exact current
-field order, separators, UTF-8, and SHA-256 output. Tests must retain the frozen
-v1 Windows and non-Windows fixtures before provider wiring is authorized.
+The provider collects inputs only. Legacy-v1 fallback construction,
+serialization, and hashing are separately named pure compatibility functions
+with the exact current field order, separators, UTF-8, and SHA-256 output. The
+Windows command executor is injected from `licensing/hwid.py`, so the platform
+module does not import runtime. The six existing facade/helper signatures and
+their monkeypatch seams remain in `licensing/hwid.py`; each machine-ID call
+performs one fresh parts collection and no result is cached.
 
 A future algorithm must be versioned and computed in parallel, not substituted
 in place. Current requests and licenses have no identity-version field, so they
@@ -344,5 +353,8 @@ Any direct replacement of the current hash would make already issued legacy and
 6. remove legacy verification only through a separately approved end-of-support
    decision, never as an incidental provider refactor.
 
-Until that design is approved, `HardwareIdentityProvider` remains not
-implemented and Linux/macOS hardware identity remains Planned.
+Phase 1k implements only the behavior-equivalent legacy-v1 provider extraction.
+The Phase 1i fixed synthetic digest, HWID algorithm, request/license schemas,
+RSA flow, and every old-license interpretation remain unchanged. HWID v2,
+request/license migration, native Linux/macOS identity, and license migration
+remain not implemented and require separate authorization.

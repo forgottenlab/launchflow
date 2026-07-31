@@ -1,12 +1,20 @@
 # Hardware Identity Provider Implementation-Readiness Review
 
-Status: Phase 1j readiness review complete; no provider, new identity algorithm,
+Status: Phase 1j readiness review complete. Phase 1k behavior-equivalent
+legacy-v1 Provider extraction is implemented. No new identity algorithm,
 request/license schema, signing payload, or migration code is implemented.
 
+- Provider status: legacy-v1-extracted
+- HWID v2 status: not-implemented
+- Schema status: unchanged
+- Migration status: not-implemented
+
 This document turns the Phase 1i compatibility audit into an implementation
-boundary. It is a design decision for later, separately authorized work. The
-source of truth for the current behavior remains `licensing/hwid.py`, and the
-synthetic compatibility oracle remains `tools/check_hwid_contract_smoke.py`.
+boundary. Phase 1k implemented that boundary without changing the public
+compatibility surface: `licensing/hwid.py` remains the facade, while
+`shared/platform/identity.py` now owns collection, default readers, and the
+pure legacy-v1 transforms. The synthetic compatibility oracle remains
+`tools/check_hwid_contract_smoke.py`.
 
 ## Scope and non-goals
 
@@ -15,7 +23,7 @@ must remain pure legacy-v1 behavior, how existing callers can receive injected
 test seams, and how a future versioned identity could coexist with old requests
 and licenses.
 
-It does not:
+Phase 1j did not:
 
 - implement `HardwareIdentityProvider`;
 - change `get_machine_id()` or any current source reader;
@@ -33,6 +41,10 @@ ActivationWindow
   -> ActivationService.get_display_machine_id()
   -> ActivationService.generate_request_payload()
      -> licensing.hwid.get_machine_id()
+        -> licensing.hwid.get_machine_fingerprint_parts()
+           -> HardwareIdentityProvider.collect_parts()
+           -> HardwareIdentityParts.to_legacy_dict()
+        -> build_legacy_v1_machine_id(parts)
      -> build_request_payload(machine_id)
 
 LicenseManager.validate_license_data(license_data)
@@ -56,12 +68,12 @@ device identity locally.
 | Provider responsibility | Acquire the exact legacy input values and metadata only |
 | Legacy transform | Pure functions outside the provider own fallback construction, serialization, UTF-8, and SHA-256 |
 | Public facade | Keep `get_machine_id() -> str` and `get_machine_fingerprint_parts() -> Dict[str, str]` unchanged |
-| Test seam | Inject an immutable provider instance or factory into an internal calculation helper; never use a mutable global singleton |
+| Test seam | Construct a fresh provider per facade call and inject the current private helpers/readers; never use a mutable global singleton |
 | Application service seam | Prefer an optional keyword-only machine-ID callable |
 | License validation seam | Prefer an optional keyword-only machine-ID callable, invoked only after successful signature verification |
 | Migration | Decision: Option B — old containers remain legacy-v1; a new schema explicitly selects v2 |
 | Multi-ID fallback | Unversioned multi-ID fallback: Rejected |
-| Next implementation | Phase 1k extracts only behavior-equivalent legacy-v1 collection and pure transforms |
+| Next implementation | Phase 1l may add a separately authorized versioned request/license container; Phase 1k does not authorize it |
 
 ## Provider responsibility decision
 
@@ -70,9 +82,9 @@ platform boundaries. The module must remain stdlib-only and must not import Qt,
 editor code, licensing schemas, request encoders, signing code, AppData paths,
 or runtime orchestration.
 
-To avoid a `shared -> runtime` dependency, the Windows provider should accept a
-narrow command-execution callable during construction. `licensing/hwid.py` may
-wire the current `runtime.command_runner.execute_command` callable into the
+To avoid a `shared -> runtime` dependency, the Windows provider accepts a
+narrow command-execution callable during construction. `licensing/hwid.py`
+wires the current `runtime.command_runner.execute_command` callable into the
 provider factory. Construction must be side-effect free; the provider calls the
 injected command runner only from `collect_parts()`.
 
@@ -89,7 +101,7 @@ or compatibility fallback across identity versions.
 
 ### Frozen HardwareIdentityParts
 
-Phase 1k should introduce an immutable, frozen `HardwareIdentityParts` value
+Phase 1k introduces an immutable, frozen `HardwareIdentityParts` value
 object with these exact string fields and order:
 
 ```text
@@ -112,16 +124,18 @@ without making normalization provider-specific.
 
 ## Legacy-v1 pure-function boundary
 
-Phase 1k should extract and freeze three independently testable pure operations:
+Phase 1k extracts and freezes independently testable legacy operations:
 
-1. `build_legacy_v1_fallback(system, release, version, hostname, username)`
+1. `read_legacy_machine_fallback(...)`
    filters falsy values, applies `str()`, preserves case and whitespace, and
    joins the remaining values with literal `|` in the current order.
 2. `serialize_legacy_v1(parts)` reads only `machine_guid`, `volume_serial`, and
    `fallback`, substitutes an empty string for a missing value, and joins the
    three values with literal `||`.
-3. `hash_legacy_v1(parts)` encodes that serialization as UTF-8, calculates
-   SHA-256, and returns exactly 64 uppercase hexadecimal characters.
+3. `hash_legacy_v1_serialized(serialized)` encodes the serialization as UTF-8,
+   calculates SHA-256, and returns exactly 64 uppercase hexadecimal characters.
+4. `build_legacy_v1_machine_id(parts)` composes the two pure transforms without
+   collecting sources or mutating input.
 
 The `python` and `platform` metadata fields remain observable through
 `get_machine_fingerprint_parts()` but must not enter the legacy-v1 hash. No
@@ -148,10 +162,11 @@ format_machine_id(machine_id: str, group: int = 4) -> str
 `get_machine_id()` continues to mean legacy-v1 until an explicitly versioned
 API is introduced. Existing callers therefore do not change in Phase 1k.
 
-For testability, a private calculation helper may accept a
-`HardwareIdentityProvider`, and a side-effect-free factory may create the
-default provider per public call. The production default must preserve the
-current `os.name` selection semantics. The implementation must not use a
+For testability, `get_machine_fingerprint_parts()` injects the three existing
+private helper wrappers plus the Python/platform metadata readers into a fresh
+provider. The side-effect-free factory creates the default provider per public
+call. The production default preserves the current `os.name` selection
+semantics through injected `PlatformInfo`. The implementation does not use a
 mutable process-global provider, read identity at import time, or cache an ID
 derived while a source is temporarily unavailable. Repeated calls may collect
 again, matching current behavior.
@@ -418,16 +433,16 @@ keeping ordinary logs and diagnostics masked.
 
 ## Implementation slices
 
-### Phase 1k — behavior-equivalent legacy-v1 extraction
+### Phase 1k — behavior-equivalent legacy-v1 extraction completed
 
-Keep this phase narrowly split into reviewable commits:
+The completed, uncommitted review unit contains only:
 
 1. Add the frozen parts type, provider protocol, side-effect-free factory, and
    exact Windows/legacy collection implementations.
 2. Extract the pure legacy-v1 fallback/serialization/hash functions and route
    the unchanged `licensing/hwid.py` facade through them.
-3. Only after equivalence is proven, consider the optional callable seams for
-   `ActivationService` and `LicenseManager` in a separate small change.
+3. Compatibility wrappers in `licensing/hwid.py`; optional callable seams for
+   `ActivationService` and `LicenseManager` remain a separate future change.
 
 Acceptance requires character-for-character production output, unchanged
 public facades, all Phase 1i fixtures, source-order/error fixtures, import
@@ -452,18 +467,21 @@ privacy, recovery, and support analysis before any production selection.
 
 These phases must not be merged into one large change.
 
-## Evidence still required before production changes
+## Phase 1k evidence and later gates
 
-Phase 1k authorization still needs:
+Phase 1k now has synthetic/static evidence for:
 
-- an approved exact module/API diff for the provider and pure functions;
-- a dependency-direction review for the injected command runner;
-- synthetic tests proving every Phase 1i source order and error case against
-  both old and proposed implementations;
-- proof that source and frozen imports perform no identity acquisition;
-- an explicit decision on whether callable injection ships in the same phase or
-  a second small Phase 1k change;
-- packaging/import validation after implementation, without changing releases.
+- the exact provider/value/pure-function API and command-executor dependency direction;
+- every Phase 1i Windows/non-Windows source order, error, stdout, and fixed-digest case;
+- unchanged facade signatures, private-helper monkeypatch seams, and one fresh
+  collection per machine-ID call;
+- source and fake-frozen imports without identity acquisition;
+- unchanged protected licensing/request/admin/build file hashes;
+- zero new/stale/unexpected coupling after reviewed baseline migration.
+
+No PyInstaller build was used or claimed. The fake-frozen import probe is an
+import-safety check only. `ActivationService`/`LicenseManager` callable
+injection was intentionally not included.
 
 Phase 1l additionally needs an approved canonical schema, prefix, signed-field
 set, admin compatibility matrix, downgrade threat model, reactivation policy,
@@ -473,9 +491,8 @@ production behavior.
 
 ## Readiness conclusion
 
-The implementation boundary is ready for a separately authorized Phase 1k:
-extract acquisition behind a stdlib-only provider, retain legacy transforms as
-pure functions, and keep the public facade and all signed containers unchanged.
-HardwareIdentityProvider is not implemented in Phase 1j. HWID v2, schema
-migration, native platform identity, and license migration also remain
-unimplemented.
+Phase 1k behavior-equivalent legacy-v1 Provider extraction is implemented:
+acquisition is behind a stdlib-only provider, legacy transforms are pure
+functions, and the public facade and all signed containers remain unchanged.
+The fixed synthetic digest is unchanged. HWID v2, schema migration, native
+platform identity, and license migration remain unimplemented.

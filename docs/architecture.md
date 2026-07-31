@@ -439,3 +439,12 @@ LaunchFlow 的核心目标是：
 - `ActivationService` 与 `LicenseManager` 后续优先注入可选 keyword-only machine-ID callable，而不是暴露 provider。`LicenseManager` 必须先验签再调用 resolver；provider 异常不得报告为签名失败，旧许可证只允许 legacy-v1 精确比较。
 - 版本迁移选择 Option B：`LFREQ1`、legacy request、`lfreq-1`、`lflic-1` 与无版本旧许可证永久解释为 legacy-v1；只有新 request/license schema 才可显式选择 v2，identity version 与值必须一起受签名覆盖。拒绝无版本的多 ID 任意匹配。
 - 实施拆为 Phase 1k behavior-equivalent legacy-v1 extraction、Phase 1l versioned request/license container、Phase 1m 新算法实验和真实主机验证；不得合并为一个大改动。Phase 1j 不构成 Linux/macOS HWID 支持声明。
+
+## 25. Phase 1k behavior-equivalent legacy-v1 Provider extraction
+
+- `shared/platform/identity.py` 现在提供 frozen `HardwareIdentityParts`、`HardwareIdentityProvider` Protocol、Windows/Legacy Provider、单一 factory，以及命名明确的 legacy-v1 fallback、序列化和 Hash 纯函数。五个字段和 legacy dict 顺序仍精确为 `machine_guid`、`volume_serial`、`fallback`、`python`、`platform`。
+- `licensing/hwid.py` 继续保留六个既有入口和签名。三个私有 helper 是兼容 wrapper，`get_machine_fingerprint_parts()` 每次新建 Provider 并注入这些 helper 与两个 metadata reader；`get_machine_id()` 仍恰好通过该 facade 采集一次，不缓存、也不执行第二次 volume 读取。
+- Windows volume 读取仍精确调用当前 `execute_command("vol C:", "cmd")`，但执行器在 licensing facade 构造 Provider 时注入；stdlib-only 平台模块不导入 runtime，且只读取返回对象的 `stdout`。
+- MachineGuid、完整 volume stdout、fallback 五源顺序、异常传播/转空边界、`||`、UTF-8、uppercase SHA-256 与固定 synthetic digest `92FD6B08959D22BC7EB9FEC57E6471C701CB7BDE158D48128D6BC403666DAC4D` 均保持不变。
+- `ActivationService`、`LicenseManager`、管理员工具、请求/许可证 schema、RSA、plans、runtime、editor 与 build/export 均未修改。Linux、macOS 和 unknown 仍只使用旧 fallback，不能据此声明原生支持。
+- HWID v2、identity version、versioned request/license container 与许可证迁移均未实现；Phase 1l 只有在单独授权后才可处理新容器。

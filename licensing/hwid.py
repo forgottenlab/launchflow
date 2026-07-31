@@ -24,7 +24,6 @@ hwid.py
 from __future__ import annotations
 
 import getpass
-import hashlib
 import os
 import platform
 import socket
@@ -32,6 +31,15 @@ import sys
 from typing import Dict
 
 from runtime.command_runner import execute_command
+from shared.platform.detection import detect_platform
+from shared.platform.identity import (
+    HardwareIdentityParts,
+    build_legacy_v1_machine_id,
+    get_hardware_identity_provider,
+    read_legacy_machine_fallback,
+    read_windows_machine_guid,
+    read_windows_volume_stdout,
+)
 
 
 def _read_windows_machine_guid() -> str:
@@ -46,18 +54,7 @@ def _read_windows_machine_guid() -> str:
     - 这是当前离线授权场景下较稳定的设备标识来源之一；
     - 非 Windows 环境下直接返回空字符串。
     """
-    if os.name != "nt":
-        return ""
-
-    try:
-        import winreg
-
-        key_path = r"SOFTWARE\Microsoft\Cryptography"
-        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, key_path) as key:
-            value, _ = winreg.QueryValueEx(key, "MachineGuid")
-            return str(value).strip()
-    except Exception:
-        return ""
+    return read_windows_machine_guid(os_name=os.name)
 
 
 def _read_machine_sid_fallback() -> str:
@@ -71,14 +68,13 @@ def _read_machine_sid_fallback() -> str:
     - 当更稳定的硬件标识不可用时，使用该组合作为补充；
     - 当前目标是提高离线环境下的相对稳定性，而不是强对抗唯一性。
     """
-    parts = [
-        platform.system(),
-        platform.release(),
-        platform.version(),
-        socket.gethostname(),
-        getpass.getuser(),
-    ]
-    return "|".join(str(p) for p in parts if p)
+    return read_legacy_machine_fallback(
+        system_reader=platform.system,
+        release_reader=platform.release,
+        version_reader=platform.version,
+        hostname_reader=socket.gethostname,
+        username_reader=getpass.getuser,
+    )
 
 
 def _read_volume_serial() -> str:
@@ -89,15 +85,7 @@ def _read_volume_serial() -> str:
     - 成功时返回命令输出文本；
     - 失败时返回空字符串。
     """
-    if os.name != "nt":
-        return ""
-
-    try:
-        result = execute_command(r"vol C:", "cmd")
-        text = result.stdout or ""
-        return text.strip()
-    except Exception:
-        return ""
+    return read_windows_volume_stdout(execute_command, os_name=os.name)
 
 
 def get_machine_fingerprint_parts() -> Dict[str, str]:
@@ -111,17 +99,22 @@ def get_machine_fingerprint_parts() -> Dict[str, str]:
     - 调试机器码来源；
     - 排查授权绑定差异问题。
     """
-    machine_guid = _read_windows_machine_guid()
-    volume_serial = _read_volume_serial()
-    fallback = _read_machine_sid_fallback()
-
-    return {
-        "machine_guid": machine_guid,
-        "volume_serial": volume_serial,
-        "fallback": fallback,
-        "python": sys.version.split()[0],
-        "platform": platform.platform(),
-    }
+    platform_info = detect_platform(
+        system="",
+        machine="",
+        os_name=os.name,
+        sys_platform="",
+    )
+    provider = get_hardware_identity_provider(
+        platform_info=platform_info,
+        command_executor=execute_command,
+        machine_guid_reader=_read_windows_machine_guid,
+        volume_reader=_read_volume_serial,
+        fallback_reader=_read_machine_sid_fallback,
+        python_version_reader=lambda: sys.version.split()[0],
+        platform_metadata_reader=platform.platform,
+    )
+    return provider.collect_parts().to_legacy_dict()
 
 
 def get_machine_id() -> str:
@@ -142,14 +135,14 @@ def get_machine_id() -> str:
     """
     parts = get_machine_fingerprint_parts()
 
-    raw = "||".join([
-        parts.get("machine_guid", ""),
-        parts.get("volume_serial", ""),
-        parts.get("fallback", ""),
-    ])
-
-    digest = hashlib.sha256(raw.encode("utf-8")).hexdigest().upper()
-    return digest
+    legacy_parts = HardwareIdentityParts(
+        machine_guid=parts.get("machine_guid", ""),
+        volume_serial=parts.get("volume_serial", ""),
+        fallback=parts.get("fallback", ""),
+        python="",
+        platform="",
+    )
+    return build_legacy_v1_machine_id(legacy_parts)
 
 
 def format_machine_id(machine_id: str, group: int = 4) -> str:

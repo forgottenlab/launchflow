@@ -33,46 +33,6 @@
       "allowed_to_remain": true
     },
     {
-      "fingerprint": "89b096558e4d92640cbb",
-      "path": "shared/platform/shortcuts.py",
-      "rule_id": "UI-SHORTCUT-001",
-      "area": "ui-input",
-      "classification": "allowed_windows_boundary",
-      "reason": "Literal Ctrl shortcut requiring a reviewed platform policy boundary",
-      "future_target": "ShortcutPolicy",
-      "allowed_to_remain": true
-    },
-    {
-      "fingerprint": "e8a0c1e5f6f4c481ff62",
-      "path": "shared/platform/shortcuts.py",
-      "rule_id": "UI-SHORTCUT-001",
-      "area": "ui-input",
-      "classification": "allowed_windows_boundary",
-      "reason": "Literal Ctrl shortcut requiring a reviewed platform policy boundary",
-      "future_target": "ShortcutPolicy",
-      "allowed_to_remain": true
-    },
-    {
-      "fingerprint": "f20239779d39d87255c7",
-      "path": "shared/platform/shortcuts.py",
-      "rule_id": "UI-SHORTCUT-001",
-      "area": "ui-input",
-      "classification": "allowed_windows_boundary",
-      "reason": "Literal Ctrl shortcut requiring a reviewed platform policy boundary",
-      "future_target": "ShortcutPolicy",
-      "allowed_to_remain": true
-    },
-    {
-      "fingerprint": "90cbebf642b79a69ed1e",
-      "path": "shared/platform/shortcuts.py",
-      "rule_id": "UI-SHORTCUT-001",
-      "area": "ui-input",
-      "classification": "allowed_windows_boundary",
-      "reason": "Literal Ctrl shortcut requiring a reviewed platform policy boundary",
-      "future_target": "ShortcutPolicy",
-      "allowed_to_remain": true
-    },
-    {
       "fingerprint": "1c41cbc5d6ca5b9120d8",
       "path": "editor/ui/main_window.py",
       "rule_id": "WIN-SHELL-001",
@@ -183,66 +143,6 @@
       "allowed_to_remain": true
     },
     {
-      "fingerprint": "bef788b219dd0ce61b19",
-      "path": "licensing/hwid.py",
-      "rule_id": "WIN-BRANCH-001",
-      "area": "platform-branch",
-      "classification": "platform_adapter_candidate",
-      "reason": "Explicit Windows platform branch",
-      "future_target": "shared/platform/detection.py",
-      "allowed_to_remain": true
-    },
-    {
-      "fingerprint": "a8827ef2be351b547e17",
-      "path": "licensing/hwid.py",
-      "rule_id": "WIN-API-001",
-      "area": "windows-api",
-      "classification": "platform_adapter_candidate",
-      "reason": "Windows-only API",
-      "future_target": "DesktopIntegration, ApplicationLauncher, or UrlOpener",
-      "allowed_to_remain": true
-    },
-    {
-      "fingerprint": "1c6fb944846d55017030",
-      "path": "licensing/hwid.py",
-      "rule_id": "WIN-API-001",
-      "area": "windows-api",
-      "classification": "platform_adapter_candidate",
-      "reason": "Windows-only API",
-      "future_target": "DesktopIntegration, ApplicationLauncher, or UrlOpener",
-      "allowed_to_remain": true
-    },
-    {
-      "fingerprint": "ec2cbe26fc1de404f6df",
-      "path": "licensing/hwid.py",
-      "rule_id": "WIN-HWID-001",
-      "area": "hardware-identity",
-      "classification": "platform_adapter_candidate",
-      "reason": "Windows-oriented hardware identity source",
-      "future_target": "HardwareIdentityProvider",
-      "allowed_to_remain": true
-    },
-    {
-      "fingerprint": "3c2555193f57faf81506",
-      "path": "licensing/hwid.py",
-      "rule_id": "WIN-API-001",
-      "area": "windows-api",
-      "classification": "platform_adapter_candidate",
-      "reason": "Windows-only API",
-      "future_target": "DesktopIntegration, ApplicationLauncher, or UrlOpener",
-      "allowed_to_remain": true
-    },
-    {
-      "fingerprint": "88bbf1ea55e81b36c66f",
-      "path": "licensing/hwid.py",
-      "rule_id": "WIN-HWID-001",
-      "area": "hardware-identity",
-      "classification": "platform_adapter_candidate",
-      "reason": "Windows-oriented hardware identity source",
-      "future_target": "HardwareIdentityProvider",
-      "allowed_to_remain": true
-    },
-    {
       "fingerprint": "5b6e9ecbe4bcd362b3be",
       "path": "licensing/hwid.py",
       "rule_id": "WIN-HWID-001",
@@ -253,27 +153,7 @@
       "allowed_to_remain": true
     },
     {
-      "fingerprint": "bef788b219dd0ce61b19",
-      "path": "licensing/hwid.py",
-      "rule_id": "WIN-BRANCH-001",
-      "area": "platform-branch",
-      "classification": "platform_adapter_candidate",
-      "reason": "Explicit Windows platform branch",
-      "future_target": "shared/platform/detection.py",
-      "allowed_to_remain": true
-    },
-    {
-      "fingerprint": "235ec3b7bc1fa12f3a52",
-      "path": "licensing/hwid.py",
-      "rule_id": "WIN-SHELL-001",
-      "area": "command-shell",
-      "classification": "platform_adapter_candidate",
-      "reason": "Windows command shell or command",
-      "future_target": "CommandBackend",
-      "allowed_to_remain": true
-    },
-    {
-      "fingerprint": "89d6864b8220f211f1f9",
+      "fingerprint": "e97dc0e11fc2c39358f8",
       "path": "licensing/hwid.py",
       "rule_id": "WIN-HWID-001",
       "area": "hardware-identity",
@@ -283,17 +163,7 @@
       "allowed_to_remain": true
     },
     {
-      "fingerprint": "302d972cc7dc5eda68ca",
-      "path": "licensing/hwid.py",
-      "rule_id": "WIN-HWID-001",
-      "area": "hardware-identity",
-      "classification": "platform_adapter_candidate",
-      "reason": "Windows-oriented hardware identity source",
-      "future_target": "HardwareIdentityProvider",
-      "allowed_to_remain": true
-    },
-    {
-      "fingerprint": "ea518a9f225a88ee4d6f",
+      "fingerprint": "60d1c49781e027f2af2b",
       "path": "licensing/hwid.py",
       "rule_id": "WIN-HWID-001",
       "area": "hardware-identity",
@@ -553,6 +423,136 @@
       "allowed_to_remain": true
     },
     {
+      "fingerprint": "e31703139a21c19185e3",
+      "path": "shared/platform/identity.py",
+      "rule_id": "WIN-HWID-001",
+      "area": "hardware-identity",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows-oriented hardware identity source",
+      "future_target": "HardwareIdentityProvider",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "1520491b694b0e8c9ad5",
+      "path": "shared/platform/identity.py",
+      "rule_id": "WIN-HWID-001",
+      "area": "hardware-identity",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows-oriented hardware identity source",
+      "future_target": "HardwareIdentityProvider",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "8624f2acb1e8e8f55632",
+      "path": "shared/platform/identity.py",
+      "rule_id": "WIN-API-001",
+      "area": "windows-api",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows-only API",
+      "future_target": "HardwareIdentityProvider",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "1d64b1e714b70a4efb2f",
+      "path": "shared/platform/identity.py",
+      "rule_id": "WIN-API-001",
+      "area": "windows-api",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows-only API",
+      "future_target": "HardwareIdentityProvider",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "141583ae57637de81c7d",
+      "path": "shared/platform/identity.py",
+      "rule_id": "WIN-HWID-001",
+      "area": "hardware-identity",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows-oriented hardware identity source",
+      "future_target": "HardwareIdentityProvider",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "14edf0e9d75132121bb3",
+      "path": "shared/platform/identity.py",
+      "rule_id": "WIN-API-001",
+      "area": "windows-api",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows-only API",
+      "future_target": "HardwareIdentityProvider",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "78f4f561215809250ac5",
+      "path": "shared/platform/identity.py",
+      "rule_id": "WIN-HWID-001",
+      "area": "hardware-identity",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows-oriented hardware identity source",
+      "future_target": "HardwareIdentityProvider",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "489747d784689ecc0a38",
+      "path": "shared/platform/identity.py",
+      "rule_id": "WIN-SHELL-001",
+      "area": "command-shell",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows command shell or command",
+      "future_target": "HardwareIdentityProvider",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "fa591ad619ae947cc9ba",
+      "path": "shared/platform/identity.py",
+      "rule_id": "WIN-HWID-001",
+      "area": "hardware-identity",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows-oriented hardware identity source",
+      "future_target": "HardwareIdentityProvider",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "97583c7fb6c4b9e49f49",
+      "path": "shared/platform/identity.py",
+      "rule_id": "WIN-HWID-001",
+      "area": "hardware-identity",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows-oriented hardware identity source",
+      "future_target": "HardwareIdentityProvider",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "e05a844e7aedf744c4f7",
+      "path": "shared/platform/identity.py",
+      "rule_id": "WIN-HWID-001",
+      "area": "hardware-identity",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows-oriented hardware identity source",
+      "future_target": "HardwareIdentityProvider",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "6b396e0b114b54647793",
+      "path": "shared/platform/identity.py",
+      "rule_id": "WIN-HWID-001",
+      "area": "hardware-identity",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows-oriented hardware identity source",
+      "future_target": "HardwareIdentityProvider",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "e05a844e7aedf744c4f7",
+      "path": "shared/platform/identity.py",
+      "rule_id": "WIN-HWID-001",
+      "area": "hardware-identity",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows-oriented hardware identity source",
+      "future_target": "HardwareIdentityProvider",
+      "allowed_to_remain": true
+    },
+    {
       "fingerprint": "aa9cc8abb94dfa23c533",
       "path": "shared/platform/paths.py",
       "rule_id": "WIN-PATH-001",
@@ -690,6 +690,46 @@
       "classification": "allowed_windows_boundary",
       "reason": "Single Unix fallback used for all non-Windows platforms",
       "future_target": "platform-specific backend selection",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "89b096558e4d92640cbb",
+      "path": "shared/platform/shortcuts.py",
+      "rule_id": "UI-SHORTCUT-001",
+      "area": "ui-input",
+      "classification": "allowed_windows_boundary",
+      "reason": "Literal Ctrl shortcut requiring a reviewed platform policy boundary",
+      "future_target": "ShortcutPolicy",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "e8a0c1e5f6f4c481ff62",
+      "path": "shared/platform/shortcuts.py",
+      "rule_id": "UI-SHORTCUT-001",
+      "area": "ui-input",
+      "classification": "allowed_windows_boundary",
+      "reason": "Literal Ctrl shortcut requiring a reviewed platform policy boundary",
+      "future_target": "ShortcutPolicy",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "f20239779d39d87255c7",
+      "path": "shared/platform/shortcuts.py",
+      "rule_id": "UI-SHORTCUT-001",
+      "area": "ui-input",
+      "classification": "allowed_windows_boundary",
+      "reason": "Literal Ctrl shortcut requiring a reviewed platform policy boundary",
+      "future_target": "ShortcutPolicy",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "90cbebf642b79a69ed1e",
+      "path": "shared/platform/shortcuts.py",
+      "rule_id": "UI-SHORTCUT-001",
+      "area": "ui-input",
+      "classification": "allowed_windows_boundary",
+      "reason": "Literal Ctrl shortcut requiring a reviewed platform policy boundary",
+      "future_target": "ShortcutPolicy",
       "allowed_to_remain": true
     },
     {

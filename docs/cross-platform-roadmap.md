@@ -39,7 +39,7 @@ Suggested contracts:
 | `CommandBackend` | supported shell IDs, argv construction, process flags, decoding hints, friendly error classification | command text rewriting beyond documented backend rules |
 | `ApplicationLauncher` | validate/launch native applications, scripts, and working directories | URL opening, packaging, or plan serialization |
 | `UrlOpener` | choose default-browser versus explicit-browser mode and construct an immutable open specification | URL parsing, browser discovery, process execution, or plan serialization |
-| `HardwareIdentityProvider` | versioned identity inputs and privacy-safe diagnostics | RSA signing, entitlement, or silent identity migration |
+| `HardwareIdentityProvider` | collect exact legacy-v1 source values and observable metadata in frozen order | serialization/hash version choice, diagnostics/logging, RSA, schema selection, or migration |
 | `DesktopIntegration` | perform narrowly introduced desktop operations: open-directory and process application identity | paths/data creation, icon/resource loading, packaging, or core execution decisions |
 | `ShortcutPolicy` | provide frozen shortcut strings for the existing editor action set | QAction creation, signal wiring, keyboard events, focus, persistence, or UI execution |
 | `PackagingBackend` | host-native artifact name, icon/bundle resources, PyInstaller invocation, output verification | cross-compilation claims or plan schema changes |
@@ -130,7 +130,7 @@ Linux, macOS, and unknown use `LegacyShortcutPolicy` with the historical Ctrl/Al
 
 Phase 1i freezes the existing hardware-identity contract without changing production licensing code. Synthetic-only fixtures cover the Windows registry value, complete volume-command stdout, always-included fallback, exact source order, empty/error behavior, `||` serialization, UTF-8 uppercase SHA-256, display formatting, legacy non-Windows behavior, and direct `LFREQ1`/`lflic-1` machine binding.
 
-The privacy and compatibility analysis is recorded in `docs/hardware-identity-audit.md`. It confirms that the unsalted digest is a persistent identifier, source/locale/host/account changes can invalidate existing licenses, cloned machines can share an identifier, and current request/license schemas contain no HWID algorithm version. `HardwareIdentityProvider` remains a design sketch only; native Linux/macOS identity and any migration are not implemented.
+The privacy and compatibility analysis is recorded in `docs/hardware-identity-audit.md`. It confirms that the unsalted digest is a persistent identifier, source/locale/host/account changes can invalidate existing licenses, cloned machines can share an identifier, and current request/license schemas contain no HWID algorithm version. At the end of Phase 1i, `HardwareIdentityProvider` remained a design sketch only; native Linux/macOS identity and any migration were not implemented.
 
 ### Phase 1j status — readiness completed
 
@@ -138,7 +138,26 @@ Phase 1j records the implementation boundary in `docs/hardware-identity-provider
 
 The migration decision is Option B: every existing `LFREQ1`, legacy request, `lfreq-1`, `lflic-1`, and unversioned legacy license permanently selects legacy-v1. A future algorithm requires a distinct request/license schema whose signed payload explicitly covers the identity version and value. Unversioned multi-ID fallback and match-any candidate validation are rejected.
 
-The adapter is not implemented. The next implementation slice is Phase 1k behavior-equivalent legacy-v1 extraction only. Phase 1l owns a separately reviewed versioned container, and Phase 1m owns experimental algorithms and real-host evidence. Linux/macOS identity support and license migration remain unimplemented.
+At the end of Phase 1j the adapter was not implemented. Phase 1k subsequently implemented only the behavior-equivalent legacy-v1 extraction. Phase 1l owns a separately reviewed versioned container, and Phase 1m owns experimental algorithms and real-host evidence. Linux/macOS identity support and license migration remain unimplemented.
+
+### Phase 1k status — behavior-equivalent extraction completed
+
+Phase 1k adds stdlib-only `shared/platform/identity.py` with frozen
+`HardwareIdentityParts`, the collection-only Protocol, Windows and legacy
+providers, a side-effect-free factory, default source readers, and explicit
+legacy-v1 pure functions. `licensing/hwid.py` remains the compatibility facade:
+its six signatures, private helper monkeypatch seams, five-field dict order,
+single collection per ID call, and repeated-call recollection are unchanged.
+
+The current `execute_command("vol C:", "cmd")` callable is injected from the
+licensing facade and only `stdout` is consumed. The fixed synthetic digest
+`92FD6B08959D22BC7EB9FEC57E6471C701CB7BDE158D48128D6BC403666DAC4D`,
+source/error behavior, legacy non-Windows fallback, `LFREQ1`, `lfreq-1`,
+`lflic-1`, RSA, and old-license interpretation remain unchanged.
+`ActivationService`, `LicenseManager`, administrator tools, runtime, editor,
+models, and build/export code are not modified. Linux/macOS identity remains a
+legacy compatibility fallback only. HWID v2, versioned containers, and license
+migration remain unimplemented.
 
 ## Phase 2 — Linux x86_64 source-run experimental target
 
@@ -210,4 +229,4 @@ PyInstaller may remain an implementation, but Windows builds Windows, Linux buil
 
 ## Recommended next implementation task
 
-Prepare a separately authorized **Phase 1k behavior-equivalent legacy-v1 HardwareIdentityProvider extraction**. It must keep `get_machine_id() -> str`, the exact Phase 1i source/error/serialization/hash behavior, `LFREQ1`, `lfreq-1`, `lflic-1`, RSA, admin behavior, and every existing license interpretation unchanged. It may extract collection and pure transforms only; no v2 algorithm, schema migration, Linux/macOS support claim, packaging change, or Release action belongs in Phase 1k.
+Prepare a separately authorized **Phase 1l versioned request/license container** design and implementation review. Phase 1k completion does not authorize Phase 1l. Any new container must preserve every legacy parser/verification path, sign identity version and value together, reject downgrade/tampering, and retain explicit legacy issuance. It must not silently start a v2 algorithm, native Linux/macOS identity, license migration, packaging, or Release work.

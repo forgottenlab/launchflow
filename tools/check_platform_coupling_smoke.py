@@ -166,6 +166,12 @@ FUTURE_TARGETS = {
 
 
 def _future_target(finding: Finding) -> str:
+    if finding.path == "shared/platform/identity.py" and finding.category in {
+        "windows-api",
+        "command-shell",
+        "hardware-identity",
+    }:
+        return "HardwareIdentityProvider"
     if finding.path == "shared/platform/shortcuts.py" and finding.category == "ui-input":
         return "ShortcutPolicy"
     if finding.path == "shared/platform/diagnostics.py" and finding.category == "paths":
