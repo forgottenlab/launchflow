@@ -893,3 +893,21 @@ acquisition. It is not release authorization.
 - HWID v2 inputs, normalization, privacy, collision, spoofing, reinstall,
   permission, VM/container/clone, and real Windows/Linux/macOS host behavior
   remain entirely undefined and unimplemented.
+
+## 21. Phase 1m administrator readiness cross-reference
+
+Phase 1m freezes the administrator-side security prerequisites for later
+implementation in
+[`admin-issuance-security-readiness.md`](admin-issuance-security-readiness.md).
+It keeps this Phase 1l request/license design unchanged while selecting:
+
+- inspect-only as the future default;
+- explicit `legacy-lflic-1` and `versioned-lflic-2` modes;
+- administrator-authoritative authorization and policy records;
+- stdlib SQLite transactional replay/conflict state;
+- metadata-only trusted signing-key records;
+- append-only masked audit events and staged artifact recovery.
+
+Status: Phase 1m readiness complete. No parser, administrator database,
+registry, signing, replay protection, issuance, migration, or HWID v2 is
+implemented by that review.

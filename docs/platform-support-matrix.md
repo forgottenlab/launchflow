@@ -85,3 +85,17 @@ The only permitted matrix statuses are `Supported`, `Partially portable`, `Windo
 - shell invisibility/terminal behavior, locale/encoding, permission errors, signals, child-process cleanup;
 - release artifact on a clean user profile, data-directory isolation, public-key resource lookup, quarantine/signing/notarization where applicable;
 - exported launcher execution and packaged Application assets on the same native OS/architecture.
+
+## Phase 1m administrator issuance readiness
+
+Phase 1m is platform-neutral design evidence only. The readiness contract in
+`docs/admin-issuance-security-readiness.md` selects a future inspect-only
+default, explicit issuance modes, administrator-authoritative records, and
+stdlib SQLite transactions. Its smoke uses only synthetic records and a shared
+in-memory SQLite database; it does not load keys, sign, inspect host identity,
+access AppData, or create artifacts.
+
+This does not change the matrix: Windows x86_64 Beta remains the only supported
+product target, and no admin infrastructure, replay protection, trusted
+registry, LFLIC2 issuance, migration, HWID v2, or native-platform activation is
+implemented.

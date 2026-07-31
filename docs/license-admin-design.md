@@ -111,3 +111,22 @@ Required controls:
 - future revocation/blacklist extension point.
 
 Phase 1 must not implement unattended automatic issuing. Mail integration, if added later, may prepare a queue and reply draft but must not sign or send without author approval.
+
+## 8. Phase 1m admin issuance security readiness
+
+The current CLI/core and JSONL history above remain the frozen legacy-v1
+production behavior. They are not an authorization database, atomic replay
+ledger, trusted signing-key registry, or policy registry. In particular,
+current duplicate detection, output persistence, and history append do not form
+one transaction, and the existing `force` behavior must not be carried into a
+future LFREQ2 issuance path.
+
+Phase 1m selects a future inspect-only default, explicit
+`legacy-lflic-1`/`versioned-lflic-2` modes, administrator-authoritative approval
+records, and stdlib SQLite transactional state. The complete readiness and
+crash-recovery contract is in
+[`admin-issuance-security-readiness.md`](admin-issuance-security-readiness.md).
+
+Status: Phase 1m readiness complete; administrator infrastructure, replay
+protection, signing integration, trusted registries, and LFLIC2 issuance are
+not implemented.

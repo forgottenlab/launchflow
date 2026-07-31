@@ -459,3 +459,11 @@ LaunchFlow 的核心目标是：
 - 新格式要求 strict unpadded Base64URL、UTF-8 NFC canonical JSON、exact-field allowlist、duplicate-key 拒绝、整数 epoch、无 float/bool、显式尺寸上限与 raw-canonical round trip。未知 prefix、prefix/schema mismatch、无版本 match-any、候选 ID、silent legacy fallback 均 fail closed。
 - `LFREQ1`、legacy request、`lfreq-1`、`lflic-1` 与无版本旧 license 永远走原 `legacy-v1` 路径，不改写旧 license。reissue 只能使用新 request、人工审批和新 license；回滚旧客户端需要原兼容 license，不能转换或降级匹配。
 - `LFREQ2`/`LFLIC2` 尚无 production parser/encoder/signer，HWID v2 尚未定义或实施。下一步只能是独立 implementation review，不是发布或 issuance 授权。
+
+## 27. Phase 1m admin issuance security readiness
+
+- Phase 1m 只完成管理员签发安全 readiness，不修改现有 admin、licensing、identity、runtime、editor、schema、RSA、build/export 或 Release。完整设计见 `docs/admin-issuance-security-readiness.md`，静态与 synthetic 门禁为 `tools/check_admin_issuance_readiness_smoke.py`。
+- 现有 `tools/license_admin.py`/`license_admin_core.py` 仍是固定 `lflic-1` 的 legacy 工具：部分 masked inspect、JSONL request-ID 检查、签名、直接输出和随后 append history 不是原子事务，也没有 AuthorizationRecord、显式 issuance mode、trusted key registry 或 policy registry。
+- 后续管理员默认必须为 `inspect-only`；只有显式 `legacy-lflic-1` 或 `versioned-lflic-2`、approved AuthorizationRecord、精确 request digest、版本化 policy 和 exact trusted signing metadata 全部匹配后，才允许进入 reservation。request prefix、schema、identity 长度或 interactive confirmation 均不能选择模式或授权。
+- 唯一推荐权威状态是 stdlib `sqlite3`：request claim、authorization reservation、operation 创建与 audit event 在同一 `BEGIN IMMEDIATE` transaction；JSONL 只可作为脱敏非权威导出。SQLite 与 filesystem 不能伪装成一个事务，未来 artifact 使用 operation-scoped temp、digest、atomic replace 和显式 recovery/quarantine 状态。
+- Phase 1n/1o/1p/1q 必须分别实施 value/schema、inspect/replay transaction、synthetic signer seam/artifact recovery、显式 LFLIC2 mode。Phase 1m 本身没有实施 admin infrastructure、replay protection、signing、trusted registry、LFLIC2 issuance、migration 或 HWID v2。

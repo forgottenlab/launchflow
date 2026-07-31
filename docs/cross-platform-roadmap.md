@@ -182,6 +182,26 @@ signer, admin mode, identity resolver, migration, or Release asset was changed.
 Every current request/license stays permanently `legacy-v1`; HWID v2 and native
 Linux/macOS identity remain unimplemented.
 
+### Phase 1m status — admin issuance security readiness completed
+
+Phase 1m records the future administrator security boundary in
+`docs/admin-issuance-security-readiness.md` and adds the stdlib-only
+`tools/check_admin_issuance_readiness_smoke.py`. The future default is
+inspect-only; issuance requires an explicit mode plus an approved immutable
+AuthorizationRecord, exact canonical request digest, versioned fail-closed
+policy, and exact trusted signing metadata.
+
+The unique recommended authoritative store is stdlib SQLite. A request claim,
+authorization reservation, issue operation, and audit event must commit in one
+transaction; JSONL is non-authoritative export only. Artifact persistence uses
+explicit reserved/signing/signed/persisted/completed/failed/quarantined states
+because SQLite and filesystem rename cannot share one transaction.
+
+No admin database, replay protection, trusted registry, signing, LFLIC2
+issuance, license migration, or HWID v2 is implemented. The earlier candidate
+identity-algorithm experiment remains deferred to a separately named and
+authorized future phase; it is not part of Phase 1m.
+
 ## Phase 2 — Linux x86_64 source-run experimental target
 
 | Field | Definition |
@@ -252,4 +272,9 @@ PyInstaller may remain an implementation, but Windows builds Windows, Linux buil
 
 ## Recommended next implementation task
 
-Prepare a separately authorized **versioned-container implementation review** using the completed Phase 1l freeze. The smallest slice should implement pure strict framing/canonical value types, exact version dispatch, inspect-only admin parsing, and synthetic compatibility/downgrade gates while protecting every legacy parser/verification path. It must not silently start a v2 algorithm, make legacy issuance the default, add native Linux/macOS identity, migrate licenses, package an executable, or perform Release work. Production issuance remains a later explicit decision.
+Prepare separately authorized **Phase 1n** only: stdlib-only administrator
+policy/value objects and SQLite schema migration `0 -> 1`, with synthetic
+constraints, transaction, concurrency, privacy, and migration tests. It must
+not load a key, sign, parse/issue LFLIC2, modify v1 parsers, start HWID v2,
+package an executable, or perform Release work. Phases 1o, 1p, and 1q remain
+independent later reviews.

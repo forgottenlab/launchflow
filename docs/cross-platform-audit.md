@@ -129,6 +129,14 @@ Phase 1k implements `HardwareIdentityProvider` as a collection-only, stdlib plat
 
 Existing Windows licenses always resolve through the unchanged legacy-v1 algorithm. The selected migration is Option B: preserve every current request/license container and use a new explicit schema for any separately registered algorithm, with identity version and value covered by the signature. Phase 1l now freezes `LFREQ2`/`lfreq-2`, `LFLIC2`/`lflic-2`, strict canonical bytes, signed prefix/schema/identity binding, old-tool fail-closed behavior, and reissue/rollback policy in `docs/versioned-request-license-container-design.md`; no production parser, signer, schema, or migration exists. The new request is explicitly unauthenticated and needs later admin-side replay/authorization state. The new license uses an exact trusted algorithm/key pair and validates all signed non-identity time/product/version/policy constraints before its one identity read; this does not alter legacy validation. Unversioned match-any fallback is rejected. Linux/macOS issuance remains unsupported until stable platform sources, collision analysis, reset/recovery behavior, VM/container/clone behavior, privacy review, and upgrade tests are specified. See `docs/hardware-identity-provider-readiness.md`.
 
+Phase 1m now freezes that future administrator-side prerequisite in
+`docs/admin-issuance-security-readiness.md`: default inspect-only behavior,
+explicit issuance modes, administrator-authoritative approval/policy, stdlib
+SQLite atomic replay claims, metadata-only trusted signing-key records, masked
+append-only audit, and staged artifact recovery. This is readiness evidence
+only; no admin database, replay protection, signer, LFLIC2 issuance, migration,
+HWID v2, or platform support was implemented.
+
 ## Diagnostics and Privacy
 
 Phase 1g keeps the existing case-insensitive literal replacement algorithm and order: non-empty `LOCALAPPDATA` first, then the caller-provided `Path.home()` value. It does not resolve, expand, normalize separators, change case, or read `HOME`/`USERPROFILE` directly. Identical sources therefore keep the first `%LOCALAPPDATA%` alias, nested paths retain the same sequential behavior, and empty sources cannot trigger global replacement. Machine/request/signature material, LFREQ1 values, and private-key references retain their prior masking order.
