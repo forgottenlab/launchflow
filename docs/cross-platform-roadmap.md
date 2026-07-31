@@ -132,6 +132,14 @@ Phase 1i freezes the existing hardware-identity contract without changing produc
 
 The privacy and compatibility analysis is recorded in `docs/hardware-identity-audit.md`. It confirms that the unsalted digest is a persistent identifier, source/locale/host/account changes can invalidate existing licenses, cloned machines can share an identifier, and current request/license schemas contain no HWID algorithm version. `HardwareIdentityProvider` remains a design sketch only; native Linux/macOS identity and any migration are not implemented.
 
+### Phase 1j status — readiness completed
+
+Phase 1j records the implementation boundary in `docs/hardware-identity-provider-readiness.md` and adds a standard-library static readiness smoke. It selects a collection-only stdlib provider under `shared/platform/identity.py`, a frozen parts value matching the Phase 1i fields, pure legacy-v1 fallback/serialization/hash functions, and unchanged public facades. Optional machine-ID callables are preferred for later `ActivationService` and `LicenseManager` seams; signature verification must still precede identity acquisition.
+
+The migration decision is Option B: every existing `LFREQ1`, legacy request, `lfreq-1`, `lflic-1`, and unversioned legacy license permanently selects legacy-v1. A future algorithm requires a distinct request/license schema whose signed payload explicitly covers the identity version and value. Unversioned multi-ID fallback and match-any candidate validation are rejected.
+
+The adapter is not implemented. The next implementation slice is Phase 1k behavior-equivalent legacy-v1 extraction only. Phase 1l owns a separately reviewed versioned container, and Phase 1m owns experimental algorithms and real-host evidence. Linux/macOS identity support and license migration remain unimplemented.
+
 ## Phase 2 — Linux x86_64 source-run experimental target
 
 | Field | Definition |
@@ -202,4 +210,4 @@ PyInstaller may remain an implementation, but Windows builds Windows, Linux buil
 
 ## Recommended next implementation task
 
-Prepare a separately authorized **Phase 1j HardwareIdentityProvider implementation-readiness review**. Any implementation must keep the frozen legacy-v1 calculation authoritative for existing requests and licenses, decide how provider injection avoids source drift, and define an explicitly versioned migration/reissue path before a new algorithm is considered. This recommendation is planning only: do not change HWID, `LFREQ1`, `lflic-1`, RSA, licensing, packaging, or support claims without a new explicit task.
+Prepare a separately authorized **Phase 1k behavior-equivalent legacy-v1 HardwareIdentityProvider extraction**. It must keep `get_machine_id() -> str`, the exact Phase 1i source/error/serialization/hash behavior, `LFREQ1`, `lfreq-1`, `lflic-1`, RSA, admin behavior, and every existing license interpretation unchanged. It may extract collection and pure transforms only; no v2 algorithm, schema migration, Linux/macOS support claim, packaging change, or Release action belongs in Phase 1k.

@@ -430,3 +430,12 @@ LaunchFlow 的核心目标是：
 - legacy-v1 只按 `machine_guid + "||" + volume_serial + "||" + fallback` 序列化，UTF-8 后计算 SHA-256 uppercase hex。注册表/volume 异常变为空字符串，fallback 源异常继续传播；Linux、macOS 和 unknown 仅保留既有 fallback，仍不构成支持声明。
 - `LFREQ1` 和 `lflic-1` 都直接绑定规范化后的 64 字符 machine ID，但 schema 中没有 identity algorithm version。现有许可证必须继续走完全相同的 legacy-v1 验证；任何新算法都需要独立版本、签名覆盖、迁移/补发策略，不能原地替换。
 - machine ID 是稳定可关联的设备标识而非匿名数据。原始 parts、完整 digest、请求码和许可证内容不得进入日志、诊断、文档 fixture 或支持材料；自动测试只允许明显 synthetic 输入与固定 synthetic Hash。
+
+## 24. HardwareIdentityProvider implementation-readiness 决策
+
+- Phase 1j 仅完成实施准备审查，没有新增 provider 或修改 production licensing。完整决策见 `docs/hardware-identity-provider-readiness.md`，静态门禁为 `tools/check_hwid_provider_readiness_smoke.py`。
+- 后续 provider 应位于 stdlib-only `shared/platform/identity.py`，只负责按既有顺序采集 `machine_guid`、完整 volume stdout、fallback 源以及现有可观察 metadata；`HardwareIdentityParts` 应为 frozen 内部值对象，绝不进入请求、许可证、日志或 diagnostics。
+- fallback 过滤/连接、三字段 `||` 序列化、UTF-8 和 uppercase SHA-256 必须保留为可独立测试的 legacy-v1 纯函数。`licensing/hwid.py` 继续拥有不变的 `get_machine_id() -> str` facade，不在 import 时采集、不使用可变全局 singleton，也不缓存临时失败生成的 ID。
+- `ActivationService` 与 `LicenseManager` 后续优先注入可选 keyword-only machine-ID callable，而不是暴露 provider。`LicenseManager` 必须先验签再调用 resolver；provider 异常不得报告为签名失败，旧许可证只允许 legacy-v1 精确比较。
+- 版本迁移选择 Option B：`LFREQ1`、legacy request、`lfreq-1`、`lflic-1` 与无版本旧许可证永久解释为 legacy-v1；只有新 request/license schema 才可显式选择 v2，identity version 与值必须一起受签名覆盖。拒绝无版本的多 ID 任意匹配。
+- 实施拆为 Phase 1k behavior-equivalent legacy-v1 extraction、Phase 1l versioned request/license container、Phase 1m 新算法实验和真实主机验证；不得合并为一个大改动。Phase 1j 不构成 Linux/macOS HWID 支持声明。

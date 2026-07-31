@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added / 新增
+- 新增 `HardwareIdentityProvider` implementation-readiness review 与标准库静态 smoke，明确 collection-only provider、legacy-v1 纯函数/facade 永久兼容、Option B 显式版本迁移、错误/隐私边界及 Phase 1k/1l/1m 切片；Provider 尚未实施，HWID 算法、请求/许可证 schema 与 RSA 未修改。
 - 新增 HWID 合同审计与纯 synthetic fixture smoke，冻结现有 Windows `MachineGuid`、完整 `vol C:` stdout、始终参与的 fallback、`||` 序列化、uppercase SHA-256 以及 `LFREQ1`/`lflic-1` 绑定边界；未实施 `HardwareIdentityProvider`，未改变算法或 schema。
 - 新增 stdlib-only `ShortcutPolicy` 与 frozen `ShortcutProfile`，将保存、另存为、试运行、导出、删除、上移和下移的既有 Windows 字符串集中到 `shared/platform/shortcuts.py`；QAction、菜单、顶部按钮、tooltip、ShortcutContext、焦点和业务 handler 保持兼容，非 Windows 仅保留 Legacy Ctrl fallback。
 - 新增 stdlib-only `DiagnosticsPresentationProvider` 平台合同，将精确的 `Windows` 标签以及 `%LOCALAPPDATA%`、`%USERPROFILE%` 路径别名集中到 `shared/platform/diagnostics.py`；Windows 完整 diagnostics 文本、字段顺序、换行、脱敏顺序与隐私边界保持逐字符兼容，Linux/macOS 仅保留旧展示 fallback。
