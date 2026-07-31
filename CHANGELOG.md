@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added / 新增
+- 完成 Phase 1l versioned request/license container design freeze：唯一推荐 `LFREQ2`/`lfreq-2` 与 `LFLIC2`/`lflic-2`，冻结 strict Base64URL、canonical UTF-8 JSON、prefix/schema/signing bytes、未经认证的 request/admin-side replay state 边界、精确 trusted algorithm/key registry、全部 signed non-identity policy 先于单次 identity 读取、兼容/降级/reissue/rollback 矩阵及纯 synthetic smoke；production parser/schema/RSA/HWID v2/replay registry/迁移均未实施。
 - 新增 stdlib-only legacy-v1 `HardwareIdentityProvider`、frozen `HardwareIdentityParts` 与 synthetic provider smoke；既有 facade、私有 helper seam、采集顺序和 legacy-v1 Hash/fixed digest 保持兼容，不涉及 HWID v2、request/license schema 或许可证迁移。
 - 新增 `HardwareIdentityProvider` implementation-readiness review 与标准库静态 smoke，明确 collection-only provider、legacy-v1 纯函数/facade 永久兼容、Option B 显式版本迁移、错误/隐私边界及 Phase 1k/1l/1m 切片；Provider 尚未实施，HWID 算法、请求/许可证 schema 与 RSA 未修改。
 - 新增 HWID 合同审计与纯 synthetic fixture smoke，冻结现有 Windows `MachineGuid`、完整 `vol C:` stdout、始终参与的 fallback、`||` 序列化、uppercase SHA-256 以及 `LFREQ1`/`lflic-1` 绑定边界；未实施 `HardwareIdentityProvider`，未改变算法或 schema。

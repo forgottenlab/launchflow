@@ -159,6 +159,29 @@ models, and build/export code are not modified. Linux/macOS identity remains a
 legacy compatibility fallback only. HWID v2, versioned containers, and license
 migration remain unimplemented.
 
+### Phase 1l status — versioned container design freeze completed
+
+Phase 1l selects one request container, `LFREQ2` with `lfreq-2`, and one
+license container, `LFLIC2` with `lflic-2`. It freezes strict unpadded
+Base64URL, exact UTF-8 canonical JSON, full-size/field limits, prefix/schema
+binding, `b"LFLIC2." + payload_segment` signing bytes, one signed identity
+algorithm/value pair, old/new tool compatibility, downgrade defenses, and
+reissue/rollback policy. The detailed contract and non-production vectors are
+in `docs/versioned-request-license-container-design.md`.
+
+The request remains unauthenticated: checksum, UUID, timestamp, product,
+version, and proposed identity cannot authorize issuance or prevent replay.
+Future admin work needs persistent authorization/replay state, defaults to
+inspect-only, and requires an explicit issuance mode. For `LFLIC2`, exact
+trusted algorithm/key lookup and every signed non-identity time/product/version/
+policy check precede one identity read; entitlements remain hidden until the
+identity match succeeds. None of these future components is implemented.
+
+This is design evidence only. No production parser, encoder, license schema,
+signer, admin mode, identity resolver, migration, or Release asset was changed.
+Every current request/license stays permanently `legacy-v1`; HWID v2 and native
+Linux/macOS identity remain unimplemented.
+
 ## Phase 2 — Linux x86_64 source-run experimental target
 
 | Field | Definition |
@@ -229,4 +252,4 @@ PyInstaller may remain an implementation, but Windows builds Windows, Linux buil
 
 ## Recommended next implementation task
 
-Prepare a separately authorized **Phase 1l versioned request/license container** design and implementation review. Phase 1k completion does not authorize Phase 1l. Any new container must preserve every legacy parser/verification path, sign identity version and value together, reject downgrade/tampering, and retain explicit legacy issuance. It must not silently start a v2 algorithm, native Linux/macOS identity, license migration, packaging, or Release work.
+Prepare a separately authorized **versioned-container implementation review** using the completed Phase 1l freeze. The smallest slice should implement pure strict framing/canonical value types, exact version dispatch, inspect-only admin parsing, and synthetic compatibility/downgrade gates while protecting every legacy parser/verification path. It must not silently start a v2 algorithm, make legacy issuance the default, add native Linux/macOS identity, migrate licenses, package an executable, or perform Release work. Production issuance remains a later explicit decision.

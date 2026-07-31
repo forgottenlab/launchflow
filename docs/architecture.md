@@ -448,3 +448,14 @@ LaunchFlow 的核心目标是：
 - MachineGuid、完整 volume stdout、fallback 五源顺序、异常传播/转空边界、`||`、UTF-8、uppercase SHA-256 与固定 synthetic digest `92FD6B08959D22BC7EB9FEC57E6471C701CB7BDE158D48128D6BC403666DAC4D` 均保持不变。
 - `ActivationService`、`LicenseManager`、管理员工具、请求/许可证 schema、RSA、plans、runtime、editor 与 build/export 均未修改。Linux、macOS 和 unknown 仍只使用旧 fallback，不能据此声明原生支持。
 - HWID v2、identity version、versioned request/license container 与许可证迁移均未实现；Phase 1l 只有在单独授权后才可处理新容器。
+
+## 26. Phase 1l versioned container design freeze
+
+- Phase 1l 只冻结设计，没有修改 production licensing、admin、UI、HWID、RSA、canonical v1 bytes 或 build/export。完整合同见 `docs/versioned-request-license-container-design.md`，静态与 synthetic 门禁为 `tools/check_versioned_container_design_smoke.py`。
+- Container Version、Payload Schema Version 与 Identity Algorithm Version 是三个独立维度。推荐 request 唯一为 `LFREQ2.<payload_b64url>.<checksum_hex>` / `lfreq-2`，推荐 license 唯一为 `LFLIC2.<payload_b64url>.<signature_b64url>` / `lflic-2`。
+- 新 request checksum 精确覆盖 `b"LFREQ2." + payload_segment`，但只检测损坏、不提供认证。新 license 的签名输入精确为 `b"LFLIC2." + payload_segment`；container type/version/schema、固定签名算法、key ID、唯一 identity algorithm/value、product、edition、entitlements、有效期与标识均在签名 payload 内。
+- `LFREQ2` 全 payload 都是未经认证的客户输入：request ID 只做 correlation、timestamp 不是可信时间、identity value 不证明请求来自该设备。customer、edition、entitlements、validity 与 product policy 只能来自管理员授权记录或显式输入；admin 默认 inspect-only，必须显式选择 issuance mode，request prefix 不自动签发或降级。replay 防护需要后续管理员侧持久状态，Phase 1l 未实施。
+- `LFLIC2` 只允许内置/等价受信任配置中的精确 `(signing_algorithm, key_id)` registry entry；key ID 是完整 DER SPKI SHA-256，不得解释为路径、URL 或动态 crypto selector。验签成功后先检查 signed time/product/app-version/edition/entitlement/identity-algorithm policy，全部通过后才选择唯一 resolver、读取一次 identity，匹配成功后才暴露 entitlement。现有 `lflic-1` 顺序不变。
+- 新格式要求 strict unpadded Base64URL、UTF-8 NFC canonical JSON、exact-field allowlist、duplicate-key 拒绝、整数 epoch、无 float/bool、显式尺寸上限与 raw-canonical round trip。未知 prefix、prefix/schema mismatch、无版本 match-any、候选 ID、silent legacy fallback 均 fail closed。
+- `LFREQ1`、legacy request、`lfreq-1`、`lflic-1` 与无版本旧 license 永远走原 `legacy-v1` 路径，不改写旧 license。reissue 只能使用新 request、人工审批和新 license；回滚旧客户端需要原兼容 license，不能转换或降级匹配。
+- `LFREQ2`/`LFLIC2` 尚无 production parser/encoder/signer，HWID v2 尚未定义或实施。下一步只能是独立 implementation review，不是发布或 issuance 授权。

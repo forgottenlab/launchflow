@@ -1,12 +1,15 @@
 # Hardware Identity Provider Implementation-Readiness Review
 
 Status: Phase 1j readiness review complete. Phase 1k behavior-equivalent
-legacy-v1 Provider extraction is implemented. No new identity algorithm,
-request/license schema, signing payload, or migration code is implemented.
+legacy-v1 Provider extraction is implemented. Phase 1l container design is
+frozen in `docs/versioned-request-license-container-design.md`, but no new
+parser, encoder, production schema, signing payload, identity algorithm, or
+migration code is implemented.
 
 - Provider status: legacy-v1-extracted
 - HWID v2 status: not-implemented
 - Schema status: unchanged
+- Versioned-container status: design-freeze-only
 - Migration status: not-implemented
 
 This document turns the Phase 1i compatibility audit into an implementation
@@ -71,9 +74,9 @@ device identity locally.
 | Test seam | Construct a fresh provider per facade call and inject the current private helpers/readers; never use a mutable global singleton |
 | Application service seam | Prefer an optional keyword-only machine-ID callable |
 | License validation seam | Prefer an optional keyword-only machine-ID callable, invoked only after successful signature verification |
-| Migration | Decision: Option B — old containers remain legacy-v1; a new schema explicitly selects v2 |
+| Migration | Decision: Option B — old containers remain legacy-v1; a new schema explicitly selects one registered algorithm |
 | Multi-ID fallback | Unversioned multi-ID fallback: Rejected |
-| Next implementation | Phase 1l may add a separately authorized versioned request/license container; Phase 1k does not authorize it |
+| Next implementation | A separate review may implement the Phase 1l design; this freeze does not authorize production wiring or issuance |
 
 ## Provider responsibility decision
 
@@ -372,8 +375,8 @@ parts from logs, edit a signed payload, or accept a partially matching ID.
 
 Recovery policy still needs product decisions for entitlement limits,
 revocation, duplicate requests, offline proof of ownership, rate limits, and
-old-license retirement. Those decisions are prerequisites for Phase 1l, not
-authorization to modify the current client.
+old-license retirement. Those decisions are prerequisites for future production
+implementation and issuance, not authorization to modify the current client.
 
 ## Error-state model
 
@@ -449,13 +452,44 @@ public facades, all Phase 1i fixtures, source-order/error fixtures, import
 side-effect checks, no schema/request/license/RSA change, and no new algorithm.
 The provider must not be implemented as a global mutable singleton.
 
-### Phase 1l — versioned request/license container
+### Phase 1l — versioned request/license container design freeze completed
 
-Design and implement a new request prefix/schema and license schema. Preserve
-all old parsers and validation paths. Cover the identity version and value with
-the license signature; make old tools reject the new prefix cleanly; retain an
-explicit legacy issuance path; add downgrade, tampering, unsupported-schema,
-rollback, and reissue tests. This phase does not change legacy-v1 interpretation.
+Phase 1l selects exactly `LFREQ2.<payload_b64url>.<checksum_hex>` with
+`schema=lfreq-2` and `LFLIC2.<payload_b64url>.<signature_b64url>` with
+`schema=lflic-2`. The request checksum covers `b"LFREQ2." + payload_segment`
+and remains unauthenticated. License signing bytes are exactly
+`b"LFLIC2." + payload_segment`; all semantic selectors, including the one
+identity algorithm/value pair, fixed signing algorithm, key ID, product,
+edition, entitlements, validity, and identifiers, are inside that signed
+payload.
+
+The new request is explicitly unauthenticated: its checksum is forgeable,
+request ID is correlation only, timestamp is untrusted, and the proposed
+identity does not prove device origin. Authorization fields come only from the
+administrator side; replay control requires future persistent admin state and
+is not implemented. Admin inspection never issues by default and request shape
+never selects an issuance mode.
+
+The new license uses one exact trusted `(signing_algorithm, key_id)` registry
+entry. After signature verification, all signed time/product/app-version/
+edition/entitlement/identity-algorithm policy checks happen before choosing the
+one resolver and acquiring identity exactly once. Entitlements are exposed only
+after exact identity success. This new-container ordering does not modify the
+frozen current-license order.
+
+The freeze also requires strict unpadded Base64URL, canonical UTF-8 JSON,
+duplicate/unknown rejection, bounded sizes, prefix/type/version/schema
+binding, exact one-resolver dispatch after signature verification, an
+eight-cell compatibility matrix, explicit old/new admin issuance modes, and
+documented downgrade/reissue/rollback behavior. The full executable-level
+contract and non-production synthetic vectors are in
+`docs/versioned-request-license-container-design.md` and guarded by
+`tools/check_versioned_container_design_smoke.py`.
+
+No production parser, encoder, schema, signing bytes, admin command, resolver,
+or migration was added. HWID v2 remains undefined and unimplemented. A
+separate implementation review must preserve every old path and may not treat
+this design freeze as release authorization.
 
 ### Phase 1m — new identity algorithm experiment
 
@@ -483,16 +517,19 @@ No PyInstaller build was used or claimed. The fake-frozen import probe is an
 import-safety check only. `ActivationService`/`LicenseManager` callable
 injection was intentionally not included.
 
-Phase 1l additionally needs an approved canonical schema, prefix, signed-field
-set, admin compatibility matrix, downgrade threat model, reactivation policy,
-and rollback/support lifecycle. Phase 1m needs the real-host evidence listed
-above. Until those gates pass, the current algorithm and schemas remain the only
-production behavior.
+Phase 1l now freezes the canonical schema, prefix, signed-field set, admin
+compatibility matrix, downgrade threat model, reactivation policy, and
+rollback boundary without implementing them. Phase 1m still needs the
+real-host evidence listed above. Until a separate implementation and release
+review passes, the current algorithm and schemas remain the only production
+behavior.
 
 ## Readiness conclusion
 
 Phase 1k behavior-equivalent legacy-v1 Provider extraction is implemented:
 acquisition is behind a stdlib-only provider, legacy transforms are pure
 functions, and the public facade and all signed containers remain unchanged.
-The fixed synthetic digest is unchanged. HWID v2, schema migration, native
-platform identity, and license migration remain unimplemented.
+The fixed synthetic digest is unchanged. Phase 1l design freeze is complete,
+but its recommended `LFREQ2`/`LFLIC2` containers are not implemented. HWID v2,
+schema migration, native platform identity, and license migration remain
+unimplemented.
