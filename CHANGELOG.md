@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added / 新增
+- 准备 Phase 2a1 macOS arm64 GitHub Actions bootstrap：新增只读 `macos-15` workflow、Darwin/arm64 与固定依赖门禁、隔离数据/构建目录、安全 import、Qt offscreen MainWindow、synthetic plan/step smoke、unsigned non-production onedir `.app` 构建器、bundle/arm64 静态检查和受限 evidence upload；真实 workflow 尚未运行，bundle 启动因当前激活窗口会立即生成真实身份/申请码而 fail-closed 为 `BLOCKED`，不构成 macOS 支持或发布声明。
 - 完成 Phase 1m admin issuance security readiness（`docs/admin-issuance-security-readiness.md`）：冻结默认 inspect-only、显式 `legacy-lflic-1`/`versioned-lflic-2`、管理员 AuthorizationRecord 权威边界、stdlib SQLite 原子 replay claim、metadata-only trusted signing-key/policy registry、masked append-only audit、跨数据库/文件系统 staged recovery 以及 Phase 1n/1o/1p/1q 独立切片；production admin/licensing、签名、replay registry、LFLIC2 issuance、迁移和 HWID v2 均未实施。
 - 完成 Phase 1l versioned request/license container design freeze：唯一推荐 `LFREQ2`/`lfreq-2` 与 `LFLIC2`/`lflic-2`，冻结 strict Base64URL、canonical UTF-8 JSON、prefix/schema/signing bytes、未经认证的 request/admin-side replay state 边界、精确 trusted algorithm/key registry、全部 signed non-identity policy 先于单次 identity 读取、兼容/降级/reissue/rollback 矩阵及纯 synthetic smoke；production parser/schema/RSA/HWID v2/replay registry/迁移均未实施。
 - 新增 stdlib-only legacy-v1 `HardwareIdentityProvider`、frozen `HardwareIdentityParts` 与 synthetic provider smoke；既有 facade、私有 helper seam、采集顺序和 legacy-v1 Hash/fixed digest 保持兼容，不涉及 HWID v2、request/license schema 或许可证迁移。

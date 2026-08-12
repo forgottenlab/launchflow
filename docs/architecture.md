@@ -467,3 +467,13 @@ LaunchFlow 的核心目标是：
 - 后续管理员默认必须为 `inspect-only`；只有显式 `legacy-lflic-1` 或 `versioned-lflic-2`、approved AuthorizationRecord、精确 request digest、版本化 policy 和 exact trusted signing metadata 全部匹配后，才允许进入 reservation。request prefix、schema、identity 长度或 interactive confirmation 均不能选择模式或授权。
 - 唯一推荐权威状态是 stdlib `sqlite3`：request claim、authorization reservation、operation 创建与 audit event 在同一 `BEGIN IMMEDIATE` transaction；JSONL 只可作为脱敏非权威导出。SQLite 与 filesystem 不能伪装成一个事务，未来 artifact 使用 operation-scoped temp、digest、atomic replace 和显式 recovery/quarantine 状态。
 - Phase 1n/1o/1p/1q 必须分别实施 value/schema、inspect/replay transaction、synthetic signer seam/artifact recovery、显式 LFLIC2 mode。Phase 1m 本身没有实施 admin infrastructure、replay protection、signing、trusted registry、LFLIC2 issuance、migration 或 HWID v2。
+
+## 28. Phase 2a1 macOS arm64 CI bootstrap
+
+- `.github/workflows/macos-arm64-ci.yml` 只在 GitHub-hosted `macos-15` 上准备 Darwin/arm64 证据，仓库权限仅为 `contents: read`，不使用 secret、证书、Apple API 或 Release 写入。
+- Windows 侧只运行标准库 AST/YAML 文本门禁、文档与既有静态检查；macOS `.app` 只能由目标 OS 上的 `sys.executable -m PyInstaller` 生成，输出限定到 `$RUNNER_TEMP`。
+- macOS full smoke 在进程、URL、网络、host/user identity、敏感文件和 key loader guard 下导入源码；Qt offscreen 直接构造 `MainWindow`，Application/URL 只消费 injected LaunchSpec，计划数据只写隔离目录。
+- 实验 builder 只允许 Darwin arm64，输出 `onedir`、unsigned、`notarized=false`、`production=false` 的 `LaunchFlow.app`；bundle probe 只读取 Info.plist、文件类型和文件名，不执行代码或解析许可材料。
+- 当前无 identity-free startup ready marker。空许可入口会构造激活窗口并立即读取 identity/生成 request，因此 launch probe 必须报告 `BLOCKED` 且不启动进程；不得为 CI 修改 licensing 或伪造成功。
+- `tools/macos_ci_report.py` 只保存 coupling summary，并在上传前验证精确 evidence allowlist、文本敏感模式、PNG header 与 ZIP entry 名称；raw coupling finding、runner temp 全目录和环境 dump 不进入 artifact。
+- 这只是 `macOS arm64 CI bootstrap prepared`。真实 workflow、人工 Apple Silicon GUI、稳定 identity、签名、公证、Gatekeeper、清洁用户与 Release 证据均不存在，macOS 继续为 Planned。

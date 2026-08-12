@@ -14,6 +14,7 @@ The only permitted matrix statuses are `Supported`, `Partially portable`, `Windo
 | Capability | Windows | Linux target | macOS target | Portability | Notes |
 |---|---|---|---|---|---|
 | Editor startup | Supported | Planned | Planned | Partially portable | No known P0 import-only blocker; the Windows identity API is delayed in `shared/platform/desktop.py`, but neither target has native-host evidence. |
+| macOS arm64 CI bootstrap | Not planned yet | Not planned yet | Planned | Partially portable | Phase 2a1 prepares a read-only `macos-15` job, guarded source/offscreen checks, and an unsigned non-production onedir bundle. The workflow has not run; the bundle launch probe is `BLOCKED` before identity/request generation, so this is infrastructure rather than support evidence. |
 | Plan save/load | Supported | Partially portable | Partially portable | Partially portable | JSON conversion/save is neutral (`shared/models.py:117-187`, `editor/services/plan_service.py:295-316`); platform parameters remain. |
 | Recent plans | Supported | Partially portable | Partially portable | Partially portable | Plan history service is reusable after `PlatformPaths`; physical single-click/focus behavior still needs validation. |
 | Four step schema | Supported | Partially portable | Partially portable | Partially portable | `app`, `url`, `command`, `wait` remain unchanged (`shared/models.py:31,145-187`). |
@@ -99,3 +100,17 @@ This does not change the matrix: Windows x86_64 Beta remains the only supported
 product target, and no admin infrastructure, replay protection, trusted
 registry, LFLIC2 issuance, migration, HWID v2, or native-platform activation is
 implemented.
+
+## Phase 2a1 macOS arm64 CI bootstrap
+
+The `macos-15` workflow, static smoke, experimental builder, bundle probe, and
+launch-boundary report are prepared. The job is read-only, uses pinned
+dependencies and isolated `$RUNNER_TEMP` paths, and uploads only an explicit
+seven-day evidence allowlist. It has not yet produced a real GitHub Actions run.
+
+Offscreen MainWindow and injected plan/backend checks cannot establish native
+GUI or backend support. Bundle execution remains `BLOCKED` because current
+missing-license startup reads identity and creates a request before any safe
+ready marker. No signing, notarization, stable macOS identity, physical-device,
+clean-host, Gatekeeper, or Release evidence exists. Every macOS status in the
+capability matrix therefore remains unchanged.

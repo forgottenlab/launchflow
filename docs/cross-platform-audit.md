@@ -206,3 +206,21 @@ The stdlib-only checker scans core packages, production build/export entry point
 ## Conclusion
 
 The Windows Beta remains the only supported release. There is no confirmed non-Windows import-only P0 blocker, but P1 runtime, identity, and packaging boundaries prevent a support claim. The safe migration is adapter-first, Windows-equivalence-first, then Linux x86_64 and macOS arm64 source experiments, followed last by per-host packaging/export and release declaration.
+
+## Phase 2a1 macOS arm64 CI bootstrap evidence boundary
+
+Phase 2a1 prepares, but has not yet run, a read-only GitHub Actions job on the
+explicit `macos-15` arm64 runner. The job gates Darwin/arm64, installs pinned
+Python dependencies, isolates all mutable data and PyInstaller output below
+`$RUNNER_TEMP`, imports under side-effect guards, renders `MainWindow` offscreen,
+round-trips a synthetic plan, and builds/inspects an unsigned non-production
+`.app`. Application and URL checks use injected specs only; they are not native
+backend evidence.
+
+The current bundle cannot be started within the Phase 2a1 privacy boundary:
+missing-license startup constructs the activation window, which reads identity
+and generates a request before any safe ready marker. The launch probe therefore
+records `BLOCKED` without starting a process. Real GitHub Actions output,
+physical Mac UI, native open/command policies, stable identity, signing,
+notarization, Gatekeeper, clean-host, and release evidence remain unavailable.
+The target status remains Planned / Experimental preparation.

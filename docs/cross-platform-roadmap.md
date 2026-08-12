@@ -202,6 +202,23 @@ issuance, license migration, or HWID v2 is implemented. The earlier candidate
 identity-algorithm experiment remains deferred to a separately named and
 authorized future phase; it is not part of Phase 1m.
 
+### Phase 2a1 status — macOS arm64 CI bootstrap prepared
+
+Phase 2a1 adds a read-only `macos-15` GitHub Actions workflow and target-host
+experimental `.app` evidence tooling without changing production code. The job
+requires Darwin arm64, pinned Python dependencies, `$RUNNER_TEMP` isolation,
+guarded imports, Qt offscreen MainWindow evidence, synthetic plan/step checks,
+an unsigned onedir build, arm64 bundle inspection, and an allowlisted artifact
+upload. The workflow has not yet run, so no CI pass is recorded.
+
+The current bundle launch probe is deliberately `BLOCKED`: missing-license
+startup enters an activation constructor that reads identity and generates a
+request before an identity-free ready marker. No process is started and no
+licensing bypass is added. Physical Mac UI, native backend policy, stable
+identity, signing/notarization, Gatekeeper, clean-host, and release evidence
+remain later, separately authorized work. macOS stays Planned / Experimental
+preparation.
+
 ## Phase 2 — Linux x86_64 source-run experimental target
 
 | Field | Definition |
