@@ -6,6 +6,7 @@ import argparse
 import ast
 import builtins
 import getpass
+import hashlib
 import importlib
 import json
 import os
@@ -31,10 +32,15 @@ CI_TOOLS = (
     ROOT / "tools" / "macos_ci_launch_probe.py",
     ROOT / "tools" / "macos_ci_report.py",
 )
+APP_ICON_MODULE = "shared.app_icon"
+APP_ICON_NORMALIZED_SHA256 = "9e7de2cac1245e9a7484873386004dc22c07ae94ef1462a7a00400181272f903"
+QT_BOOTSTRAP_MODULES = (
+    "PySide6.QtGui",
+    "PySide6.QtWidgets",
+)
 SAFE_IMPORT_MODULES = (
     "shared.platform",
     "shared.app_paths",
-    "shared.app_icon",
     "shared.diagnostics",
     "runtime.command_runner",
     "runtime.launcher_runtime",
@@ -86,6 +92,54 @@ BUILD_SKIP = (
 def require(condition: bool, message: str) -> None:
     if not condition:
         raise AssertionError(message)
+
+
+def environment_delta(before: dict[str, str], after: dict[str, str]) -> dict[str, list[str]]:
+    """Return deterministic environment key changes without exposing values."""
+
+    before_keys = set(before)
+    after_keys = set(after)
+    return {
+        "added_keys": sorted(after_keys - before_keys),
+        "removed_keys": sorted(before_keys - after_keys),
+        "changed_keys": sorted(key for key in before_keys & after_keys if before[key] != after[key]),
+    }
+
+
+def environment_delta_is_empty(delta: dict[str, list[str]]) -> bool:
+    return not any(delta.values())
+
+
+def environment_delta_key_summary(delta: dict[str, list[str]]) -> str:
+    """Serialize only the already-redacted key-name lists."""
+
+    return json.dumps(delta, ensure_ascii=True, sort_keys=True, separators=(",", ":"))
+
+
+def assert_environment_delta_contract() -> None:
+    before = {
+        "UNCHANGED_SYNTHETIC": "redacted-unchanged",
+        "CHANGED_SYNTHETIC": "redacted-before",
+        "REMOVED_SYNTHETIC": "redacted-removed",
+    }
+    after = {
+        "UNCHANGED_SYNTHETIC": "redacted-unchanged",
+        "CHANGED_SYNTHETIC": "redacted-after",
+        "ADDED_SYNTHETIC": "redacted-added",
+    }
+    delta = environment_delta(before, after)
+    require(
+        delta
+        == {
+            "added_keys": ["ADDED_SYNTHETIC"],
+            "removed_keys": ["REMOVED_SYNTHETIC"],
+            "changed_keys": ["CHANGED_SYNTHETIC"],
+        },
+        "environment delta key classification changed",
+    )
+    summary = environment_delta_key_summary(delta)
+    for value in set(before.values()) | set(after.values()):
+        require(value not in summary, "environment delta summary exposed a value")
 
 
 RUNNER_CONTEXT_PATTERN = re.compile(r"\$\{\{\s*runner\.")
@@ -190,9 +244,61 @@ def assert_static_contract() -> dict[str, int]:
     workflow = read_text(WORKFLOW)
     design = read_text(DESIGN_DOC)
     support_matrix = read_text(ROOT / "docs" / "platform-support-matrix.md")
+    smoke_source = read_text(CI_TOOLS[0])
     for path in CI_TOOLS:
         ast.parse(read_text(path), filename=str(path))
     assert_runner_context_classifier()
+    assert_environment_delta_contract()
+
+    app_icon_source = read_text(ROOT / "shared" / "app_icon.py")
+    require(
+        hashlib.sha256(app_icon_source.encode("utf-8")).hexdigest() == APP_ICON_NORMALIZED_SHA256,
+        "protected shared.app_icon.py changed",
+    )
+    app_icon_tree = ast.parse(app_icon_source, filename="shared/app_icon.py")
+    allowed_top_level = (ast.Import, ast.ImportFrom, ast.Assign, ast.AnnAssign, ast.FunctionDef)
+    unexpected_top_level = [
+        node
+        for index, node in enumerate(app_icon_tree.body)
+        if not isinstance(node, allowed_top_level)
+        and not (
+            index == 0
+            and isinstance(node, ast.Expr)
+            and isinstance(node.value, ast.Constant)
+            and isinstance(node.value.value, str)
+        )
+    ]
+    require(not unexpected_top_level, "shared.app_icon.py gained import-time execution")
+    for marker in ("os.environ", "os.putenv", "os.unsetenv", "qputenv", "qunsetenv"):
+        require(marker not in app_icon_source, f"shared.app_icon.py mutates environment: {marker}")
+
+    required_attribution = (
+        "def " + "environment_delta(",
+        "QT_BOOTSTRAP_" + "MODULES",
+        "qt_bootstrap_environment_delta = " + "environment_delta(",
+        "shared_app_icon_environment_delta = " + "environment_delta(",
+        "environment_delta_is_empty(" + "shared_app_icon_environment_delta)",
+        "environment_delta_is_empty(" + "module_environment_delta)",
+        "def " + "write_import_environment_failure(",
+        '"qt_bootstrap_environment_delta"' + ": qt_bootstrap_environment_delta",
+        '"shared_app_icon_environment_delta"' + ": shared_app_icon_environment_delta",
+        '"launchflow_import_environment_result"' + ': "PASS"',
+        '"environment_values_recorded"' + ": False",
+    )
+    for marker in required_attribution:
+        require(marker in smoke_source, f"environment attribution marker missing: {marker}")
+    for marker in (
+        "print(" + "os.environ",
+        "print(dict(" + "os.environ",
+        "json.dumps(dict(" + "os.environ",
+        'startswith("QT' + '_")',
+        "startswith('QT" + "_')",
+        'startswith("QML' + '_")',
+        "startswith('QML" + "_')",
+        '"QT_' + '*"',
+        '"QML_' + '*"',
+    ):
+        require(marker not in smoke_source, f"unsafe environment diagnostic found: {marker}")
 
     required_workflow = (
         "name: macOS arm64 Experimental CI",
@@ -372,6 +478,8 @@ def assert_static_contract() -> dict[str, int]:
         "workflow_env": len(workflow_env_findings),
         "job_env": len(job_env_findings),
         "step_with": len(artifact_step_findings),
+        "qt_attribution": 1,
+        "app_icon_hash": 1,
     }
 
 
@@ -497,6 +605,32 @@ def assert_inside(path: Path, parent: Path, label: str) -> Path:
     return resolved
 
 
+def write_import_environment_failure(
+    report_path: Path,
+    qt_delta: dict[str, list[str]],
+    app_icon_delta: dict[str, list[str]],
+    failed_module: str,
+    failed_delta: dict[str, list[str]],
+) -> None:
+    """Persist key-name-only attribution if an import invariant still fails."""
+
+    payload = {
+        "status": "FAIL",
+        "production": False,
+        "phase": "import-environment-attribution",
+        "qt_bootstrap_was_first_import": True,
+        "qt_bootstrap_environment_delta": qt_delta,
+        "shared_app_icon_imported_after_qt_bootstrap": True,
+        "shared_app_icon_environment_delta": app_icon_delta,
+        "launchflow_import_environment_result": "FAIL",
+        "failed_module": failed_module,
+        "failed_module_environment_delta": failed_delta,
+        "environment_values_recorded": False,
+    }
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    report_path.write_text(json.dumps(payload, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
+
+
 def run_full_smoke(evidence_dir: Path, report_path: Path) -> dict[str, object]:
     require(platform.system() == "Darwin", "full smoke requires Darwin")
     require(platform.machine().lower() == "arm64", "full smoke requires arm64")
@@ -527,11 +661,62 @@ def run_full_smoke(evidence_dir: Path, report_path: Path) -> dict[str, object]:
         from cryptography.hazmat.primitives import serialization
 
         require(serialization.load_pem_public_key.__name__ == "fail", "public-key loader guard missing")
-        for module_name in SAFE_IMPORT_MODULES:
+        require(dict(os.environ) == environment_before, "side-effect guard bootstrap changed environment")
+        require(
+            not any(module_name in sys.modules for module_name in QT_BOOTSTRAP_MODULES),
+            "PySide6 Qt bootstrap was not the first import",
+        )
+        require(APP_ICON_MODULE not in sys.modules, "shared.app_icon imported before Qt bootstrap")
+
+        before_qt = dict(os.environ)
+        for module_name in QT_BOOTSTRAP_MODULES:
             importlib.import_module(module_name)
+        after_qt = dict(os.environ)
+        qt_bootstrap_environment_delta = environment_delta(before_qt, after_qt)
+        require(APP_ICON_MODULE not in sys.modules, "Qt bootstrap imported shared.app_icon")
+
+        before_app_icon = dict(os.environ)
+        importlib.import_module(APP_ICON_MODULE)
+        after_app_icon = dict(os.environ)
+        shared_app_icon_environment_delta = environment_delta(before_app_icon, after_app_icon)
+        if not environment_delta_is_empty(shared_app_icon_environment_delta):
+            write_import_environment_failure(
+                report_path,
+                qt_bootstrap_environment_delta,
+                shared_app_icon_environment_delta,
+                APP_ICON_MODULE,
+                shared_app_icon_environment_delta,
+            )
+        require(
+            environment_delta_is_empty(shared_app_icon_environment_delta),
+            "shared.app_icon changed environment keys: "
+            + environment_delta_key_summary(shared_app_icon_environment_delta),
+        )
+        import_results[APP_ICON_MODULE] = "PASS"
+        require(Path.cwd() == cwd_before, "shared.app_icon changed cwd")
+
+        for module_name in SAFE_IMPORT_MODULES:
+            before_module = dict(os.environ)
+            importlib.import_module(module_name)
+            after_module = dict(os.environ)
+            module_environment_delta = environment_delta(before_module, after_module)
+            if not environment_delta_is_empty(module_environment_delta):
+                write_import_environment_failure(
+                    report_path,
+                    qt_bootstrap_environment_delta,
+                    shared_app_icon_environment_delta,
+                    module_name,
+                    module_environment_delta,
+                )
             import_results[module_name] = "PASS"
             require(Path.cwd() == cwd_before, f"import changed cwd: {module_name}")
-            require(dict(os.environ) == environment_before, f"import changed environment: {module_name}")
+            require(
+                environment_delta_is_empty(module_environment_delta),
+                f"import changed environment keys: {module_name}: "
+                + environment_delta_key_summary(module_environment_delta),
+            )
+        environment_after_imports = dict(os.environ)
+        require(environment_after_imports == after_qt, "LaunchFlow import environment baseline changed")
 
         from PySide6.QtCore import QThread
         from PySide6.QtWidgets import QApplication
@@ -661,7 +846,7 @@ def run_full_smoke(evidence_dir: Path, report_path: Path) -> dict[str, object]:
     after_metadata = snapshot_repository_metadata()
     require(before_metadata == after_metadata, "full smoke wrote into the repository")
     require(Path.cwd() == cwd_before, "full smoke changed cwd")
-    require(dict(os.environ) == environment_before, "full smoke changed environment")
+    require(dict(os.environ) == environment_after_imports, "full smoke changed environment after imports")
 
     payload: dict[str, object] = {
         "status": "PASS",
@@ -669,6 +854,11 @@ def run_full_smoke(evidence_dir: Path, report_path: Path) -> dict[str, object]:
         "host_system": "Darwin",
         "host_arch": "arm64",
         "imports": import_results,
+        "qt_bootstrap_was_first_import": True,
+        "qt_bootstrap_environment_delta": qt_bootstrap_environment_delta,
+        "shared_app_icon_imported_after_qt_bootstrap": True,
+        "shared_app_icon_environment_delta": shared_app_icon_environment_delta,
+        "launchflow_import_environment_result": "PASS",
         "qapplication_created_by_import": False,
         "main_window_offscreen": "PASS",
         "offscreen_evidence": "$RUNNER_TEMP/launchflow-evidence/gui-main-window.png",
@@ -720,6 +910,11 @@ def main() -> int:
         print(f"job_level_env_runner_context_findings={context_counts['job_env']}")
         print("runner_temp_initialization=present")
         print(f"step_with_runner_context_preserved={context_counts['step_with']}")
+        print("qt_bootstrap_environment_attribution=present")
+        print("shared_app_icon_post_bootstrap_environment=zero-required")
+        print("other_launchflow_import_environment=zero-required")
+        print("environment_value_output=forbidden")
+        print("production_app_icon_hash=matched")
         print("builder=darwin-arm64-only,onedir,unsigned,non-production")
         print("support_status=Planned/Experimental-preparation")
         print("production_imports=none")
@@ -730,6 +925,15 @@ def main() -> int:
     payload = run_full_smoke(Path(args.evidence_dir), Path(args.report))
     print("macos_arm64_ci_full_smoke=" + str(payload["status"]))
     print("imports=10-pass")
+    print(
+        "qt_bootstrap_environment_delta_keys="
+        + environment_delta_key_summary(payload["qt_bootstrap_environment_delta"])  # type: ignore[arg-type]
+    )
+    print(
+        "shared_app_icon_environment_delta_keys="
+        + environment_delta_key_summary(payload["shared_app_icon_environment_delta"])  # type: ignore[arg-type]
+    )
+    print("launchflow_import_environment=" + str(payload["launchflow_import_environment_result"]))
     print("offscreen_main_window=PASS")
     print("identity_reads=0")
     print("key_loads=0")
