@@ -41,16 +41,8 @@ jobs:
     timeout-minutes: 30
     env:
       QT_QPA_PLATFORM: offscreen
-      LAUNCHFLOW_DATA_DIR: ${{ runner.temp }}/launchflow-data
       PYTHONUNBUFFERED: "1"
       PYTHONDONTWRITEBYTECODE: "1"
-      PYTHONPYCACHEPREFIX: ${{ runner.temp }}/launchflow-pycache
-      CI_EVIDENCE_DIR: ${{ runner.temp }}/launchflow-evidence
-      CI_BUILD_DIR: ${{ runner.temp }}/launchflow-build
-      CI_DIST_DIR: ${{ runner.temp }}/launchflow-dist
-      CI_SPEC_DIR: ${{ runner.temp }}/launchflow-spec
-      CI_ARTIFACT_DIR: ${{ runner.temp }}/launchflow-artifacts
-      CI_UPLOAD_DIR: ${{ runner.temp }}/launchflow-upload
       LAUNCHFLOW_CI_SKIP_CONTRACT: real-hwid,request-generation,license-signing,private-key,windows-release,exe-export
 
     steps:
@@ -61,6 +53,21 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.13"
+
+      - name: Configure isolated runner paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "LAUNCHFLOW_DATA_DIR=$RUNNER_TEMP/launchflow-data"
+            echo "PYTHONPYCACHEPREFIX=$RUNNER_TEMP/launchflow-pycache"
+            echo "CI_EVIDENCE_DIR=$RUNNER_TEMP/launchflow-evidence"
+            echo "CI_BUILD_DIR=$RUNNER_TEMP/launchflow-build"
+            echo "CI_DIST_DIR=$RUNNER_TEMP/launchflow-dist"
+            echo "CI_SPEC_DIR=$RUNNER_TEMP/launchflow-spec"
+            echo "CI_ARTIFACT_DIR=$RUNNER_TEMP/launchflow-artifacts"
+            echo "CI_UPLOAD_DIR=$RUNNER_TEMP/launchflow-upload"
+          } >> "$GITHUB_ENV"
 
       - name: Prepare isolated temporary directories
         shell: bash

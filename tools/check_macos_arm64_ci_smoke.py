@@ -88,6 +88,82 @@ def require(condition: bool, message: str) -> None:
         raise AssertionError(message)
 
 
+RUNNER_CONTEXT_PATTERN = re.compile(r"\$\{\{\s*runner\.")
+YAML_KEY_PATTERN = re.compile(r"^(?:-\s+)?([A-Za-z0-9_.-]+):(?:\s|$)")
+
+
+def runner_context_findings(source: str) -> list[tuple[int, str, str]]:
+    """Classify runner expressions by their structural YAML context."""
+
+    stack: list[tuple[int, str]] = []
+    findings: list[tuple[int, str, str]] = []
+    for line_number, line in enumerate(source.splitlines(), start=1):
+        stripped = line.lstrip(" ")
+        if not stripped or stripped.startswith("#"):
+            continue
+        indent = len(line) - len(stripped)
+        while stack and stack[-1][0] >= indent:
+            stack.pop()
+        key_match = YAML_KEY_PATTERN.match(stripped)
+        if key_match:
+            stack.append((indent, key_match.group(1)))
+        if not RUNNER_CONTEXT_PATTERN.search(line):
+            continue
+
+        keys = [key for _indent, key in stack]
+        if "env" in keys:
+            env_index = len(keys) - 1 - keys[::-1].index("env")
+            parents = keys[:env_index]
+            if "jobs" not in parents:
+                context = "workflow.env"
+            elif "steps" not in parents:
+                context = "jobs.env"
+            else:
+                context = "jobs.steps.env"
+        elif "steps" in keys and "with" in keys:
+            context = "jobs.steps.with"
+        elif "steps" in keys and "run" in keys:
+            context = "jobs.steps.run"
+        else:
+            context = "other"
+        findings.append((line_number, context, stripped))
+    return findings
+
+
+def assert_runner_context_classifier() -> None:
+    invalid_fixture = """\
+env:
+  GLOBAL_TEMP: ${{ runner.temp }}/global
+jobs:
+  sample:
+    env:
+      JOB_TEMP: ${{ runner.temp }}/job
+"""
+    valid_fixture = """\
+jobs:
+  sample:
+    steps:
+      - name: Step env and run
+        env:
+          STEP_TEMP: ${{ runner.temp }}/step-env
+        run: echo "${{ runner.temp }}/step-run"
+      - name: Step input
+        uses: actions/upload-artifact@v4
+        with:
+          path: ${{ runner.temp }}/step-with
+"""
+    require(
+        [context for _line, context, _text in runner_context_findings(invalid_fixture)]
+        == ["workflow.env", "jobs.env"],
+        "runner-context classifier did not reject workflow/job env",
+    )
+    require(
+        [context for _line, context, _text in runner_context_findings(valid_fixture)]
+        == ["jobs.steps.env", "jobs.steps.run", "jobs.steps.with"],
+        "runner-context classifier rejected a legal step context",
+    )
+
+
 def safe_error_message(error: BaseException) -> str:
     text = f"{type(error).__name__}: {error}"
     for variable in ("GITHUB_WORKSPACE", "RUNNER_TEMP", "RUNNER_TOOL_CACHE", "HOME"):
@@ -110,12 +186,13 @@ def call_names(tree: ast.AST) -> set[str]:
     }
 
 
-def assert_static_contract() -> None:
+def assert_static_contract() -> dict[str, int]:
     workflow = read_text(WORKFLOW)
     design = read_text(DESIGN_DOC)
     support_matrix = read_text(ROOT / "docs" / "platform-support-matrix.md")
     for path in CI_TOOLS:
         ast.parse(read_text(path), filename=str(path))
+    assert_runner_context_classifier()
 
     required_workflow = (
         "name: macOS arm64 Experimental CI",
@@ -134,10 +211,16 @@ def assert_static_contract() -> None:
         '"PyInstaller==6.20.0"',
         '"cryptography==46.0.3"',
         "QT_QPA_PLATFORM: offscreen",
-        "LAUNCHFLOW_DATA_DIR: ${{ runner.temp }}/launchflow-data",
-        "${{ runner.temp }}/launchflow-build",
-        "${{ runner.temp }}/launchflow-dist",
-        "${{ runner.temp }}/launchflow-spec",
+        "name: Configure isolated runner paths",
+        'echo "LAUNCHFLOW_DATA_DIR=$RUNNER_TEMP/launchflow-data"',
+        'echo "PYTHONPYCACHEPREFIX=$RUNNER_TEMP/launchflow-pycache"',
+        'echo "CI_EVIDENCE_DIR=$RUNNER_TEMP/launchflow-evidence"',
+        'echo "CI_BUILD_DIR=$RUNNER_TEMP/launchflow-build"',
+        'echo "CI_DIST_DIR=$RUNNER_TEMP/launchflow-dist"',
+        'echo "CI_SPEC_DIR=$RUNNER_TEMP/launchflow-spec"',
+        'echo "CI_ARTIFACT_DIR=$RUNNER_TEMP/launchflow-artifacts"',
+        'echo "CI_UPLOAD_DIR=$RUNNER_TEMP/launchflow-upload"',
+        '} >> "$GITHUB_ENV"',
         "uname -s",
         "uname -m",
         "sw_vers",
@@ -166,6 +249,28 @@ def assert_static_contract() -> None:
     )
     for marker in required_workflow:
         require(marker in workflow, f"workflow marker missing: {marker}")
+
+    configure_index = workflow.index("name: Configure isolated runner paths")
+    require(
+        workflow.index("uses: actions/checkout@v4") < configure_index,
+        "runner path initialization must run after checkout",
+    )
+    require(
+        configure_index < workflow.index("name: Prepare isolated temporary directories"),
+        "runner path initialization must run before directory preparation",
+    )
+
+    runner_findings = runner_context_findings(workflow)
+    workflow_env_findings = [item for item in runner_findings if item[1] == "workflow.env"]
+    job_env_findings = [item for item in runner_findings if item[1] == "jobs.env"]
+    require(not workflow_env_findings, "workflow-level env references runner context")
+    require(not job_env_findings, "job-level env references runner context")
+    artifact_step_findings = [
+        item
+        for item in runner_findings
+        if item[1] == "jobs.steps.with" and "launchflow-upload/" in item[2]
+    ]
+    require(len(artifact_step_findings) == 12, "curated artifact step runner paths changed")
 
     forbidden_workflow = (
         "${{ secrets.",
@@ -263,6 +368,11 @@ def assert_static_contract() -> None:
         "macOS editor status no longer remains Planned",
     )
     require("macOS supported" not in design and "macOS Beta" not in design, "unsupported status claim found")
+    return {
+        "workflow_env": len(workflow_env_findings),
+        "job_env": len(job_env_findings),
+        "step_with": len(artifact_step_findings),
+    }
 
 
 def snapshot_repository_metadata() -> dict[str, tuple[int, int]]:
@@ -602,10 +712,14 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
-    assert_static_contract()
+    context_counts = assert_static_contract()
     if args.static_only:
         print("macos_arm64_ci_static_smoke=PASS")
         print("workflow=macos-15,contents-read,no-secrets")
+        print(f"workflow_level_env_runner_context_findings={context_counts['workflow_env']}")
+        print(f"job_level_env_runner_context_findings={context_counts['job_env']}")
+        print("runner_temp_initialization=present")
+        print(f"step_with_runner_context_preserved={context_counts['step_with']}")
         print("builder=darwin-arm64-only,onedir,unsigned,non-production")
         print("support_status=Planned/Experimental-preparation")
         print("production_imports=none")
