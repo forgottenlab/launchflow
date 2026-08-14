@@ -240,6 +240,156 @@ def call_names(tree: ast.AST) -> set[str]:
     }
 
 
+def class_property_names(node: ast.ClassDef) -> set[str]:
+    return {
+        member.name
+        for member in node.body
+        if isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and any(
+            (isinstance(decorator, ast.Name) and decorator.id == "property")
+            or (isinstance(decorator, ast.Attribute) and decorator.attr == "property")
+            for decorator in member.decorator_list
+        )
+    }
+
+
+def static_string_value(node: ast.AST) -> str | None:
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return node.value
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+        left = static_string_value(node.left)
+        right = static_string_value(node.right)
+        if left is not None and right is not None:
+            return left + right
+    return None
+
+
+def attribute_chain(node: ast.AST) -> tuple[str, ...]:
+    result: list[str] = []
+    while isinstance(node, ast.Attribute):
+        result.append(node.attr)
+        node = node.value
+    if isinstance(node, ast.Name):
+        result.append(node.id)
+    return tuple(reversed(result))
+
+
+def assert_shortcut_api_contract(smoke_source: str) -> dict[str, int]:
+    """Tie the CI fixture to the source-only ShortcutPolicy property contract."""
+
+    shortcut_source = read_text(ROOT / "shared" / "platform" / "shortcuts.py")
+    shortcut_tree = ast.parse(shortcut_source, filename="shared/platform/shortcuts.py")
+    classes = {
+        node.name: node
+        for node in shortcut_tree.body
+        if isinstance(node, ast.ClassDef)
+    }
+    required_classes = {
+        "ShortcutProfile",
+        "ShortcutPolicy",
+        "WindowsShortcutPolicy",
+        "LegacyShortcutPolicy",
+    }
+    require(required_classes <= classes.keys(), "shortcut production classes drifted")
+
+    protocol = classes["ShortcutPolicy"]
+    require("Protocol" in {ast.unparse(base) for base in protocol.bases}, "ShortcutPolicy is no longer a Protocol")
+    require(
+        {"platform_info", "profile"} <= class_property_names(protocol),
+        "ShortcutPolicy property contract drifted",
+    )
+    for class_name in ("WindowsShortcutPolicy", "LegacyShortcutPolicy"):
+        require(
+            "profile" in class_property_names(classes[class_name]),
+            f"{class_name}.profile is no longer a property",
+        )
+
+    profile_class = classes["ShortcutProfile"]
+    frozen_dataclass = any(
+        isinstance(decorator, ast.Call)
+        and isinstance(decorator.func, ast.Name)
+        and decorator.func.id == "dataclass"
+        and any(
+            keyword.arg == "frozen"
+            and isinstance(keyword.value, ast.Constant)
+            and keyword.value.value is True
+            for keyword in decorator.keywords
+        )
+        for decorator in profile_class.decorator_list
+    )
+    require(frozen_dataclass, "ShortcutProfile is no longer a frozen dataclass")
+    profile_fields = tuple(
+        member.target.id
+        for member in profile_class.body
+        if isinstance(member, ast.AnnAssign) and isinstance(member.target, ast.Name)
+    )
+    require(
+        profile_fields
+        == ("save", "save_as", "trial_run", "export", "delete_step", "move_up", "move_down"),
+        "ShortcutProfile fields drifted",
+    )
+
+    legacy_getter_name = "get_" + "profile"
+    production_getter_count = sum(
+        isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == legacy_getter_name
+        for node in ast.walk(shortcut_tree)
+    )
+    require(production_getter_count == 0, "production gained the legacy shortcut getter")
+
+    smoke_tree = ast.parse(smoke_source, filename="check_macos_arm64_ci_smoke.py")
+    get_profile_call_count = sum(
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == legacy_getter_name
+        for node in ast.walk(smoke_tree)
+    )
+    require(get_profile_call_count == 0, "CI smoke calls the nonexistent shortcut getter")
+    dynamic_fallback_count = sum(
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id in {"getattr", "hasattr"}
+        and any(static_string_value(argument) == legacy_getter_name for argument in node.args)
+        for node in ast.walk(smoke_tree)
+    )
+    require(dynamic_fallback_count == 0, "CI smoke dynamically falls back to the shortcut getter")
+
+    profile_property_fixture_count = sum(
+        isinstance(node, ast.Attribute)
+        and node.attr == "profile"
+        and isinstance(node.value, ast.Name)
+        and node.value.id == "shortcut_policy"
+        for node in ast.walk(smoke_tree)
+    )
+    require(profile_property_fixture_count >= 1, "CI shortcut fixture does not use the profile property")
+    ctrl_s_fixture_count = sum(
+        isinstance(node, ast.Compare)
+        and attribute_chain(node.left) == ("shortcut_policy", "profile", "save")
+        and len(node.ops) == 1
+        and isinstance(node.ops[0], ast.Eq)
+        and len(node.comparators) == 1
+        and isinstance(node.comparators[0], ast.Constant)
+        and node.comparators[0].value == "Ctrl+S"
+        for node in ast.walk(smoke_tree)
+    )
+    require(ctrl_s_fixture_count == 1, "legacy Ctrl+S shortcut fixture drifted")
+    legacy_policy_assertion_count = sum(
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "isinstance"
+        and len(node.args) == 2
+        and isinstance(node.args[0], ast.Name)
+        and node.args[0].id == "shortcut_policy"
+        and isinstance(node.args[1], ast.Name)
+        and node.args[1].id == "LegacyShortcutPolicy"
+        for node in ast.walk(smoke_tree)
+    )
+    require(legacy_policy_assertion_count == 1, "macOS LegacyShortcutPolicy fixture drifted")
+    return {
+        "get_profile_calls": get_profile_call_count,
+        "profile_property_fixtures": profile_property_fixture_count,
+    }
+
+
 def assert_static_contract() -> dict[str, int]:
     workflow = read_text(WORKFLOW)
     design = read_text(DESIGN_DOC)
@@ -249,6 +399,7 @@ def assert_static_contract() -> dict[str, int]:
         ast.parse(read_text(path), filename=str(path))
     assert_runner_context_classifier()
     assert_environment_delta_contract()
+    shortcut_contract = assert_shortcut_api_contract(smoke_source)
 
     app_icon_source = read_text(ROOT / "shared" / "app_icon.py")
     require(
@@ -480,6 +631,8 @@ def assert_static_contract() -> dict[str, int]:
         "step_with": len(artifact_step_findings),
         "qt_attribution": 1,
         "app_icon_hash": 1,
+        "get_profile_calls": shortcut_contract["get_profile_calls"],
+        "profile_property_fixtures": shortcut_contract["profile_property_fixtures"],
     }
 
 
@@ -793,7 +946,7 @@ def run_full_smoke(evidence_dir: Path, report_path: Path) -> dict[str, object]:
             require(command_backend.supported_shells == (), "legacy command backend claimed native support")
             shortcut_policy = get_shortcut_policy(macos)
             require(isinstance(shortcut_policy, LegacyShortcutPolicy), "Windows shortcut policy selected")
-            require(shortcut_policy.get_profile().save == "Ctrl+S", "legacy shortcut fixture changed")
+            require(shortcut_policy.profile.save == "Ctrl+S", "legacy shortcut fixture changed")
 
             app_launcher = get_application_launcher(
                 platform_info=macos,
@@ -915,6 +1068,9 @@ def main() -> int:
         print("other_launchflow_import_environment=zero-required")
         print("environment_value_output=forbidden")
         print("production_app_icon_hash=matched")
+        print(f"get_profile_call_count={context_counts['get_profile_calls']}")
+        print(f"profile_property_fixture_count={context_counts['profile_property_fixtures']}")
+        print("shortcut_fixture=macos-legacy-policy,save-Ctrl+S")
         print("builder=darwin-arm64-only,onedir,unsigned,non-production")
         print("support_status=Planned/Experimental-preparation")
         print("production_imports=none")
