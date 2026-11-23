@@ -1,0 +1,26 @@
+{
+  "plan_name": "Phase0 Basic Valid Fixed One Second Delay",
+  "version": "1.0.0",
+  "steps": [
+    {
+      "id": "step-bfd001",
+      "type": "app",
+      "name": "Synthetic Editor Integer Delay",
+      "enabled": true,
+      "delay_after": 1,
+      "path": "C:\\LaunchFlow-Synthetic\\Apps\\Editor.exe",
+      "args": [],
+      "working_dir": "",
+      "start_minimized": false
+    },
+    {
+      "id": "step-bfd002",
+      "type": "url",
+      "name": "Synthetic HTTPS Float Delay",
+      "enabled": true,
+      "delay_after": 1.0,
+      "url": "https://example.com/launchflow-basic",
+      "browser_path": ""
+    }
+  ]
+}

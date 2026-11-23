@@ -1,0 +1,18 @@
+{
+  "plan_name": "Phase0 Basic Valid Empty Optional Fields",
+  "version": "1.0.0",
+  "steps": [
+    {
+      "id": "step-beo001",
+      "type": "app",
+      "name": "Synthetic Editor",
+      "path": "C:\\LaunchFlow-Synthetic\\Apps\\Editor.exe"
+    },
+    {
+      "id": "step-beo002",
+      "type": "url",
+      "name": "Synthetic HTTPS Site",
+      "url": "https://example.com/launchflow-basic"
+    }
+  ]
+}

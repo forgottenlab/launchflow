@@ -1,0 +1,17 @@
+{
+  "plan_name": "Phase0 Basic Valid Local EXE LNK",
+  "version": "1.0.0",
+  "steps": [
+    {
+      "id": "step-bvl001",
+      "type": "app",
+      "name": "Synthetic Editor Shortcut",
+      "enabled": true,
+      "delay_after": 1.0,
+      "path": "C:\\LaunchFlow-Synthetic\\Shortcuts\\Editor.lnk",
+      "args": [],
+      "working_dir": "",
+      "start_minimized": false
+    }
+  ]
+}

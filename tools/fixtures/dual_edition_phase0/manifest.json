@@ -1,0 +1,54 @@
+{
+  "phase": "0",
+  "title": "LaunchFlow Dual Edition Phase 0 synthetic fixtures",
+  "synthetic": true,
+  "notes": [
+    "All paths, URLs, commands, and shortcut metadata are synthetic.",
+    "These fixtures do not describe real user plans, licenses, machine identifiers, or local application identities.",
+    "shortcut_resolutions.json is a test-only oracle, not part of the plan schema."
+  ],
+  "basic_valid": [
+    "single_exe.json",
+    "multiple_exe.json",
+    "valid_local_exe_lnk.json",
+    "http_url.json",
+    "https_url.json",
+    "mixed_app_url.json",
+    "empty_optional_fields.json",
+    "fixed_1s_delay.json"
+  ],
+  "basic_invalid": [
+    "command.json",
+    "cmd.json",
+    "powershell.json",
+    "wait.json",
+    "non_one_second_delay.json",
+    "non_empty_arguments.json",
+    "non_empty_working_directory.json",
+    "custom_browser.json",
+    "non_default_start_minimized.json",
+    "invalid_lnk.json",
+    "lnk_with_arguments.json",
+    "script_target.json",
+    "network_target.json",
+    "unsupported_url_scheme.json",
+    "unknown_fields.json",
+    "disabled_unsupported_steps.json",
+    "unsupported_step_after_valid_steps.json"
+  ],
+  "professional": [
+    "four_step_plan.json",
+    "advanced_app_configuration.json",
+    "existing_command_configuration.json",
+    "existing_wait_behavior.json",
+    "existing_plan_serialization.json",
+    "existing_plan_roundtrip.json",
+    "existing_independent_export_expectations.json"
+  ],
+  "counts": {
+    "basic_valid": 8,
+    "basic_invalid": 17,
+    "professional": 7,
+    "total_plan_fixtures": 32
+  }
+}

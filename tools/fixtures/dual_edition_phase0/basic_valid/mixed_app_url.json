@@ -1,0 +1,37 @@
+{
+  "plan_name": "Phase0 Basic Valid Mixed App and URL",
+  "version": "1.0.0",
+  "steps": [
+    {
+      "id": "step-bxm001",
+      "type": "app",
+      "name": "Synthetic Editor",
+      "enabled": true,
+      "delay_after": 1.0,
+      "path": "C:\\LaunchFlow-Synthetic\\Apps\\Editor.exe",
+      "args": [],
+      "working_dir": "",
+      "start_minimized": false
+    },
+    {
+      "id": "step-bxm002",
+      "type": "url",
+      "name": "Synthetic HTTPS Site",
+      "enabled": true,
+      "delay_after": 1.0,
+      "url": "https://example.com/launchflow-basic",
+      "browser_path": ""
+    },
+    {
+      "id": "step-bxm003",
+      "type": "app",
+      "name": "Synthetic Editor Shortcut",
+      "enabled": true,
+      "delay_after": 1.0,
+      "path": "C:\\LaunchFlow-Synthetic\\Shortcuts\\Editor.lnk",
+      "args": [],
+      "working_dir": "",
+      "start_minimized": false
+    }
+  ]
+}

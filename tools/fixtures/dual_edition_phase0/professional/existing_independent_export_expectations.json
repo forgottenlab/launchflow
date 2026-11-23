@@ -1,0 +1,93 @@
+{
+  "plan_name": "Phase0 Professional Existing Independent Export Expectations",
+  "version": "1.0.0",
+  "steps": [
+    {
+      "id": "step-pex001",
+      "type": "app",
+      "name": "Packable EXE",
+      "enabled": true,
+      "delay_after": 1.0,
+      "path": "C:\\LaunchFlow-Synthetic\\Apps\\Editor.exe",
+      "args": [
+        "--exported"
+      ],
+      "working_dir": "",
+      "start_minimized": false
+    },
+    {
+      "id": "step-pex002",
+      "type": "app",
+      "name": "Script App",
+      "enabled": true,
+      "delay_after": 1.0,
+      "path": "C:\\LaunchFlow-Synthetic\\Apps\\bootstrap.ps1",
+      "args": [
+        "-NoLogo"
+      ],
+      "working_dir": "",
+      "start_minimized": false
+    },
+    {
+      "id": "step-pex003",
+      "type": "app",
+      "name": "Shortcut App",
+      "enabled": true,
+      "delay_after": 1.0,
+      "path": "C:\\LaunchFlow-Synthetic\\Shortcuts\\Editor.lnk",
+      "args": [
+        "ignored"
+      ],
+      "working_dir": "ignored",
+      "start_minimized": true
+    },
+    {
+      "id": "step-pex004",
+      "type": "url",
+      "name": "Default Browser",
+      "enabled": true,
+      "delay_after": 1.0,
+      "url": "https://example.com/launchflow-basic",
+      "browser_path": ""
+    },
+    {
+      "id": "step-pex005",
+      "type": "url",
+      "name": "Explicit Browser",
+      "enabled": true,
+      "delay_after": 0.5,
+      "url": "http://example.com/launchflow-basic",
+      "browser_path": "C:\\LaunchFlow-Synthetic\\Browsers\\FakeBrowser.exe"
+    },
+    {
+      "id": "step-pex006",
+      "type": "command",
+      "name": "Exported CMD",
+      "enabled": true,
+      "delay_after": 1.0,
+      "command": "echo exported-cmd",
+      "shell": "cmd",
+      "working_dir": "",
+      "new_window": true
+    },
+    {
+      "id": "step-pex007",
+      "type": "command",
+      "name": "Exported PowerShell",
+      "enabled": true,
+      "delay_after": 1.0,
+      "command": "Write-Output 'exported-ps'",
+      "shell": "powershell",
+      "working_dir": "",
+      "new_window": true
+    },
+    {
+      "id": "step-pex008",
+      "type": "wait",
+      "name": "Exported Wait",
+      "enabled": true,
+      "delay_after": 0.0,
+      "seconds": 2.0
+    }
+  ]
+}

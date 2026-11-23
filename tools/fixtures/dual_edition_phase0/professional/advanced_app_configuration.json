@@ -1,0 +1,20 @@
+{
+  "plan_name": "Phase0 Professional Advanced App Configuration",
+  "version": "1.0.0",
+  "steps": [
+    {
+      "id": "step-pac001",
+      "type": "app",
+      "name": "Advanced Viewer",
+      "enabled": true,
+      "delay_after": 0.0,
+      "path": "C:\\LaunchFlow-Synthetic\\Apps\\Viewer.exe",
+      "args": [
+        "/silent",
+        "input.dat"
+      ],
+      "working_dir": "C:\\LaunchFlow-Synthetic\\Data",
+      "start_minimized": true
+    }
+  ]
+}

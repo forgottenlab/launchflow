@@ -1,0 +1,15 @@
+{
+  "plan_name": "Phase0 Basic Valid HTTP URL",
+  "version": "1.0.0",
+  "steps": [
+    {
+      "id": "step-bvh001",
+      "type": "url",
+      "name": "Synthetic HTTP Site",
+      "enabled": true,
+      "delay_after": 1.0,
+      "url": "http://example.com/launchflow-basic",
+      "browser_path": ""
+    }
+  ]
+}
