@@ -104,6 +104,11 @@ from PySide6.QtWidgets import (
 
 from shared.models import Plan, AppStep, UrlStep, CommandStep, WaitStep
 from shared.plan_schema import validate_plan_dict
+from shared.edition_policy import (
+    BasicPolicyViolation,
+    enforce_basic_policy_on_ingress,
+    is_basic_edition_active,
+)
 from shared.app_logging import get_app_logger
 from shared.app_icon import apply_window_icon, load_app_icon
 from shared.diagnostics import collect_diagnostics, open_logs_directory
@@ -498,6 +503,28 @@ def validate_plan_for_execution(plan: Plan, action_label: str) -> Optional[PlanV
 
     if not plan.steps:
         return PlanValidationIssue(f"当前没有任何步骤，无法{action_label}。")
+
+    if is_basic_edition_active():
+        try:
+            enforce_basic_policy_on_ingress(plan)
+        except BasicPolicyViolation as exc:
+            issue = exc.result.issues[0] if exc.result.issues else None
+            message = f"当前 Basic 版本拒绝该方案，无法{action_label}。"
+            if issue is not None:
+                message = f"{message}{issue.format()}"
+            step_id = None
+            if issue is not None and issue.step_index is not None:
+                if 0 <= issue.step_index < len(plan.steps):
+                    step_id = plan.steps[issue.step_index].id
+            field = ""
+            if issue is not None and issue.path:
+                field = issue.path.rsplit(".", 1)[-1]
+            return PlanValidationIssue(
+                message,
+                None if issue is None else issue.step_index,
+                step_id,
+                field,
+            )
 
     for index, step in enumerate(plan.steps):
         if not step.enabled:

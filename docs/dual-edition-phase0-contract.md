@@ -400,3 +400,13 @@ Phase 1a 只引入该可注入接口与策略行为，不实现真实 Windows AP
 Phase 1a 将 Basic 方案校验提升为 `shared/basic_policy.py` 中可复用的生产模块。该模块默认不改变当前 Professional 路径，也尚未接入 GUI、运行时执行器、应用入口或 EXE 导出器。
 
 上文第 2.4 节所述“Phase 0 测试专用模块尚未接入生产”的历史事实仍然成立：`tools/dual_edition_phase0_contract.py` 仍未接线。Phase 1a 模块同样尚未接线到加载、GUI、执行或导出入口。接入工作属于 Phase 1b，不得把尚未接线的能力写成已完成的产品行为。
+
+---
+
+## 附录：Phase 1b 实施备注（2026-11-24，Asia/Shanghai）
+
+本附录不改写 Phase 0 已冻结的历史决策。
+
+- 映射网络驱动器在合同中已被拒绝。Phase 1b 通过注入或真实的 Windows 盘符分类器实施该拒绝；词法盘符路径不会被自动当成本地路径。
+- Professional 导出授权在 Phase 1 期间保持不变，仍需后续单独审计。Phase 1b 没有修改许可校验、HWID 采集或导出授权逻辑。
+- Basic 校验已按门控方式接入现有方案入口，但默认产品路径仍是当前 Professional / 单一产品行为，因为启动入口尚未引入。

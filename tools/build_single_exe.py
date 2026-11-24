@@ -33,6 +33,7 @@ from copy import deepcopy
 from contextlib import contextmanager
 from pathlib import Path
 
+from shared.edition_policy import enforce_basic_policy_on_ingress
 from shared.platform.applications import get_application_launcher
 from shared.platform.process import get_command_backend
 from shared.platform.urls import get_url_opener
@@ -662,6 +663,8 @@ def build_single_file_exe(plan_dict: dict, output_exe_path: Path) -> Path:
     4. 调用 PyInstaller 进行单文件打包；
     5. 将生成结果复制到目标路径。
     """
+    enforce_basic_policy_on_ingress(plan_dict)
+
     output_exe_path.parent.mkdir(parents=True, exist_ok=True)
 
     pyinstaller_command = _get_pyinstaller_command()

@@ -243,3 +243,14 @@ Phase 1a **没有**实现真实 Windows 驱动器类型适配器。词法检查�
 ## 10. 验收标准
 
 Phase 1a 完成的标准是：Basic 策略核心能够独立、确定地接受每一个合法 Basic 合成方案，拒绝每一个非法 Basic 合成方案，通过注入的分类器拒绝映射网络驱动器，并在不修改现有 Professional 生产行为的前提下执行整份方案校验合同。
+
+---
+
+## 附录：Phase 1b 追加说明（2026-11-24，Asia/Shanghai）
+
+以下内容不改写上文已记录的 Phase 1a 行为，只补充后续已实现事项：
+
+- Phase 1b 已新增真实 Windows 快捷方式解析适配器（IShellLink / COM）和盘符分类适配器（GetVolumePathNameW / GetDriveTypeW）。映射网络驱动器及其他远程卷通过分类器拒绝；词法检查仍不能单独发现映射盘。
+- alidate_basic_plan_document() 已通过 shared/edition_policy.py 以门控方式接到方案加载、模板、预检、执行器和导出入口。只有显式 Basic 版本上下文处于活动状态时才会强制校验。当前产品默认上下文未设置，Professional / 单一产品行为保持不变。
+- Phase 1b **没有**修改 EMBEDDED_TEMPLATE、数据目录身份、启动入口、许可或导出授权。Professional 导出授权仍待后续单独审计。
+- 详见 docs/dual-edition-phase1b-windows-adapters.md。

@@ -1041,6 +1041,56 @@
       "reason": "Windows user-data path or environment variable",
       "future_target": "PlatformPaths",
       "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "2a05b4ea35d8b381b47b",
+      "path": "shared/platform/windows_shell_links.py",
+      "rule_id": "WIN-ASSET-001",
+      "area": "artifacts",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows artifact or script suffix in the Phase 1b IShellLink resolver target-kind map",
+      "future_target": "WindowsShortcutResolver",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "cbc7217538fdaaea63c4",
+      "path": "shared/platform/windows_shell_links.py",
+      "rule_id": "WIN-ASSET-001",
+      "area": "artifacts",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows artifact or script suffix in the Phase 1b IShellLink resolver target-kind map",
+      "future_target": "WindowsShortcutResolver",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "0b24a8d75690490a7e1c",
+      "path": "shared/platform/windows_shell_links.py",
+      "rule_id": "WIN-ASSET-001",
+      "area": "artifacts",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows artifact or script suffix in the Phase 1b IShellLink resolver target-kind map",
+      "future_target": "WindowsShortcutResolver",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "f2db5e5e96ff91dfcb06",
+      "path": "shared/platform/windows_shell_links.py",
+      "rule_id": "WIN-ASSET-001",
+      "area": "artifacts",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows artifact or script suffix in the Phase 1b IShellLink resolver target-kind map",
+      "future_target": "WindowsShortcutResolver",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "abdc8470bc088b339171",
+      "path": "shared/platform/windows_shell_links.py",
+      "rule_id": "WIN-ASSET-001",
+      "area": "artifacts",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows artifact or script suffix in the Phase 1b IShellLink resolver target-kind map",
+      "future_target": "WindowsShortcutResolver",
+      "allowed_to_remain": true
     }
   ]
 }

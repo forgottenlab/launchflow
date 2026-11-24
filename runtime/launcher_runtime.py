@@ -29,6 +29,7 @@ import time
 from typing import Any, Callable, Optional
 
 from runtime.command_runner import CommandResult, execute_command, friendly_command_error
+from shared.edition_policy import enforce_basic_policy_on_ingress
 from shared.models import Plan, AppStep, UrlStep, CommandStep, WaitStep
 from shared.platform.applications import ApplicationLaunchSpec, get_application_launcher
 from shared.platform.urls import UrlOpenSpec, get_url_opener
@@ -140,6 +141,8 @@ class RuntimeExecutor:
         4. 根据步骤类型分发到对应执行方法；
         5. 处理步骤结束后的 delay_after。
         """
+        enforce_basic_policy_on_ingress(plan)
+
         self.log("=" * 60)
         self.log(f"开始执行方案: {plan.plan_name}")
         self.log("=" * 60)

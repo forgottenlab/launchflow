@@ -34,6 +34,7 @@ from shared.models import (
     WaitStep,
     plan_from_dict,
 )
+from shared.edition_policy import enforce_basic_policy_on_ingress
 from shared.utils import (
     read_json,
     write_json,
@@ -250,28 +251,29 @@ class PlanService:
         step_type = template.get("type")
 
         if step_type == "url":
-            return UrlStep(
+            step = UrlStep(
                 name=template.get("name", "打开网址"),
                 url=template.get("default_url", ""),
                 delay_after=template.get("delay_after", 1.0),
             )
-
-        if step_type == "command":
-            return CommandStep(
+        elif step_type == "command":
+            step = CommandStep(
                 name=template.get("name", "执行命令"),
                 command=template.get("default_command", ""),
                 shell=template.get("default_shell", "cmd"),
                 delay_after=template.get("delay_after", 1.0),
             )
-
-        if step_type == "wait":
-            return WaitStep(
+        elif step_type == "wait":
+            step = WaitStep(
                 name=template.get("name", "等待"),
                 seconds=template.get("default_seconds", 1.0),
                 delay_after=0.0,
             )
+        else:
+            raise ValueError(f"不支持的模板类型: {step_type}")
 
-        raise ValueError(f"不支持的模板类型: {step_type}")
+        enforce_basic_policy_on_ingress(Plan(plan_name="template-step", steps=[step]))
+        return step
 
     def create_app_step(self, app_name: str, app_path: str) -> AppStep:
         """
@@ -284,13 +286,15 @@ class PlanService:
         返回值：
         - AppStep 实例。
         """
-        return AppStep(
+        step = AppStep(
             name=app_name or "新应用",
             path=app_path,
             args=[],
             working_dir="",
             delay_after=1.0,
         )
+        enforce_basic_policy_on_ingress(Plan(plan_name="app-step", steps=[step]))
+        return step
 
     def save_plan(self, plan: Plan, file_path: Path) -> None:
         """
@@ -313,6 +317,7 @@ class PlanService:
         - Plan 实例。
         """
         data = read_json(file_path)
+        enforce_basic_policy_on_ingress(data)
         return plan_from_dict(data)
 
     def delete_plan(self, file_path: Path) -> None:
