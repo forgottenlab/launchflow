@@ -5,9 +5,12 @@ Launch Flow 程序入口。
 
 该模块负责：
 1. 解析当前运行环境下的项目根目录；
-2. 初始化 Qt 应用；
-3. 在进入主工作台前先校验本地授权状态；
-4. 根据授权结果决定进入激活窗口或主窗口。
+2. 保持当前产品入口位于 Professional 路径（不激活 Basic）；
+3. 初始化 Qt 应用；
+4. 在进入主工作台前先校验本地授权状态；
+5. 根据授权结果决定进入激活窗口或主窗口。
+
+当前产品入口是 editor.main / LaunchFlow.exe。Basic 请使用 editor.main_basic。
 
 位置：
 - editor/main.py
@@ -29,6 +32,7 @@ from pathlib import Path
 
 from PySide6.QtWidgets import QApplication, QMessageBox
 
+from editor.launch import CURRENT_PRODUCT_ENTRY, apply_launch_edition_for_entry
 from shared.app_info import APP_NAME
 from shared.app_logging import get_app_logger
 from shared.app_icon import apply_application_icon, configure_windows_app_id, resolve_app_icon_path
@@ -70,12 +74,14 @@ def main() -> None:
     启动应用程序。
 
     启动流程：
-    1. 创建 QApplication；
-    2. 校验当前本地授权；
-    3. 授权有效则直接进入主窗口；
-    4. 授权无效则先进入激活窗口；
-    5. 激活成功后再进入主窗口。
+    1. 将进程级版本上下文保持在当前 Professional 路径；
+    2. 创建 QApplication；
+    3. 校验当前本地授权；
+    4. 授权有效则直接进入主窗口；
+    5. 授权无效则先进入激活窗口；
+    6. 激活成功后再进入主窗口。
     """
+    apply_launch_edition_for_entry(CURRENT_PRODUCT_ENTRY)
     # Windows must receive the stable process identity before QApplication or
     # any top-level window exists, otherwise taskbar grouping can keep the
     # generic Python/Qt identity.

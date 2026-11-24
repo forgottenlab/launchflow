@@ -86,7 +86,17 @@ def migrate_legacy_data(
     legacy_roots: Iterable[Path] | None = None,
     write_marker: bool = True,
 ) -> MigrationResult:
-    """Copy known legacy user files into AppData without deleting or overwriting."""
+    """Copy known legacy user files into AppData without deleting or overwriting.
+
+    Basic edition must not probe, read, or migrate Professional or other
+    legacy LaunchFlow data. The Basic path fails closed by skipping
+    migration entirely.
+    """
+    from shared.edition_policy import is_basic_edition_active
+
+    if is_basic_edition_active():
+        return MigrationResult(skipped=["basic-edition:legacy-migration-disabled"])
+
     ensure_app_directories()
     marker_path = get_config_dir() / MIGRATION_MARKER
     if write_marker and marker_path.exists():

@@ -85,9 +85,19 @@ Plans are JSON files saved at a location selected by the user. The Recent Plans 
 
 ![Recent plan history](docs/images/launchflow-plan-history.png)
 
-LaunchFlow stores its own settings, logs, license state, and recent-plan metadata under `%LOCALAPPDATA%\LaunchFlow` by default. Automated checks can point `LAUNCHFLOW_DATA_DIR` to an isolated location. Normal operation does not create mutable data folders beside the source tree, in the current working directory, on the desktop, or next to a packaged EXE.
+The current product path (`python -m editor.main` or `LaunchFlow.exe`) stores its own settings, logs, license state, and recent-plan metadata under `%LOCALAPPDATA%\LaunchFlow`. The Basic entry (`python -m editor.main_basic`) uses a separate `%LOCALAPPDATA%\LaunchFlow-Basic` tree and does not read or migrate Professional data. Automated checks can point `LAUNCHFLOW_DATA_DIR` to an isolated location, but that override must not be used to make Basic write into the Professional directory. Normal operation does not create mutable data folders beside the source tree, in the current working directory, on the desktop, or next to a packaged EXE.
 
 Before an upgrade, back up valuable plan JSON files and any application data that must be retained. Legacy migration is intentionally conservative and copy-oriented; it should not overwrite newer data. Explicit plan-save and export destinations remain the user's choice even though background state is centralized.
+
+
+## 🧱 Two Editions
+
+The repository now contains Professional and Basic implementation paths. That does not mean two public release packages already exist. The latest published checkpoint remains `v0.1.0-beta.2`, which corresponds to the current single-product / Professional path.
+
+- Professional: start `python -m editor.main`, or package `LaunchFlow.exe`. It keeps Command, Wait, advanced Application options, the existing shortcut-open behavior, and offline licensing. User data lives under `%LOCALAPPDATA%\LaunchFlow`.
+- Basic: start `python -m editor.main_basic`, or package `LaunchFlow-Basic.exe`. It accepts only Application and http/https URL steps, does not require a license at startup, and stores data under `%LOCALAPPDATA%\LaunchFlow-Basic`. Exported standalone launchers use a restricted runner that does not embed Command, Wait, or script execution.
+
+Developer mode uses `tools/run_editor_dev.ps1` (`LaunchFlow-Dev`) and `tools/run_editor_basic_dev.ps1` (`LaunchFlow-Basic-Dev`). The default `python tools/build_editor_release.py` command still packages only Professional; Basic requires an explicit `--edition basic`. Until a public Basic release exists, do not treat the second source entry as a shipping installer.
 
 ## 📦 Exporting a Windows Launcher
 
@@ -95,7 +105,7 @@ After a successful test run, choose Export EXE or press `Ctrl+E`. The export dia
 
 ![Export workflow](docs/images/launchflow-export-workflow.png)
 
-The result is a Windows onefile launcher created for the current plan. It contains the LaunchFlow runtime needed to read that plan and the embedded plan data, but it does not automatically bundle every third-party runtime:
+The result is a Windows onefile launcher created for the current plan. It contains the runner code needed to read that plan and the embedded plan data, but it does not automatically bundle every third-party runtime. A launcher exported from the Professional entry still includes Command and Wait; a launcher exported from the Basic entry uses a restricted runner that does not include those capabilities:
 
 - A URL still depends on the target computer's default browser and network conditions.
 - A Command still depends on the selected shell, executable, PATH, files, and runtime being present on the target computer.
@@ -131,6 +141,8 @@ python -m venv .venv
 python -m pip install "PySide6==6.9.3" "PyInstaller==6.20.0" cryptography
 python -m editor.main
 ```
+
+That command starts the Professional / current product path. To start Basic from source (no license required, data written to `LaunchFlow-Basic`), use `python -m editor.main_basic`.
 
 If local PowerShell policy prevents running the activation script, call the virtual environment's Python directly instead of changing machine-wide policy:
 
@@ -178,6 +190,7 @@ The repository provides independent smoke scripts that can be run directly on Wi
 
 ```powershell
 python tools/check_readme_docs_smoke.py
+python tools/check_dual_edition_phase2_smoke.py
 python tools/check_editor_gui_smoke.py
 python tools/check_step_reorder_smoke.py
 python tools/check_log_presentation_smoke.py

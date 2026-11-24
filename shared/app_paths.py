@@ -13,6 +13,7 @@ from shared.platform.paths import (
 
 APP_DATA_ENV = _DATA_DIR_OVERRIDE_ENV
 APP_DIR_NAME = "LaunchFlow"
+BASIC_APP_DIR_NAME = "LaunchFlow-Basic"
 APP_SUBDIRECTORIES = ("config", "data", "licenses", "logs", "plans", "cache", "temp")
 
 
@@ -20,17 +21,58 @@ class AppPathError(RuntimeError):
     """Raised when LaunchFlow cannot resolve or create its user data path."""
 
 
+def get_active_app_dir_name() -> str:
+    """Return the edition-specific mutable data directory name."""
+
+    from shared.edition_policy import is_basic_edition_active
+
+    if is_basic_edition_active():
+        return BASIC_APP_DIR_NAME
+    return APP_DIR_NAME
+
+
+def _normalized_path(path: Path) -> str:
+    return os.path.normcase(os.path.abspath(str(path)))
+
+
+def _professional_default_roots(provider) -> tuple[Path, ...]:
+    return (
+        provider.default_app_root(APP_DIR_NAME, False),
+        provider.default_app_root(APP_DIR_NAME, True),
+    )
+
+
+def _is_professional_data_root(path: Path, provider) -> bool:
+    target = _normalized_path(path)
+    return any(target == _normalized_path(root) for root in _professional_default_roots(provider))
+
+
 def get_app_data_dir() -> Path:
-    """Return the user-writable LaunchFlow root without using cwd or the EXE directory."""
+    """Return the user-writable LaunchFlow root without using cwd or the EXE directory.
+
+    The current Professional path keeps %LOCALAPPDATA%\\LaunchFlow. An active
+    Basic edition context uses %LOCALAPPDATA%\\LaunchFlow-Basic and fails
+    closed instead of falling back to the Professional directory.
+    """
     provider = _get_platform_path_provider(environment=os.environ)
+    override = os.environ.get(APP_DATA_ENV, "")
     try:
-        return provider.resolve_app_root(
-            APP_DIR_NAME,
+        root = provider.resolve_app_root(
+            get_active_app_dir_name(),
             False,
-            os.environ.get(APP_DATA_ENV, ""),
+            override,
         )
     except ValueError as exc:
         raise AppPathError(str(exc)) from exc
+
+    from shared.edition_policy import is_basic_edition_active
+
+    if is_basic_edition_active() and _is_professional_data_root(root, provider):
+        raise AppPathError(
+            "Basic edition refused to use the Professional data directory "
+            f"{root}"
+        )
+    return root
 
 
 def get_config_dir() -> Path:

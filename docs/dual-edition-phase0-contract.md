@@ -410,3 +410,15 @@ Phase 1a 将 Basic 方案校验提升为 `shared/basic_policy.py` 中可复用�
 - 映射网络驱动器在合同中已被拒绝。Phase 1b 通过注入或真实的 Windows 盘符分类器实施该拒绝；词法盘符路径不会被自动当成本地路径。
 - Professional 导出授权在 Phase 1 期间保持不变，仍需后续单独审计。Phase 1b 没有修改许可校验、HWID 采集或导出授权逻辑。
 - Basic 校验已按门控方式接入现有方案入口，但默认产品路径仍是当前 Professional / 单一产品行为，因为启动入口尚未引入。
+
+---
+
+## 附录：Phase 2 实施备注（2026-11-24，Asia/Shanghai）
+
+本附录不改写 Phase 0 已冻结的历史决策和当时记录的现有行为。
+
+- 启动入口、数据目录隔离和 Basic 导出运行器已在 Phase 2 落地，详见 docs/dual-edition-phase2-launch-isolation.md。
+- 当前产品入口仍然是 Professional / 未设置路径；Basic 必须通过独立入口显式激活。
+- Basic 数据根现为 LaunchFlow-Basic；该路径不得回退到 Professional 数据目录，也不得探测或迁移 Professional 数据。
+- Professional EMBEDDED_TEMPLATE 保持不变；Basic 使用独立的受限运行器模板。
+- Professional 导出授权仍待后续单独审计。

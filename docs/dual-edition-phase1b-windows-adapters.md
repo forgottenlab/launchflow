@@ -165,3 +165,15 @@ Phase 1b **没有**引入 Basic / Professional 启动入口，没有切换数据
 4. 单独审计 Professional 导出授权，这不在本阶段范围内。
 
 在这些工作完成之前，Phase 1b 提供的是真实 Windows 适配器，以及一条默认关闭的 Basic 校验路径。
+
+---
+
+## 附录：Phase 2 追加说明（2026-11-24，Asia/Shanghai）
+
+以下内容不改写上文已记录的 Phase 1b 行为，只补充后续已实现事项：
+
+- 已新增明确的 Basic 启动入口 `editor/main_basic.py`，并在启动时设置进程级 Basic 上下文。当前产品入口 `editor/main.py` 仍保持 Professional / 未设置路径，不会被改成 Basic。
+- 已实现 `LaunchFlow-Basic` 数据目录隔离，Basic 不会探测或迁移 Professional 数据。
+- 已为 Basic 导出提供独立的受限运行器模板；Professional `EMBEDDED_TEMPLATE` 保持不变。
+- Professional 导出授权仍待后续单独审计。
+- 详见 `docs/dual-edition-phase2-launch-isolation.md`。

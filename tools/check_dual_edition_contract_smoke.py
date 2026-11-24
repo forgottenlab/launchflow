@@ -337,9 +337,11 @@ def check_current_architecture_boundaries() -> None:
     require('launch_mode == "shell_open"' in runtime_source, "runtime shortcut shell-open path missing")
     require('".lnk": "shortcut"' in apps_source, "application backend no longer classifies LNK shortcuts")
     require('APP_DIR_NAME = "LaunchFlow"' in paths_source, "Professional data directory name changed")
-    require(BASIC_DATA_DIR_NAME not in paths_source, "Basic data directory unexpectedly already implemented in app_paths")
+    require('BASIC_APP_DIR_NAME = "LaunchFlow-Basic"' in paths_source, "Basic data directory is missing from app_paths")
+    require("is_basic_edition_active" in paths_source, "Basic data directory is not edition-gated")
     require("LOCALAPPDATA" in platform_paths, "Windows LOCALAPPDATA path contract missing")
     require("license.lic" in migration_source, "legacy migration still copies license.lic")
+    require("basic-edition:legacy-migration-disabled" in migration_source, "Basic migration fail-closed skip is missing")
     require("get_plans_dir" in plan_service and "get_license_dir" not in plan_service, "PlanService path boundaries changed unexpectedly")
 
     # Runtime import is allowed, but executing a plan is not part of Phase 0.

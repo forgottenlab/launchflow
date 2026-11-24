@@ -177,3 +177,14 @@
 - 将 `LaunchFlow.exe` 单独复制到空目录短启动，目录中应仍只有该 EXE；运行数据应出现在测试覆盖目录或 `%LOCALAPPDATA%\LaunchFlow`。
 - 备份/卸载人工确认：`plans/`、`licenses/` 可复制备份；删除 EXE 不会自动删除 AppData。
 
+
+## 双版本入口（2026-11-24）
+
+当前公开发布检查点和本清单前面的激活、导出检查，仍针对 Professional / 现有产品路径：`LaunchFlow.exe` 或 `python -m editor.main`，数据位于 `%LOCALAPPDATA%\LaunchFlow`。
+
+若要额外验证仓库中的 Basic 实现（不是已经发布的公开包）：
+
+- 使用 `python -m editor.main_basic` 或未来的 `LaunchFlow-Basic.exe` 启动，不应出现激活页，也不应读取 `%LOCALAPPDATA%\LaunchFlow`。
+- 确认用户数据出现在 `%LOCALAPPDATA%\LaunchFlow-Basic` 或测试用的 `LAUNCHFLOW_DATA_DIR` 覆盖目录。
+- 含 Command / Wait 的方案应在加载、试运行或导出时被拒绝；仅含本地 EXE 与 http/https URL 的方案可以继续。
+- Professional 与 Basic 的数据目录必须保持隔离，不能相互迁移。

@@ -29,6 +29,8 @@ TOOL_ENTRY_POINTS = (
     "tools/build_single_exe.py",
     "tools/generate_app_icon.py",
     "tools/run_editor_dev.ps1",
+    "tools/run_editor_basic_dev.ps1",
+    "tools/basic_embedded_runner.py",
 )
 REFERENCE_FILES = ("README.md", "README_EN.md", "CHANGELOG.md")
 EXCLUDED_PARTS = {

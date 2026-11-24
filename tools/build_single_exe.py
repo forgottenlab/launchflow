@@ -33,14 +33,20 @@ from copy import deepcopy
 from contextlib import contextmanager
 from pathlib import Path
 
-from shared.edition_policy import enforce_basic_policy_on_ingress
+from shared.edition_policy import (
+    enforce_basic_policy_on_ingress,
+    is_basic_edition_active,
+    resolve_basic_policy_dependencies,
+)
 from shared.platform.applications import get_application_launcher
 from shared.platform.process import get_command_backend
 from shared.platform.urls import get_url_opener
+from tools.basic_embedded_runner import BASIC_EMBEDDED_TEMPLATE
 
 
 ASSET_DIR_NAME = "launchflow_assets"
 PACKABLE_APP_SUFFIXES = {".exe", ".bat", ".cmd", ".com", ".ps1"}
+BASIC_PACKABLE_APP_SUFFIXES = {".exe"}
 APPLICATION_LAUNCH_SCHEMA = 1
 URL_OPEN_SCHEMA = 1
 APPLICATION_ASSET_PREFIX = "__LAUNCHFLOW_ASSET__/"
@@ -611,6 +617,124 @@ def _prepare_embedded_plan_and_assets(plan_dict: dict) -> tuple[dict, list[tuple
     return embedded_plan, assets
 
 
+
+def _shortcut_resolution_from_resolver(path: str):
+    """Resolve a shortcut with the active Basic policy dependencies."""
+
+    dependencies = resolve_basic_policy_dependencies()
+    resolver = dependencies.shortcut_resolver
+    if resolver is None:
+        raise ValueError("Basic export cannot resolve a shortcut without a resolver")
+    if hasattr(resolver, "resolve_shortcut"):
+        return resolver.resolve_shortcut(path)
+    if callable(resolver):
+        return resolver(path)
+    raise ValueError("Basic export shortcut resolver is invalid")
+
+
+def _resolved_basic_shortcut_target(path: str) -> str:
+    """Return the local EXE target of a Basic-compatible shortcut, or fail closed."""
+
+    resolution = _shortcut_resolution_from_resolver(path)
+    target = ""
+    arguments: tuple | list | str | None = ()
+    working = ""
+    status = "resolved"
+    if resolution is None:
+        raise ValueError(f"Basic export could not resolve shortcut: {path}")
+    if isinstance(resolution, dict):
+        status = str(resolution.get("status", "resolved") or "resolved")
+        target = str(resolution.get("target_path", resolution.get("target", "")) or "")
+        arguments = resolution.get("arguments", ())
+        working = str(resolution.get("working_directory", resolution.get("working_dir", "")) or "")
+    else:
+        status = str(getattr(resolution, "status", "resolved") or "resolved")
+        target = str(getattr(resolution, "target_path", "") or "")
+        arguments = getattr(resolution, "arguments", ())
+        working = str(getattr(resolution, "working_directory", "") or "")
+    if status != "resolved" or not target.strip():
+        raise ValueError(f"Basic export could not resolve shortcut: {path}")
+    if arguments not in (None, "", (), []):
+        raise ValueError(f"Basic export rejected a shortcut with arguments: {path}")
+    if working.strip():
+        raise ValueError(f"Basic export rejected a shortcut with a working directory: {path}")
+    if Path(target).suffix.lower() != ".exe":
+        raise ValueError(f"Basic export rejected a non-EXE shortcut target: {path}")
+    return target
+
+
+def _prepare_basic_embedded_plan_and_assets(plan_dict: dict) -> tuple[dict, list[tuple[Path, str]]]:
+    """Prepare a Basic export payload without Professional-only capabilities."""
+
+    embedded_plan = deepcopy(plan_dict)
+    assets: list[tuple[Path, str]] = []
+    seen_sources: dict[Path, str] = {}
+    steps = embedded_plan.get("steps", [])
+    if not isinstance(steps, list):
+        raise ValueError("steps 不是有效列表")
+
+    for index, step in enumerate(steps, start=1):
+        if not isinstance(step, dict):
+            raise ValueError(f"步骤 {index} 数据无效")
+        step_type = step.get("type")
+        if step_type == "url":
+            url = str(step.get("url", "")).strip()
+            browser_path = str(step.get("browser_path", "")).strip()
+            if browser_path:
+                raise ValueError("Basic export rejected a custom browser path")
+            step["_url_open"] = _serialized_url_open(url, browser_path)
+            continue
+        if step_type != "app":
+            raise ValueError(f"Basic export rejected unsupported step type: {step_type}")
+
+        raw_path = str(step.get("path", "")).strip()
+        source_path = Path(raw_path)
+        suffix = source_path.suffix.lower()
+        if suffix == ".lnk":
+            launch_path = _resolved_basic_shortcut_target(raw_path)
+        elif suffix in BASIC_PACKABLE_APP_SUFFIXES:
+            launch_path = raw_path
+        else:
+            raise ValueError(f"Basic export rejected a non-EXE application path: {raw_path}")
+
+        launch_source = Path(launch_path)
+        if launch_source.suffix.lower() in BASIC_PACKABLE_APP_SUFFIXES and launch_source.is_file():
+            launch_source = launch_source.resolve()
+            asset_name = seen_sources.get(launch_source)
+            if asset_name is None:
+                asset_name = _safe_asset_name(len(seen_sources) + 1, launch_source)
+                seen_sources[launch_source] = asset_name
+                assets.append((launch_source, asset_name))
+            embedded_asset = f"{ASSET_DIR_NAME}/{asset_name}"
+            step["_embedded_asset"] = embedded_asset
+            launch_path = f"{APPLICATION_ASSET_PREFIX}{embedded_asset}"
+
+        step["_application_launch"] = _serialized_application_launch(
+            launch_path,
+            [],
+            "",
+            False,
+        )
+        launch = step["_application_launch"]
+        if launch.get("launch_mode") != "process":
+            raise ValueError("Basic export refused to embed an unvalidated application launch")
+        if str(launch.get("target_kind", "executable") or "executable") not in {"", "executable"}:
+            raise ValueError("Basic export refused to embed a non-executable application launch")
+
+    return embedded_plan, assets
+
+
+def _select_embedded_export_material(plan_dict: dict) -> tuple[str, dict, list[tuple[Path, str]]]:
+    """Choose the edition-specific runner template and prepared plan."""
+
+    if is_basic_edition_active():
+        embedded_plan, assets = _prepare_basic_embedded_plan_and_assets(plan_dict)
+        return BASIC_EMBEDDED_TEMPLATE, embedded_plan, assets
+    embedded_plan, assets = _prepare_embedded_plan_and_assets(plan_dict)
+    return EMBEDDED_TEMPLATE, embedded_plan, assets
+
+
+
 def _get_pyinstaller_command() -> list[str]:
     """
     获取可用的 PyInstaller 调用命令。
@@ -664,6 +788,7 @@ def build_single_file_exe(plan_dict: dict, output_exe_path: Path) -> Path:
     5. 将生成结果复制到目标路径。
     """
     enforce_basic_policy_on_ingress(plan_dict)
+    template, embedded_plan, assets = _select_embedded_export_material(plan_dict)
 
     output_exe_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -673,7 +798,6 @@ def build_single_file_exe(plan_dict: dict, output_exe_path: Path) -> Path:
         script_path = tmp_dir / "embedded_launcher.py"
         staged_assets_dir = tmp_dir / ASSET_DIR_NAME
 
-        embedded_plan, assets = _prepare_embedded_plan_and_assets(plan_dict)
         if assets:
             staged_assets_dir.mkdir(parents=True, exist_ok=True)
             for source_path, asset_name in assets:
@@ -681,7 +805,7 @@ def build_single_file_exe(plan_dict: dict, output_exe_path: Path) -> Path:
 
         # 这里使用 repr 而不是 json.dumps，
         # 是为了直接生成可嵌入 Python 源码的字典字面量，避免字符串转义层级更复杂。
-        script_content = EMBEDDED_TEMPLATE.replace(
+        script_content = template.replace(
             "__PLAN_DATA__",
             repr(embedded_plan),
         )
