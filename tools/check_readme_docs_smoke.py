@@ -53,17 +53,9 @@ def main() -> int:
 
     required_content = {
         "README.md": (
-            "## 🙏 特别致谢",
-            "ZTS",
-            "SYZ",
-            "4 位同学",
             "[查看更新日志](./CHANGELOG.md)",
         ),
         "README_EN.md": (
-            "## 🙏 Acknowledgements",
-            "ZTS",
-            "SYZ",
-            "four students",
             "[View changelog](./CHANGELOG.md)",
         ),
     }
@@ -136,7 +128,7 @@ def main() -> int:
     print("screenshots=6,distinct,png,feature-sized")
     print("public-paths=local-machine-paths-absent")
     print("placeholders=absent")
-    print("acknowledgements=four-testers,zts,syz")
+    print("acknowledgements=absent")
     print("repository-layout=real-directories")
     print("license=all-rights-reserved,linked")
     print("local-links=resolved")

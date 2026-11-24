@@ -2,7 +2,7 @@
 
 [简体中文](./README.md) | **[English](./README_EN.md)**
 
-> A visual Windows workflow editor for combining applications, web pages, commands, and wait steps into reusable and exportable launch plans.
+> A visual Windows workflow editor. Professional combines applications, web pages, commands, and wait steps into reusable and exportable launch plans, with offline licensing. Basic is free, requires no activation, and covers only local Application and HTTP(S) URL workflows.
 
 [View changelog](./CHANGELOG.md)
 
@@ -28,15 +28,15 @@ The product is deliberately a general workflow tool, not a frontend for Python, 
 - Select a newly added step immediately and open its editable properties without an extra click.
 - Save the current plan, use Save As, load a plan, and reopen recent plans.
 - Test-run a complete plan before export and follow every step in the integrated log.
-- Capture a Command's `command`, `returncode`, `stdout`, and `stderr` while also explaining common failures in plain language.
+- In Professional, capture a Command's `command`, `returncode`, `stdout`, and `stderr` while also explaining common failures in plain language.
 - Switch between dark and light themes with consistent form controls and readable focus states.
 - Export a plan as a Windows single-file EXE and include eligible local application files when explicitly confirmed.
-- Complete Beta activation through an offline request and signed license without an online account service.
+- In Professional, complete Beta activation through an offline request and signed license without an online account service. Basic does not require activation at startup.
 - Keep mutable runtime data in the user's local application-data location instead of next to the EXE.
 
 ## 🧩 Four Step Types
 
-LaunchFlow intentionally uses a small, portable step model. The current editor provides exactly these four types:
+LaunchFlow intentionally uses a small, portable step model. The Professional / current default product path (`python -m editor.main` or `LaunchFlow.exe`) provides exactly these four types. Basic offers only Application and URL:
 
 | UI label | Model type | Purpose | Main settings |
 | --- | --- | --- | --- |
@@ -45,7 +45,7 @@ LaunchFlow intentionally uses a small, portable step model. The current editor p
 | Command | `command` | Execute a general command with the selected shell | Command text, shell type, post-run delay |
 | Wait | `wait` | Pause the workflow explicitly | Duration in seconds |
 
-There are no language-specific Python, Java, or Node steps. Use the corresponding tool through a regular Command when needed. Keeping the model generic preserves plan compatibility and makes the same editor useful for development, office work, design sessions, teaching, and other Windows routines.
+There are no language-specific Python, Java, or Node steps. In Professional, use the corresponding tool through a regular Command when needed. Keeping the model generic preserves plan compatibility and makes the editor useful for development, office work, design sessions, teaching, and other Windows routines.
 
 ## 🖥️ Workbench
 
@@ -205,11 +205,11 @@ Run `python tools/generate_readme_screenshots.py` to reproduce the documentation
 
 - Windows desktop is the only verified release target.
 - The product remains in Beta, so interface details and low-risk behavior may continue to change.
-- Only Application, URL, Command, and Wait are supported. There are no branches, loops, remote execution steps, or language-specific step types.
+- The Professional / current default path supports Application, URL, Command, and Wait. Basic offers only Application and URL. Neither path has branches, loops, remote execution steps, or language-specific step types.
 - Application uses a launch-and-continue model and does not manage the external process lifecycle.
-- Command captures standard streams and a return code, but it cannot replace installation and configuration diagnostics supplied by the external tool.
+- In Professional, Command captures standard streams and a return code, but it cannot replace installation and configuration diagnostics supplied by the external tool.
 - The exporter cannot discover every dependency of a complex desktop application; cross-machine delivery requires manual verification.
-- Licensing is currently offline and signed. There are no online accounts, automatic renewal, or cloud plan synchronization.
+- Professional licensing is currently offline and signed. There are no online accounts, automatic renewal, or cloud plan synchronization. Basic does not require activation at startup.
 - The source is currently provided under an all-rights-reserved license, not an open-source license grant.
 
 ## 🗺️ Roadmap
@@ -229,14 +229,6 @@ The roadmap is directional and is not a stable-release commitment. Verified rele
 Reproducible reports are welcome through [GitHub Issues](https://github.com/forgottenlab/launchflow/issues). Include the Windows version, LaunchFlow version, affected step type, expected behavior, actual behavior, and relevant redacted logs. For export problems, identify whether the issue occurred during the editor test run, the build phase, or execution of the generated launcher.
 
 Before submitting a change, run the smoke checks appropriate to its scope. Changes involving shared models, licensing, security boundaries, data paths, or export behavior need broader validation. Never submit real licenses, request codes, signing keys, user plans, build artifacts, or screenshots that reveal personal paths.
-
-## 🙏 Acknowledgements
-
-Thanks to the **four students** who took part in the first round of LaunchFlow testing. They were willing to run an early Beta build, try real workflows and different interactions, and report what happened outside the development environment. Those firsthand accounts helped me review the product from a user's perspective instead of relying only on development-time assumptions.
-
-Special thanks to **ZTS** and **SYZ** for their continued hands-on testing, detailed bug reports, and practical suggestions. Their feedback helped uncover and fix issues involving drag-and-drop behavior, step synchronization, log presentation, theme consistency, and the release experience. Several of these details were difficult for automated tests alone to reveal completely.
-
-LaunchFlow is still evolving. The patience, testing, and feedback of its first testers have played an important role in helping the project move from simply working to becoming clearer and easier to use.
 
 ## 📄 License
 
