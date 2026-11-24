@@ -1,7 +1,8 @@
-"""Verify Phase 2 launch entries, Basic data isolation, and the restricted runner.
+"""Verify Phase 2 launch entries, Basic data isolation, restricted runner, and UI trim.
 
 This smoke is side-effect free with respect to real AppData, licenses, HWID,
-and PyInstaller. It uses isolated temporary directories and source inspection.
+and PyInstaller. It uses isolated temporary directories, source inspection,
+and an offscreen Qt workbench when checking editor presentation.
 
 Usage:
     python tools/check_dual_edition_phase2_smoke.py
@@ -12,6 +13,7 @@ from __future__ import annotations
 import ast
 import hashlib
 import inspect
+import json
 import os
 import shutil
 import sys
@@ -47,6 +49,7 @@ from shared.app_paths import (
 from shared.data_migration import migrate_legacy_data
 from shared.edition_policy import (
     BASIC_EDITION,
+    BasicPolicyViolation,
     EditionContext,
     get_edition_context,
     is_basic_edition_active,
@@ -417,6 +420,184 @@ def check_export_selection_and_assets() -> None:
         shutil.rmtree(temp_dir, ignore_errors=True)
 
 
+
+def check_basic_template_isolation() -> None:
+    from editor.services.plan_service import DEFAULT_TEMPLATES, PlanService
+
+    temp_root = Path(tempfile.gettempdir()) / f"launchflow-phase2-templates-{os.getpid()}-{uuid.uuid4().hex}"
+    basic_root = temp_root / "basic-data"
+    professional_root = temp_root / "professional-data"
+    old_override = os.environ.get(APP_DATA_ENV)
+    previous = set_process_edition_context(EditionContext())
+    try:
+        os.environ[APP_DATA_ENV] = str(basic_root)
+        apply_basic_launch_edition()
+        basic_service = PlanService(PROJECT_ROOT)
+        raw = json.loads(basic_service.templates_path.read_text(encoding="utf-8"))
+        require(all(item.get("type") != "command" and item.get("type") != "wait" for item in raw), "Basic default templates still include Command or Wait")
+        require(any(item.get("type") == "url" for item in raw), "Basic default templates lost the URL template")
+        require(all(item.get("type") in {"url"} for item in basic_service.load_templates()), "Basic load_templates offered Professional templates")
+
+        polluted = raw + [{"type": "command", "name": "should-not-load", "default_command": "echo", "default_shell": "cmd", "delay_after": 1.0}]
+        basic_service.templates_path.write_text(json.dumps(polluted, ensure_ascii=False, indent=2), encoding="utf-8")
+        require(all(item.get("type") != "command" for item in basic_service.load_templates()), "Basic load_templates did not filter a polluted file")
+
+        blank_url = basic_service.create_step_from_template(
+            {"type": "url", "name": "新网页", "default_url": "", "delay_after": 3.0}
+        )
+        require(blank_url.url == "", "Basic cannot create a blank URL draft")
+        require(blank_url.delay_after == 1.0, "Basic blank URL draft did not keep the fixed delay")
+        command_rejected = False
+        try:
+            basic_service.create_step_from_template(
+                {"type": "command", "name": "执行命令", "default_command": "echo hello", "default_shell": "cmd"}
+            )
+        except BasicPolicyViolation:
+            command_rejected = True
+        require(command_rejected, "Basic create_step_from_template still accepts Command")
+
+        os.environ[APP_DATA_ENV] = str(professional_root)
+        apply_current_product_launch_edition()
+        professional_service = PlanService(PROJECT_ROOT)
+        professional_types = {item.get("type") for item in json.loads(professional_service.templates_path.read_text(encoding="utf-8"))}
+        require({"url", "command", "wait"} <= professional_types, "Professional default templates changed")
+        require({"url", "command", "wait"} <= {item.get("type") for item in DEFAULT_TEMPLATES}, "DEFAULT_TEMPLATES lost Professional entries")
+        require(professional_root not in basic_root.parents and basic_root not in professional_root.parents, "template roots were not isolated")
+    finally:
+        set_process_edition_context(previous)
+        if old_override is None:
+            os.environ.pop(APP_DATA_ENV, None)
+        else:
+            os.environ[APP_DATA_ENV] = old_override
+        shutil.rmtree(temp_root, ignore_errors=True)
+
+
+def check_editor_ui_trimming() -> None:
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    from PySide6.QtWidgets import QApplication
+
+    from editor.edition_ui import (
+        BASIC_APP_DIALOG_FILTER,
+        BASIC_APP_PATH_PLACEHOLDER,
+        BASIC_BRAND_TITLE,
+        BASIC_EMPTY_STEPS_HINT,
+        BASIC_WORKBENCH_TITLE,
+        PROFESSIONAL_APP_DIALOG_FILTER,
+        PROFESSIONAL_APP_PATH_PLACEHOLDER,
+        PROFESSIONAL_BRAND_TITLE,
+        PROFESSIONAL_EMPTY_STEPS_HINT,
+        PROFESSIONAL_LOG_HINT,
+        PROFESSIONAL_WORKBENCH_TITLE,
+        application_file_dialog_filter,
+    )
+    from editor.ui.main_window import MainWindow
+    from shared.app_logging import reset_app_logger_for_tests
+    from shared.models import AppStep, CommandStep, UrlStep
+
+    app = QApplication.instance() or QApplication([])
+    temp_root = Path(tempfile.gettempdir()) / f"launchflow-phase2-ui-{os.getpid()}-{uuid.uuid4().hex}"
+    old_override = os.environ.get(APP_DATA_ENV)
+    previous = set_process_edition_context(EditionContext())
+    windows: list[MainWindow] = []
+    try:
+        os.environ[APP_DATA_ENV] = str(temp_root / "professional")
+        apply_current_product_launch_edition()
+        def add_app_and_select(window: MainWindow) -> AppStep:
+            step = window.plan_service.create_app_step("Notepad", r"C:\Windows\System32\notepad.exe")
+            window.current_plan.steps.append(step)
+            window.current_editor_index = None
+            window._refresh_flow_list()
+            window._select_new_step(len(window.current_plan.steps) - 1)
+            app.processEvents()
+            return step
+
+        professional = MainWindow(PROJECT_ROOT)
+        windows.append(professional)
+        professional.show()
+        app.processEvents()
+        require(professional.btn_add_app.isVisible() and professional.btn_add_url.isVisible(), "Professional add-step buttons missing")
+        require(professional.btn_add_cmd.isVisible() and professional.btn_add_wait.isVisible(), "Professional Command/Wait buttons were hidden")
+        require(professional.btn_add_cmd.isEnabled() and professional.btn_add_wait.isEnabled(), "Professional Command/Wait buttons were disabled")
+        add_app_and_select(professional)
+        require(professional.app_args_in.isVisible(), "Professional app args field was hidden")
+        require(professional.app_delay_in.isVisible(), "Professional app delay field was hidden")
+        professional._on_add_template_step("url")
+        app.processEvents()
+        require(professional.url_delay_in.isVisible(), "Professional URL delay field was hidden")
+        # Keep the App inspector selected so later isolation checks can see those fields.
+        professional.flow_list.setCurrentRow(0)
+        app.processEvents()
+        require(professional.app_args_in.isVisible() and professional.app_delay_in.isVisible(), "Professional app inspector lost its advanced fields")
+        require(professional.empty_steps_subtitle.text() == PROFESSIONAL_EMPTY_STEPS_HINT, "Professional empty-state hint changed")
+        require(professional.title_bar.title_label.text() == PROFESSIONAL_WORKBENCH_TITLE, "Professional workbench title changed")
+        require(professional.brand_title_label.text() == PROFESSIONAL_BRAND_TITLE, "Professional brand title changed")
+        require(professional.app_path_in.placeholderText() == PROFESSIONAL_APP_PATH_PLACEHOLDER, "Professional path placeholder changed")
+        require(application_file_dialog_filter() == PROFESSIONAL_APP_DIALOG_FILTER, "Professional file-dialog filter changed")
+        require(professional.log_hint.text() == PROFESSIONAL_LOG_HINT, "Professional log hint changed")
+
+        os.environ[APP_DATA_ENV] = str(temp_root / "basic")
+        apply_basic_launch_edition()
+        basic = MainWindow(PROJECT_ROOT)
+        windows.append(basic)
+        basic.show()
+        app.processEvents()
+        require(basic.btn_add_app.isVisible() and basic.btn_add_url.isVisible(), "Basic lost App/URL add buttons")
+        require(not basic.btn_add_cmd.isVisible() and not basic.btn_add_wait.isVisible(), "Basic still shows Command or Wait buttons")
+        require(not basic.btn_add_cmd.isEnabled() and not basic.btn_add_wait.isEnabled(), "Basic still enables Command or Wait buttons")
+        require(basic.empty_steps_subtitle.text() == BASIC_EMPTY_STEPS_HINT, "Basic empty-state hint is wrong")
+        require("命令" not in basic.empty_steps_subtitle.text() and "等待" not in basic.empty_steps_subtitle.text(), "Basic empty-state still advertises Professional steps")
+        require(basic.title_bar.title_label.text() == BASIC_WORKBENCH_TITLE, "Basic workbench title is wrong")
+        require(basic.brand_title_label.text() == BASIC_BRAND_TITLE, "Basic brand title is wrong")
+        require(basic.app_path_in.placeholderText() == BASIC_APP_PATH_PLACEHOLDER, "Basic path placeholder is wrong")
+        require(application_file_dialog_filter() == BASIC_APP_DIALOG_FILTER, "Basic file-dialog filter still includes scripts")
+        require("Command" not in basic.log_hint.text() and "命令" not in basic.log_hint.text(), "Basic log hint still describes Command")
+
+        add_app_and_select(basic)
+        require(not basic.app_args_in.isVisible(), "Basic still shows application arguments")
+        require(not basic.app_delay_in.isVisible(), "Basic still shows a custom App delay control")
+        require(professional.btn_add_cmd.isVisible() and professional.app_args_in.isVisible(), "creating a Basic window changed the Professional UI")
+
+        recorded: list[tuple[str, str]] = []
+        basic._error = lambda title, message: recorded.append((title, message))
+        before = list(basic.current_plan.steps)
+        basic._on_add_template_step("command")
+        basic._on_add_template_step("wait")
+        app.processEvents()
+        require(basic.current_plan.steps == before, "Basic UI created a Professional-only step")
+        require(not any(isinstance(step, CommandStep) for step in basic.current_plan.steps), "Basic UI created a Command step")
+        require(recorded, "Basic UI did not reject Command/Wait additions")
+
+        # Hidden fields must not leak into the saved Basic step.
+        basic.current_step_dirty = True
+        basic.app_args_in.setPlainText("--should-not-save")
+        basic.app_delay_in.setValue(3.5)
+        result = basic.commit_current_step_editor()
+        require(result.success, "Basic app-step commit failed")
+        require(isinstance(basic.current_plan.steps[0], AppStep), "Basic app step was lost")
+        require(basic.current_plan.steps[0].args == [], "Basic commit saved Professional-only arguments")
+        require(basic.current_plan.steps[0].delay_after == 1.0, "Basic commit saved a custom App delay")
+
+        basic._on_add_template_step("url")
+        app.processEvents()
+        require(len(basic.current_plan.steps) == 2, "Basic UI failed to add a URL step")
+        require(isinstance(basic.current_plan.steps[1], UrlStep), "Basic URL addition created the wrong step type")
+        require(basic.current_plan.steps[1].url == "", "Basic should allow a blank URL draft to be filled in later")
+        require(not basic.url_delay_in.isVisible(), "Basic still shows a custom URL delay control")
+        require(basic.current_plan.steps[1].delay_after == 1.0, "Basic URL step did not keep the fixed delay")
+    finally:
+        for window in windows:
+            window.close()
+            window.deleteLater()
+        app.processEvents()
+        reset_app_logger_for_tests()
+        set_process_edition_context(previous)
+        if old_override is None:
+            os.environ.pop(APP_DATA_ENV, None)
+        else:
+            os.environ[APP_DATA_ENV] = old_override
+        shutil.rmtree(temp_root, ignore_errors=True)
+
+
 def check_packaging_entries() -> None:
     professional = build_editor_command(PROJECT_ROOT)
     require(str(PROJECT_ROOT / "editor" / "main.py") in professional, "Professional packager entry changed")
@@ -443,6 +624,8 @@ def main() -> int:
         check_basic_runner_restrictions()
         check_export_selection_and_assets()
         check_packaging_entries()
+        check_basic_template_isolation()
+        check_editor_ui_trimming()
     finally:
         set_process_edition_context(previous)
 
@@ -452,6 +635,7 @@ def main() -> int:
     print("professional_template=unchanged")
     print("basic_runner=restricted,no-command-wait,no-script,no-lnk-shell-open")
     print("packaging=LaunchFlow.exe,LaunchFlow-Basic.exe")
+    print("editor_ui=basic-trimmed,professional-unchanged")
     return 0
 
 

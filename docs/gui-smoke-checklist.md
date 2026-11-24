@@ -186,5 +186,7 @@
 
 - 使用 `python -m editor.main_basic` 或未来的 `LaunchFlow-Basic.exe` 启动，不应出现激活页，也不应读取 `%LOCALAPPDATA%\LaunchFlow`。
 - 确认用户数据出现在 `%LOCALAPPDATA%\LaunchFlow-Basic` 或测试用的 `LAUNCHFLOW_DATA_DIR` 覆盖目录。
+- 工作台不应出现“+ 命令”“+ 等待”、应用启动参数或可改的后续延迟；空状态提示只应引导添加应用和网页。
 - 含 Command / Wait 的方案应在加载、试运行或导出时被拒绝；仅含本地 EXE 与 http/https URL 的方案可以继续。
 - Professional 与 Basic 的数据目录必须保持隔离，不能相互迁移。
+- Professional 工作台仍应保留全部现有添加按钮、启动参数和延迟控件，不能被 Basic 裁剪影响。

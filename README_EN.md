@@ -95,7 +95,7 @@ Before an upgrade, back up valuable plan JSON files and any application data tha
 The repository now contains Professional and Basic implementation paths. That does not mean two public release packages already exist. The latest published checkpoint remains `v0.1.0-beta.2`, which corresponds to the current single-product / Professional path.
 
 - Professional: start `python -m editor.main`, or package `LaunchFlow.exe`. It keeps Command, Wait, advanced Application options, the existing shortcut-open behavior, and offline licensing. User data lives under `%LOCALAPPDATA%\LaunchFlow`.
-- Basic: start `python -m editor.main_basic`, or package `LaunchFlow-Basic.exe`. It accepts only Application and http/https URL steps, does not require a license at startup, and stores data under `%LOCALAPPDATA%\LaunchFlow-Basic`. Exported standalone launchers use a restricted runner that does not embed Command, Wait, or script execution.
+- Basic: start `python -m editor.main_basic`, or package `LaunchFlow-Basic.exe`. It accepts only Application and http/https URL steps, does not require a license at startup, and stores data under `%LOCALAPPDATA%\LaunchFlow-Basic`. The workbench does not offer Command, Wait, application arguments, or custom delays, and exported standalone launchers use a restricted runner that does not embed those capabilities.
 
 Developer mode uses `tools/run_editor_dev.ps1` (`LaunchFlow-Dev`) and `tools/run_editor_basic_dev.ps1` (`LaunchFlow-Basic-Dev`). The default `python tools/build_editor_release.py` command still packages only Professional; Basic requires an explicit `--edition basic`. Until a public Basic release exists, do not treat the second source entry as a shipping installer.
 

@@ -313,7 +313,7 @@ python tools/check_readme_docs_smoke.py
 - 开发数据目录：`tools/run_editor_basic_dev.ps1` 指向 `%LOCALAPPDATA%\LaunchFlow-Basic-Dev`
 - 正式数据目录：`%LOCALAPPDATA%\LaunchFlow-Basic`
 - Basic 不读取、不迁移 Professional 数据，启动时也不要求许可证
-- Basic 只接受 Application 与 http/https URL；导出使用受限运行器
+- Basic 只接受 Application 与 http/https URL；工作台不提供 Command、Wait、应用启动参数或自定义间隔；导出使用受限运行器
 
 如果当前测试任务是验证已发布的 Beta 体验，请继续使用 Professional 入口和本文件前面的授权流程。不要把源码中的 Basic 入口误认为已经随 `v0.1.0-beta.2` 一起发布。
 

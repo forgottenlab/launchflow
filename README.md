@@ -95,7 +95,7 @@ Application 步骤用于启动外部程序，本身不等待外部程序退出�
 仓库现在包含 Professional 与 Basic 两套实现路径，但这并不是说已经同时存在两个公开发布包。最近的公开检查点仍是 `v0.1.0-beta.2`，对应当前这条单一产品 / Professional 路径。
 
 - Professional：启动 `python -m editor.main`，或打包 `LaunchFlow.exe`。它保留 Command、Wait、高级 Application 配置、现有快捷方式打开方式，以及离线许可。用户数据位于 `%LOCALAPPDATA%\LaunchFlow`。
-- Basic：启动 `python -m editor.main_basic`，或打包 `LaunchFlow-Basic.exe`。它只接受 Application 与 http/https URL，启动时不要求许可证，数据位于 `%LOCALAPPDATA%\LaunchFlow-Basic`。导出的独立启动器使用受限运行器，不会嵌入 Command、Wait 或脚本执行能力。
+- Basic：启动 `python -m editor.main_basic`，或打包 `LaunchFlow-Basic.exe`。它只接受 Application 与 http/https URL，启动时不要求许可证，数据位于 `%LOCALAPPDATA%\LaunchFlow-Basic`。工作台不会提供 Command、Wait、应用启动参数或自定义间隔，导出的独立启动器也使用不含这些能力的受限运行器。
 
 开发模式分别使用 `tools/run_editor_dev.ps1`（`LaunchFlow-Dev`）和 `tools/run_editor_basic_dev.ps1`（`LaunchFlow-Basic-Dev`）。默认的 `python tools/build_editor_release.py` 仍然只打包 Professional；Basic 需要显式加上 `--edition basic`。在公开发布 Basic 之前，请不要把源码里的第二条入口当成已经上线的安装包。
 

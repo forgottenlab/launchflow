@@ -53,16 +53,6 @@
       "allowed_to_remain": true
     },
     {
-      "fingerprint": "9b8c16fe6a8ce3e038ac",
-      "path": "editor/ui/main_window.py",
-      "rule_id": "WIN-ASSET-001",
-      "area": "artifacts",
-      "classification": "platform_adapter_candidate",
-      "reason": "Windows artifact or script suffix",
-      "future_target": "ApplicationLauncher or PackagingBackend",
-      "allowed_to_remain": true
-    },
-    {
       "fingerprint": "a6c5a3b4c1a905f1c7c1",
       "path": "editor/ui/main_window.py",
       "rule_id": "WIN-SHELL-001",
@@ -84,16 +74,6 @@
     },
     {
       "fingerprint": "14e08a720a6bed853eba",
-      "path": "editor/ui/main_window.py",
-      "rule_id": "WIN-ASSET-001",
-      "area": "artifacts",
-      "classification": "platform_adapter_candidate",
-      "reason": "Windows artifact or script suffix",
-      "future_target": "ApplicationLauncher or PackagingBackend",
-      "allowed_to_remain": true
-    },
-    {
-      "fingerprint": "793b7b4c5b2aa222ec28",
       "path": "editor/ui/main_window.py",
       "rule_id": "WIN-ASSET-001",
       "area": "artifacts",
@@ -1090,6 +1070,46 @@
       "classification": "allowed_windows_boundary",
       "reason": "Windows artifact or script suffix in the Phase 1b IShellLink resolver target-kind map",
       "future_target": "WindowsShortcutResolver",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "0e345d6eb72df012eae9",
+      "path": "editor/edition_ui.py",
+      "rule_id": "WIN-ASSET-001",
+      "area": "artifacts",
+      "classification": "platform_adapter_candidate",
+      "reason": "Windows artifact or script suffix",
+      "future_target": "ApplicationLauncher or PackagingBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "e52cde248760b1dceb74",
+      "path": "editor/edition_ui.py",
+      "rule_id": "WIN-ASSET-001",
+      "area": "artifacts",
+      "classification": "platform_adapter_candidate",
+      "reason": "Windows artifact or script suffix",
+      "future_target": "ApplicationLauncher or PackagingBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "f688157bd23bda2094d2",
+      "path": "editor/edition_ui.py",
+      "rule_id": "WIN-ASSET-001",
+      "area": "artifacts",
+      "classification": "platform_adapter_candidate",
+      "reason": "Windows artifact or script suffix",
+      "future_target": "ApplicationLauncher or PackagingBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "ff539f59375847b4544f",
+      "path": "editor/edition_ui.py",
+      "rule_id": "WIN-ASSET-001",
+      "area": "artifacts",
+      "classification": "platform_adapter_candidate",
+      "reason": "Windows artifact or script suffix",
+      "future_target": "ApplicationLauncher or PackagingBackend",
       "allowed_to_remain": true
     }
   ]

@@ -69,7 +69,23 @@ Professional 导出授权仍待后续单独审计。本次没有把授权检查�
 
 ---
 
-## 4. 打包与发布路径
+## 4. 编辑器界面裁剪
+
+Professional / 当前产品入口的工作台保持原样：仍然提供“+ 命令”“+ 等待”、应用启动参数，以及可编辑的后续延迟。
+
+Basic 入口会在同一套 `MainWindow` 上裁剪 Professional-only 能力，而不是另做一套窗口：
+
+- 不显示“+ 命令”和“+ 等待”按钮，直接调用添加接口也会被拒绝
+- 不显示应用启动参数，也不显示可自定义的 `delay_after` 控件；保存步骤时固定为无参数、间隔 1 秒
+- 添加应用时的文件选择只包含本地 `.exe` / `.lnk`
+- 首次写入 Basic 数据目录的 `app_templates.json` 不含 Command / Wait；即使文件被污染，加载时也会过滤
+- 空状态提示、侧栏名称和标题栏会标明 LaunchFlow Basic，避免看起来仍是完整 Professional 工作台
+
+Basic 仍然可以先添加一个空白网页步骤，再补全 URL。缺失 URL 会在加载、试运行或导出时被拒绝，而不是在点击“+ 网页”时直接失败。
+
+当前 GUI 本身在两个版本中都没有提供工作目录或“最小化启动”编辑控件。这是已有界面范围，不是本次为 Professional 新增的能力。Basic 仍会通过方案校验拒绝这些字段。
+
+## 5. 打包与发布路径
 
 当前默认打包命令仍然只生成 Professional 编辑器：
 
@@ -87,7 +103,7 @@ python tools/build_editor_release.py --edition basic
 
 ---
 
-## 5. 测试覆盖
+## 6. 测试覆盖
 
 `tools/check_dual_edition_phase2_smoke.py` 覆盖：
 
@@ -101,12 +117,14 @@ python tools/build_editor_release.py --edition basic
 8. Basic 运行器模板通过 Phase 0 冻结的能力边界检查
 9. Basic 导出在拒绝 Command 方案时不会查找 PyInstaller，也不会创建输出目录或调试脚本
 10. 默认编辑器打包入口仍是 `LaunchFlow.exe` / `editor/main.py`；Basic 打包入口是独立的
+11. Basic 默认模板和 `load_templates()` 不含 Command / Wait；Professional 默认模板保持不变
+12. Basic 工作台隐藏 Command / Wait 按钮、应用参数和自定义延迟；Professional 工作台这些控件仍然可见
 
 现有 Phase 0 / 1a / 1b 合同与策略测试，以及无副作用的路径、迁移、平台耦合、应用/URL 与文档冒烟测试应继续通过。
 
 ---
 
-## 6. 平台耦合说明
+## 7. 平台耦合说明
 
 Phase 2 没有新增核心包中的 Windows API 调用。Basic 入口复用已有的 `configure_windows_app_id()` 门面。新增的工具边界包括：
 
@@ -117,17 +135,17 @@ Phase 2 没有新增核心包中的 Windows API 调用。Basic 入口复用已�
 
 ---
 
-## 7. 已知限制
+## 8. 已知限制
 
 - 本次没有发布独立的 Basic 安装包或公开 GitHub Release 资产。文档描述的是仓库中已经落地的实现与打包入口。
-- 编辑器 GUI 仍会显示 Command / Wait 等 Professional 模板。Basic 会在加载、预检、执行和导出入口拒绝不兼容方案，但尚未做专门的界面裁剪。
 - Professional 导出授权仍依赖“此前已进入主窗口”，直接调用 `build_single_file_exe()` 的审计仍待后续任务。
-- Basic 编辑器仍复用现有 `MainWindow`；除数据目录、版本上下文和启动授权流外，界面文案与功能入口尚未全面按版本分化。
+- Basic 编辑器仍复用现有 `MainWindow`，只按版本隐藏或拒绝 Professional-only 能力，没有做成完全独立的第二套界面。
+- 工作目录和“最小化启动”本来就不在当前 GUI 中编辑；它们继续只存在于方案模型和 Professional 运行/导出路径里。
 - 本阶段未修改 `docs/architecture.md` 和 `CHANGELOG.md`。
 
 ---
 
-## 8. 建议的下一阶段
+## 9. 建议的下一阶段
 
 建议的下一阶段不要自动开始。在获得单独授权之前，不应把 Basic 宣传成已经对外发布的产品。
 
@@ -135,10 +153,10 @@ Phase 2 没有新增核心包中的 Windows API 调用。Basic 入口复用已�
 
 1. 单独审计 Professional 导出授权，避免直接调用导出器绕过现有激活前提。
 2. 在本地文档改动稳定后，把本阶段结论同步进 `docs/architecture.md` 和 `CHANGELOG.md`。
-3. 若要作为产品发布 Basic，再补 GUI 裁剪、发布说明和经过授权的打包构建。
+3. 若要作为产品发布 Basic，再补发布说明和经过授权的打包构建。
 
 ---
 
 ## English Summary
 
-Phase 2 adds an explicit Basic launch entry, LaunchFlow-Basic data isolation, and a restricted Basic export runner, while leaving the current product entry on the Professional path. `python -m editor.main` / `LaunchFlow.exe` still uses `%LOCALAPPDATA%\LaunchFlow`, keeps offline licensing, and does not activate Basic. `python -m editor.main_basic` / the `LaunchFlow-Basic.exe` packaging target sets process-wide Basic context first, skips license and legacy migration, and refuses to read or fall back to Professional data. The Professional `EMBEDDED_TEMPLATE` is unchanged; Basic export uses a separate runner that cannot embed Command, Wait, script apps, or unvalidated shortcut shell-open behavior, and writes logs under LaunchFlow-Basic. This is an in-repo implementation, not a new public Beta release; `v0.1.0-beta.2` remains the latest published artifact. `docs/architecture.md` and `CHANGELOG.md` still need a later pass after local edits settle.
+Phase 2 adds an explicit Basic launch entry, LaunchFlow-Basic data isolation, a restricted Basic export runner, and Basic workbench trimming, while leaving the current product entry on the Professional path. `python -m editor.main` / `LaunchFlow.exe` still uses `%LOCALAPPDATA%\LaunchFlow`, keeps offline licensing, and shows the full existing UI, including Command, Wait, application arguments, and custom delays. `python -m editor.main_basic` / the `LaunchFlow-Basic.exe` packaging target sets process-wide Basic context first, skips license and legacy migration, refuses to read or fall back to Professional data, and hides Professional-only templates and advanced App controls. The Professional `EMBEDDED_TEMPLATE` is unchanged; Basic export uses a separate runner that cannot embed Command, Wait, script apps, or unvalidated shortcut shell-open behavior, and writes logs under LaunchFlow-Basic. This is an in-repo implementation, not a new public Beta release; `v0.1.0-beta.2` remains the latest published artifact. `docs/architecture.md` and `CHANGELOG.md` still need a later pass after local edits settle.
