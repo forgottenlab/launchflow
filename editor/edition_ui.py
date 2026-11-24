@@ -11,6 +11,10 @@ from __future__ import annotations
 from typing import Any
 
 from shared.edition_policy import is_basic_edition_active
+from shared.platform.application_lookup import (
+    BASIC_LOOKUP_SUFFIXES,
+    PROFESSIONAL_LOOKUP_SUFFIXES,
+)
 
 
 ALL_EDITOR_STEP_TYPES = frozenset({"app", "url", "command", "wait"})
@@ -27,8 +31,8 @@ BASIC_BRAND_TITLE = "LaunchFlow Basic"
 PROFESSIONAL_EMPTY_STEPS_HINT = "请先在左侧点击“+ 应用 / + 网页 / + 命令 / + 等待”来添加步骤。"
 BASIC_EMPTY_STEPS_HINT = "请先在左侧点击“+ 应用 / + 网页”来添加步骤。"
 
-PROFESSIONAL_APP_PATH_PLACEHOLDER = "选择或粘贴 .exe / .bat / .cmd / .ps1 路径"
-BASIC_APP_PATH_PLACEHOLDER = "选择或粘贴本地 .exe / .lnk 路径"
+PROFESSIONAL_APP_PATH_PLACEHOLDER = "输入绝对路径，或浏览 / 按名称查找 .exe / .bat / .cmd / .ps1"
+BASIC_APP_PATH_PLACEHOLDER = "输入绝对路径，或浏览 / 按名称查找本地 .exe / .lnk"
 
 PROFESSIONAL_LOG_HINT = "后台 Command 的标准输出、错误和退出码集中显示在这里。"
 BASIC_LOG_HINT = "应用和网页步骤的运行结果会显示在这里。"
@@ -73,6 +77,14 @@ def empty_steps_hint() -> str:
 
 def application_path_placeholder() -> str:
     return BASIC_APP_PATH_PLACEHOLDER if is_basic_edition_active() else PROFESSIONAL_APP_PATH_PLACEHOLDER
+
+
+def application_lookup_suffixes() -> tuple[str, ...]:
+    """Return the path suffixes keyword lookup may store for this edition."""
+
+    if is_basic_edition_active():
+        return BASIC_LOOKUP_SUFFIXES
+    return PROFESSIONAL_LOOKUP_SUFFIXES
 
 
 def log_hint_text() -> str:

@@ -1083,26 +1083,6 @@
       "allowed_to_remain": true
     },
     {
-      "fingerprint": "f688157bd23bda2094d2",
-      "path": "editor/edition_ui.py",
-      "rule_id": "WIN-ASSET-001",
-      "area": "artifacts",
-      "classification": "platform_adapter_candidate",
-      "reason": "Windows artifact or script suffix",
-      "future_target": "ApplicationLauncher or PackagingBackend",
-      "allowed_to_remain": true
-    },
-    {
-      "fingerprint": "ff539f59375847b4544f",
-      "path": "editor/edition_ui.py",
-      "rule_id": "WIN-ASSET-001",
-      "area": "artifacts",
-      "classification": "platform_adapter_candidate",
-      "reason": "Windows artifact or script suffix",
-      "future_target": "ApplicationLauncher or PackagingBackend",
-      "allowed_to_remain": true
-    },
-    {
       "fingerprint": "a2e69162f22baebedcca",
       "path": "tools/basic_embedded_runner.py",
       "rule_id": "PACK-ONEFILE-001",
@@ -1260,6 +1240,436 @@
       "classification": "allowed_windows_boundary",
       "reason": "Windows user-data path or environment variable",
       "future_target": "PlatformPaths",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "2b6e2a2bbad56426944a",
+      "path": "editor/edition_ui.py",
+      "rule_id": "WIN-ASSET-001",
+      "area": "artifacts",
+      "classification": "platform_adapter_candidate",
+      "reason": "Windows artifact or script suffix",
+      "future_target": "ApplicationLauncher or PackagingBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "5fa9e5285f3e78718375",
+      "path": "editor/edition_ui.py",
+      "rule_id": "WIN-ASSET-001",
+      "area": "artifacts",
+      "classification": "platform_adapter_candidate",
+      "reason": "Windows artifact or script suffix",
+      "future_target": "ApplicationLauncher or PackagingBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "a8f7de55c18d2e50ec24",
+      "path": "shared/platform/application_lookup.py",
+      "rule_id": "WIN-ASSET-001",
+      "area": "artifacts",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows artifact or script suffix",
+      "future_target": "ApplicationLookup",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "db9f53dd93b6350323ef",
+      "path": "shared/platform/application_lookup.py",
+      "rule_id": "WIN-ASSET-001",
+      "area": "artifacts",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows artifact or script suffix",
+      "future_target": "ApplicationLookup",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "c6b090fad295cab19504",
+      "path": "shared/platform/application_lookup.py",
+      "rule_id": "WIN-ASSET-001",
+      "area": "artifacts",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows artifact or script suffix",
+      "future_target": "ApplicationLookup",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "08b1be150943d0affa60",
+      "path": "shared/platform/application_lookup.py",
+      "rule_id": "WIN-ASSET-001",
+      "area": "artifacts",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows artifact or script suffix",
+      "future_target": "ApplicationLookup",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "0a983422d70dc16e3f50",
+      "path": "shared/platform/application_lookup.py",
+      "rule_id": "WIN-ASSET-001",
+      "area": "artifacts",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows artifact or script suffix",
+      "future_target": "ApplicationLookup",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "39d5d0942f21f6c6003c",
+      "path": "shared/platform/application_lookup.py",
+      "rule_id": "WIN-ASSET-001",
+      "area": "artifacts",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows artifact or script suffix",
+      "future_target": "ApplicationLookup",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "b3e1e256cb4a738aca3c",
+      "path": "shared/platform/application_lookup.py",
+      "rule_id": "WIN-ASSET-001",
+      "area": "artifacts",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows artifact or script suffix",
+      "future_target": "ApplicationLookup",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "0d808590cd28603c23c4",
+      "path": "shared/platform/application_lookup.py",
+      "rule_id": "WIN-API-001",
+      "area": "windows-api",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows-only API",
+      "future_target": "ApplicationLookup",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "10666bfbd9df325f29f8",
+      "path": "shared/platform/application_lookup.py",
+      "rule_id": "WIN-API-001",
+      "area": "windows-api",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows-only API",
+      "future_target": "ApplicationLookup",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "998608fe2be4ff49c4f3",
+      "path": "shared/platform/application_lookup.py",
+      "rule_id": "WIN-API-001",
+      "area": "windows-api",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows-only API",
+      "future_target": "ApplicationLookup",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "9dec5b9a6cc6d7d5fdea",
+      "path": "shared/platform/application_lookup.py",
+      "rule_id": "WIN-HWID-001",
+      "area": "hardware-identity",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows-oriented hardware identity source",
+      "future_target": "ApplicationLookup",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "e843b0af2d952771c499",
+      "path": "shared/platform/application_lookup.py",
+      "rule_id": "WIN-API-001",
+      "area": "windows-api",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows-only API",
+      "future_target": "ApplicationLookup",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "aa865c153b8dcbec7a08",
+      "path": "shared/platform/application_lookup.py",
+      "rule_id": "WIN-HWID-001",
+      "area": "hardware-identity",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows-oriented hardware identity source",
+      "future_target": "ApplicationLookup",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "4134c1927b97078ffea2",
+      "path": "shared/platform/application_lookup.py",
+      "rule_id": "WIN-API-001",
+      "area": "windows-api",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows-only API",
+      "future_target": "ApplicationLookup",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "0d808590cd28603c23c4",
+      "path": "shared/platform/application_lookup.py",
+      "rule_id": "WIN-API-001",
+      "area": "windows-api",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows-only API",
+      "future_target": "ApplicationLookup",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "10666bfbd9df325f29f8",
+      "path": "shared/platform/application_lookup.py",
+      "rule_id": "WIN-API-001",
+      "area": "windows-api",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows-only API",
+      "future_target": "ApplicationLookup",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "9b62001010c984598879",
+      "path": "shared/platform/application_lookup.py",
+      "rule_id": "WIN-API-001",
+      "area": "windows-api",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows-only API",
+      "future_target": "ApplicationLookup",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "4a95620bb834d116743f",
+      "path": "shared/platform/application_lookup.py",
+      "rule_id": "WIN-HWID-001",
+      "area": "hardware-identity",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows-oriented hardware identity source",
+      "future_target": "ApplicationLookup",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "6f6bec6bbf52c1f801c5",
+      "path": "shared/platform/application_lookup.py",
+      "rule_id": "WIN-API-001",
+      "area": "windows-api",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows-only API",
+      "future_target": "ApplicationLookup",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "2d588a3ad18c8f2ffb4b",
+      "path": "shared/platform/application_lookup.py",
+      "rule_id": "WIN-HWID-001",
+      "area": "hardware-identity",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows-oriented hardware identity source",
+      "future_target": "ApplicationLookup",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "0af8cfa2d91384a28ef7",
+      "path": "shared/platform/application_lookup.py",
+      "rule_id": "WIN-API-001",
+      "area": "windows-api",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows-only API",
+      "future_target": "ApplicationLookup",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "690496c06175869c2d4d",
+      "path": "shared/platform/application_lookup.py",
+      "rule_id": "WIN-API-001",
+      "area": "windows-api",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows-only API",
+      "future_target": "ApplicationLookup",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "a842d9e2da07a83915a9",
+      "path": "shared/platform/application_lookup.py",
+      "rule_id": "WIN-API-001",
+      "area": "windows-api",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows-only API",
+      "future_target": "ApplicationLookup",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "0d808590cd28603c23c4",
+      "path": "shared/platform/application_lookup.py",
+      "rule_id": "WIN-API-001",
+      "area": "windows-api",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows-only API",
+      "future_target": "ApplicationLookup",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "10666bfbd9df325f29f8",
+      "path": "shared/platform/application_lookup.py",
+      "rule_id": "WIN-API-001",
+      "area": "windows-api",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows-only API",
+      "future_target": "ApplicationLookup",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "f11cc1bf7535a0947721",
+      "path": "shared/platform/application_lookup.py",
+      "rule_id": "WIN-API-001",
+      "area": "windows-api",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows-only API",
+      "future_target": "ApplicationLookup",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "cda78bd9b5fde1bc0be9",
+      "path": "shared/platform/application_lookup.py",
+      "rule_id": "WIN-API-001",
+      "area": "windows-api",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows-only API",
+      "future_target": "ApplicationLookup",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "1e3b4ffca5458dba4a50",
+      "path": "shared/platform/application_lookup.py",
+      "rule_id": "WIN-API-001",
+      "area": "windows-api",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows-only API",
+      "future_target": "ApplicationLookup",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "ff7422eed7c4323bc4ce",
+      "path": "shared/platform/application_lookup.py",
+      "rule_id": "WIN-API-001",
+      "area": "windows-api",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows-only API",
+      "future_target": "ApplicationLookup",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "1ae096adb7244f63bcc0",
+      "path": "shared/platform/application_lookup.py",
+      "rule_id": "WIN-API-001",
+      "area": "windows-api",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows-only API",
+      "future_target": "ApplicationLookup",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "bba16828a97a66eeed9b",
+      "path": "shared/platform/application_lookup.py",
+      "rule_id": "WIN-API-001",
+      "area": "windows-api",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows-only API",
+      "future_target": "ApplicationLookup",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "0d808590cd28603c23c4",
+      "path": "shared/platform/application_lookup.py",
+      "rule_id": "WIN-API-001",
+      "area": "windows-api",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows-only API",
+      "future_target": "ApplicationLookup",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "10666bfbd9df325f29f8",
+      "path": "shared/platform/application_lookup.py",
+      "rule_id": "WIN-API-001",
+      "area": "windows-api",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows-only API",
+      "future_target": "ApplicationLookup",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "f11cc1bf7535a0947721",
+      "path": "shared/platform/application_lookup.py",
+      "rule_id": "WIN-API-001",
+      "area": "windows-api",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows-only API",
+      "future_target": "ApplicationLookup",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "cda78bd9b5fde1bc0be9",
+      "path": "shared/platform/application_lookup.py",
+      "rule_id": "WIN-API-001",
+      "area": "windows-api",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows-only API",
+      "future_target": "ApplicationLookup",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "1e3b4ffca5458dba4a50",
+      "path": "shared/platform/application_lookup.py",
+      "rule_id": "WIN-API-001",
+      "area": "windows-api",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows-only API",
+      "future_target": "ApplicationLookup",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "1ae096adb7244f63bcc0",
+      "path": "shared/platform/application_lookup.py",
+      "rule_id": "WIN-API-001",
+      "area": "windows-api",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows-only API",
+      "future_target": "ApplicationLookup",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "bba16828a97a66eeed9b",
+      "path": "shared/platform/application_lookup.py",
+      "rule_id": "WIN-API-001",
+      "area": "windows-api",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows-only API",
+      "future_target": "ApplicationLookup",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "45c1b11f2a3cfd5efddb",
+      "path": "shared/platform/application_lookup.py",
+      "rule_id": "WIN-API-001",
+      "area": "windows-api",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows-only API",
+      "future_target": "ApplicationLookup",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "0efadd095aacfa240f7a",
+      "path": "shared/platform/application_lookup.py",
+      "rule_id": "WIN-API-001",
+      "area": "windows-api",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows-only API",
+      "future_target": "ApplicationLookup",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "3bf7d58da83848d138bd",
+      "path": "shared/platform/application_lookup.py",
+      "rule_id": "WIN-API-001",
+      "area": "windows-api",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows-only API",
+      "future_target": "ApplicationLookup",
       "allowed_to_remain": true
     }
   ]
