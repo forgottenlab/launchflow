@@ -3,6 +3,8 @@
 The script instantiates the production MainWindow, LogConsole, reorder paint
 layer, history list, and FancyDialog against an isolated data root. It never
 loads a license and never writes to the normal LaunchFlow AppData directory.
+Professional and Basic shots are captured in the same run so the documentation
+shows both editions from the current workbench.
 """
 
 from __future__ import annotations
@@ -18,7 +20,7 @@ ROOT = Path(__file__).resolve().parents[1]
 OUTPUT_DIR = ROOT / "docs" / "images"
 TEMP_ROOT = ROOT.parent / "test" / f"readme-screenshots-{os.getpid()}-{uuid.uuid4().hex}"
 
-os.environ["LAUNCHFLOW_DATA_DIR"] = str(TEMP_ROOT / "data")
+os.environ["LAUNCHFLOW_DATA_DIR"] = str(TEMP_ROOT / "professional-data")
 if sys.platform != "win32":
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 sys.path.insert(0, str(ROOT))
@@ -27,6 +29,10 @@ from PySide6.QtCore import QPoint, Qt  # noqa: E402
 from PySide6.QtGui import QColor, QFont, QFontDatabase, QFontMetrics, QPainter  # noqa: E402
 from PySide6.QtWidgets import QApplication, QLabel  # noqa: E402
 
+from editor.launch import (  # noqa: E402
+    apply_basic_launch_edition,
+    apply_current_product_launch_edition,
+)
 from editor.services.plan_service import PlanService  # noqa: E402
 from editor.ui.log_console import LogKind  # noqa: E402
 from editor.ui.main_window import FancyDialog, MainWindow  # noqa: E402
@@ -34,7 +40,7 @@ from shared.app_logging import reset_app_logger_for_tests  # noqa: E402
 from shared.models import AppStep, CommandStep, Plan, UrlStep, WaitStep  # noqa: E402
 
 
-SCREENSHOT_NAMES = (
+PROFESSIONAL_SCREENSHOT_NAMES = (
     "launchflow-workbench-dark.png",
     "launchflow-workbench-light.png",
     "launchflow-step-reorder.png",
@@ -42,6 +48,11 @@ SCREENSHOT_NAMES = (
     "launchflow-plan-history.png",
     "launchflow-export-workflow.png",
 )
+BASIC_SCREENSHOT_NAMES = (
+    "launchflow-basic-workbench-dark.png",
+    "launchflow-basic-workbench-light.png",
+)
+SCREENSHOT_NAMES = PROFESSIONAL_SCREENSHOT_NAMES + BASIC_SCREENSHOT_NAMES
 
 
 def require(condition: bool, message: str) -> None:
@@ -49,9 +60,39 @@ def require(condition: bool, message: str) -> None:
         raise RuntimeError(message)
 
 
+def set_isolated_data_dir(name: str) -> Path:
+    path = TEMP_ROOT / name
+    path.mkdir(parents=True, exist_ok=True)
+    os.environ["LAUNCHFLOW_DATA_DIR"] = str(path)
+    return path
+
+
+def register_windows_cjk_fonts() -> None:
+    """Load Windows CJK and emoji font files so offscreen Qt can render the workbench."""
+
+    if sys.platform != "win32":
+        return
+    candidates = (
+        Path(r"C:\Windows\Fonts\msyh.ttc"),
+        Path(r"C:\Windows\Fonts\msyhbd.ttc"),
+        Path(r"C:\Windows\Fonts\msyhl.ttc"),
+        Path(r"C:\Windows\Fonts\msyh.ttf"),
+        Path(r"C:\Windows\Fonts\simsun.ttc"),
+        Path(r"C:\Windows\Fonts\simhei.ttf"),
+        Path(r"C:\Windows\Fonts\Deng.ttf"),
+        Path(r"C:\Windows\Fonts\seguiemj.ttf"),
+        Path(r"C:\Windows\Fonts\seguisym.ttf"),
+        Path(r"C:\Windows\Fonts\segoeui.ttf"),
+    )
+    for font_path in candidates:
+        if font_path.is_file():
+            QFontDatabase.addApplicationFont(str(font_path))
+
+
 def configure_chinese_font(app: QApplication) -> str:
     """Select an installed Windows UI font that can render Chinese."""
 
+    register_windows_cjk_fonts()
     families = QFontDatabase.families()
     preferred = (
         "Microsoft YaHei UI",
@@ -98,6 +139,24 @@ def demo_plan(name: str = "每日工作环境") -> Plan:
     )
 
 
+def basic_demo_plan(name: str = "每日工作环境") -> Plan:
+    return Plan(
+        plan_name=name,
+        steps=[
+            AppStep(
+                name="打开文本编辑器",
+                path=r"C:\Windows\System32\notepad.exe",
+                delay_after=1.0,
+            ),
+            UrlStep(
+                name="打开项目主页",
+                url="https://github.com/forgottenlab/launchflow",
+                delay_after=1.0,
+            ),
+        ],
+    )
+
+
 def seed_history(service: PlanService) -> dict[str, Path]:
     plans = {
         "每日工作环境": demo_plan(),
@@ -111,6 +170,43 @@ def seed_history(service: PlanService) -> dict[str, Path]:
         "文档与反馈": Plan(
             plan_name="文档与反馈",
             steps=[UrlStep(name="打开项目主页", url="https://github.com/forgottenlab/launchflow")],
+        ),
+    }
+    paths: dict[str, Path] = {}
+    for name, plan in plans.items():
+        path = service.get_plans_dir() / f"{name}.json"
+        service.save_plan(plan, path)
+        paths[name] = path
+    return paths
+
+
+def seed_basic_history(service: PlanService) -> dict[str, Path]:
+    plans = {
+        "每日工作环境": basic_demo_plan(),
+        "发布前检查": Plan(
+            plan_name="发布前检查",
+            steps=[
+                AppStep(
+                    name="打开文本编辑器",
+                    path=r"C:\Windows\System32\notepad.exe",
+                    delay_after=1.0,
+                ),
+                UrlStep(
+                    name="打开项目主页",
+                    url="https://github.com/forgottenlab/launchflow",
+                    delay_after=1.0,
+                ),
+            ],
+        ),
+        "文档与反馈": Plan(
+            plan_name="文档与反馈",
+            steps=[
+                UrlStep(
+                    name="打开项目主页",
+                    url="https://github.com/forgottenlab/launchflow",
+                    delay_after=1.0,
+                )
+            ],
         ),
     }
     paths: dict[str, Path] = {}
@@ -150,6 +246,21 @@ def populate_logs(window: MainWindow) -> None:
         ("09:30:05", "[退出码] 0", LogKind.EXECUTION),
         ("09:30:05", "[成功] 命令执行完成", LogKind.SUCCESS),
         ("09:30:06", "[等待] 3.0 秒", LogKind.WARNING),
+    )
+    for timestamp, message, kind in entries:
+        window.log_text.append_entry(timestamp, message, kind)
+    window.status_label.setText("状态：试运行完成，所有步骤已执行。")
+
+
+def populate_basic_logs(window: MainWindow) -> None:
+    window.log_text.clear_visible()
+    entries = (
+        ("09:30:00", "工作台已启动。", LogKind.SYSTEM),
+        ("09:30:04", "开始执行方案: 每日工作环境", LogKind.EXECUTION),
+        ("09:30:04", "[执行] 步骤 1: 打开文本编辑器 (app)", LogKind.EXECUTION),
+        ("09:30:04", "[成功] 已启动应用: 打开文本编辑器", LogKind.SUCCESS),
+        ("09:30:05", "[执行] 步骤 2: 打开项目主页 (url)", LogKind.EXECUTION),
+        ("09:30:05", "[成功] 已打开网页: 打开项目主页", LogKind.SUCCESS),
     )
     for timestamp, message, kind in entries:
         window.log_text.append_entry(timestamp, message, kind)
@@ -209,11 +320,15 @@ def capture_export_dialog(window: MainWindow) -> Path:
     return save_pixmap(composed, "launchflow-export-workflow.png", (1200, 760))
 
 
-def _generate_with_isolated_data() -> list[Path]:
-    app = QApplication.instance() or QApplication([])
-    app.setStyle("Fusion")
-    font_family = configure_chinese_font(app)
+def close_window(window: MainWindow) -> None:
+    window.close()
+    QApplication.processEvents()
+    reset_app_logger_for_tests()
 
+
+def _generate_professional(app: QApplication) -> list[Path]:
+    apply_current_product_launch_edition()
+    set_isolated_data_dir("professional-data")
     service = PlanService(ROOT)
     history_paths = seed_history(service)
     plan = demo_plan()
@@ -267,14 +382,47 @@ def _generate_with_isolated_data() -> list[Path]:
         generated.append(save_pixmap(window.grab(), "launchflow-plan-history.png", (1200, 760)))
 
         generated.append(capture_export_dialog(window))
-        print(f"font={font_family}")
-        for path in generated:
-            print(f"screenshot={path.name} size={path.stat().st_size}")
         return generated
     finally:
-        window.close()
-        QApplication.processEvents()
-        reset_app_logger_for_tests()
+        close_window(window)
+
+
+def _generate_basic(app: QApplication) -> list[Path]:
+    apply_basic_launch_edition()
+    set_isolated_data_dir("basic-data")
+    service = PlanService(ROOT)
+    history_paths = seed_basic_history(service)
+    plan = basic_demo_plan()
+    window = MainWindow(ROOT)
+    window.resize(1440, 900)
+    window.show()
+    QApplication.processEvents()
+
+    generated: list[Path] = []
+    try:
+        install_plan(window, plan, history_paths["每日工作环境"], 1)
+        populate_basic_logs(window)
+        window.set_log_layout_state("normal")
+        apply_theme(window, True)
+        generated.append(save_pixmap(window.grab(), "launchflow-basic-workbench-dark.png", (1200, 760)))
+
+        window.flow_list.setCurrentRow(0)
+        apply_theme(window, False)
+        generated.append(save_pixmap(window.grab(), "launchflow-basic-workbench-light.png", (1200, 760)))
+        return generated
+    finally:
+        close_window(window)
+
+
+def _generate_with_isolated_data() -> list[Path]:
+    app = QApplication.instance() or QApplication([])
+    app.setStyle("Fusion")
+    font_family = configure_chinese_font(app)
+    generated = _generate_professional(app) + _generate_basic(app)
+    print(f"font={font_family}")
+    for path in generated:
+        print(f"screenshot={path.name} size={path.stat().st_size}")
+    return generated
 
 
 def generate() -> list[Path]:

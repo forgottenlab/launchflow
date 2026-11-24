@@ -12,7 +12,11 @@ LaunchFlow turns a recurring set of startup actions into an understandable deskt
 
 The project is currently in **Beta**. The latest completed verification checkpoint is **`v0.1.0-beta.2`**, while the application still reports the internal version **`0.1.0-beta`**. The checkpoint identifies the verified archive and release review; the internal value is the version used by the current runtime. LaunchFlow has passed physical Windows GUI checks, Release onefile validation, runtime-data isolation checks, and an exported onefile workflow, but it is not a stable release yet.
 
-![LaunchFlow dark workbench](docs/images/launchflow-workbench-dark.png)
+![LaunchFlow Professional dark workbench](docs/images/launchflow-workbench-dark.png)
+
+> The screenshot above is the Professional workbench, with Application, URL, Command, and Wait steps. The next image is the Basic workbench in the same layout: only Application and URL steps, and no activation window at startup.
+
+![LaunchFlow Basic dark workbench](docs/images/launchflow-basic-workbench-dark.png)
 
 ## ✨ Why LaunchFlow
 
@@ -49,9 +53,11 @@ There are no language-specific Python, Java, or Node steps. In Professional, use
 
 ## 🖥️ Workbench
 
-The workbench combines the plan header, step list, property editor, and runtime log. Selecting a card opens the settings for that step. Adding a step enters the same state immediately, so its name and parameters can be edited without selecting it a second time. The light theme uses the same information architecture and control locations.
+The workbench combines the plan header, step list, property editor, and runtime log. Selecting a card opens the settings for that step. Adding a step enters the same state immediately, so its name and parameters can be edited without selecting it a second time. The light theme uses the same information architecture and control locations. The first image below is the Professional light workbench; the second is the Basic light workbench, whose property panel does not offer application arguments or custom delays.
 
-![LaunchFlow light workbench](docs/images/launchflow-workbench-light.png)
+![LaunchFlow Professional light workbench](docs/images/launchflow-workbench-light.png)
+
+![LaunchFlow Basic light workbench](docs/images/launchflow-basic-workbench-light.png)
 
 Keyboard commands, menu entries, and toolbar buttons share the same action handlers. Saving from a shortcut therefore has the same behavior and validation as saving from the menu.
 
@@ -67,13 +73,13 @@ Keyboard commands, menu entries, and toolbar buttons share the same action handl
 
 Drag a step card to change execution order. During the drag, the editor shows a light source-position marker, one card preview, a clear insertion line, and a message describing the destination position. Drop zones extend to the first and last positions. Reordering changes only the order of existing steps; it does not convert step types or alter the plan schema.
 
-![Step drag and reorder interaction](docs/images/launchflow-step-reorder.png)
+![Professional step drag and reorder interaction](docs/images/launchflow-step-reorder.png)
 
 ## 📜 Run Console and Logs
 
 Select Run or press `Ctrl+R` to execute the plan from top to bottom. The log drawer presents startup, execution, output, wait, success, and failure events in one place. It can be collapsed, restored, and cleared. Its side tools collapse responsively when the available window height is limited, avoiding clipped half-buttons.
 
-![Run and output log console](docs/images/launchflow-log-console.png)
+![Professional run and output log console](docs/images/launchflow-log-console.png)
 
 Command steps run in the background without opening a console window, but the original diagnostic information is retained. When Windows returns `9009`, LaunchFlow keeps the return code and stderr and also explains that the executable command could not be found and that installation or PATH should be checked. Missing target files and insufficient permission receive similarly direct explanations. The raw `command`, `returncode`, `stdout`, and `stderr` remain available rather than being replaced by the friendly message.
 
@@ -83,7 +89,7 @@ An Application step launches an external process and continues without waiting f
 
 Plans are JSON files saved at a location selected by the user. The Recent Plans menu lists plans that were opened or saved recently. Selecting an entry opens it with one click, while cleaning a stale history entry does not delete the actual plan file.
 
-![Recent plan history](docs/images/launchflow-plan-history.png)
+![Professional recent plan history](docs/images/launchflow-plan-history.png)
 
 The current product path (`python -m editor.main` or `LaunchFlow.exe`) stores its own settings, logs, license state, and recent-plan metadata under `%LOCALAPPDATA%\LaunchFlow`. The Basic entry (`python -m editor.main_basic`) uses a separate `%LOCALAPPDATA%\LaunchFlow-Basic` tree and does not read or migrate Professional data. Automated checks can point `LAUNCHFLOW_DATA_DIR` to an isolated location, but that override must not be used to make Basic write into the Professional directory. Normal operation does not create mutable data folders beside the source tree, in the current working directory, on the desktop, or next to a packaged EXE.
 
@@ -99,11 +105,15 @@ The repository now contains Professional and Basic implementation paths. That do
 
 Developer mode uses `tools/run_editor_dev.ps1` (`LaunchFlow-Dev`) and `tools/run_editor_basic_dev.ps1` (`LaunchFlow-Basic-Dev`). The default `python tools/build_editor_release.py` command still packages only Professional; Basic requires an explicit `--edition basic`. Until a public Basic release exists, do not treat the second source entry as a shipping installer.
 
+![LaunchFlow Basic dark workbench](docs/images/launchflow-basic-workbench-dark.png)
+
+> The Basic workbench shares the Professional layout, but the title reads “LaunchFlow Basic 工作台”, the step buttons are only “+ 应用” and “+ 网页”, and there is no license or activation UI. The dark and light comparison images earlier in this README show both editions.
+
 ## 📦 Exporting a Windows Launcher
 
 After a successful test run, choose Export EXE or press `Ctrl+E`. The export dialog presents the destination, output name, plan summary, bundled-file review, and build state. It keeps the plan visible behind the focused dialog, allowing the user to cancel and correct the workflow before starting a build.
 
-![Export workflow](docs/images/launchflow-export-workflow.png)
+![Professional export workflow](docs/images/launchflow-export-workflow.png)
 
 The result is a Windows onefile launcher created for the current plan. It contains the runner code needed to read that plan and the embedded plan data, but it does not automatically bundle every third-party runtime. A launcher exported from the Professional entry still includes Command and Wait; a launcher exported from the Basic entry uses a restricted runner that does not include those capabilities:
 
@@ -199,7 +209,7 @@ python tools/validate_release_data_isolation.py
 python tools/validate_export_smoke.py
 ```
 
-Run `python tools/generate_readme_screenshots.py` to reproduce the documentation images. The script instantiates the production window and widgets, uses an isolated data directory, reads or creates no license, and verifies that all six PNG files were written. Automated image generation is not a substitute for physical keyboard, pointer, scaling, and packaged-EXE checks; release review should still include real Windows desktop interaction.
+Run `python tools/generate_readme_screenshots.py` to reproduce the documentation images. The script instantiates the production window and widgets, uses an isolated data directory, reads or creates no license, and writes both the Professional and Basic workbench screenshots. Automated image generation is not a substitute for physical keyboard, pointer, scaling, and packaged-EXE checks; release review should still include real Windows desktop interaction.
 
 ## ⚠️ Current Limitations
 

@@ -17,6 +17,8 @@ IMAGE_NAMES = (
     "launchflow-log-console.png",
     "launchflow-plan-history.png",
     "launchflow-export-workflow.png",
+    "launchflow-basic-workbench-dark.png",
+    "launchflow-basic-workbench-light.png",
 )
 
 
@@ -122,10 +124,15 @@ def main() -> int:
         for text in texts.values():
             require(f"docs/images/{name}" in text, f"screenshot is not used by both READMEs: {name}")
     require(len(image_hashes) == len(IMAGE_NAMES), "README screenshots are not visually distinct files")
+    for readme, text in texts.items():
+        require(
+            "LaunchFlow Professional" in text and "LaunchFlow Basic" in text,
+            f"edition screenshot labels missing in {readme}",
+        )
 
     print("readme docs smoke ok")
     print("languages=zh-CN,en")
-    print("screenshots=6,distinct,png,feature-sized")
+    print("screenshots=8,distinct,png,feature-sized")
     print("public-paths=local-machine-paths-absent")
     print("placeholders=absent")
     print("acknowledgements=absent")

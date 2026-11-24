@@ -12,7 +12,11 @@ LaunchFlow 为每天都要重复执行的一组启动操作提供一个直观的
 
 项目当前处于 **Beta** 阶段。最新完成验证的检查点是 **`v0.1.0-beta.2`**；应用内部版本仍为 **`0.1.0-beta`**。前者用于标记本轮发布验证和归档，后者是当前程序显示与运行时使用的版本号。LaunchFlow 已通过真实 Windows 桌面交互、Release onefile、数据隔离和导出 onefile 验证，但尚未达到稳定版承诺。
 
-![LaunchFlow 深色工作台](docs/images/launchflow-workbench-dark.png)
+![LaunchFlow Professional 深色工作台](docs/images/launchflow-workbench-dark.png)
+
+> 上图为 Professional 工作台，包含应用、网页、命令和等待四种步骤。下图是同样布局的 Basic 工作台：只保留应用和网页步骤，启动时不出现激活页。
+
+![LaunchFlow Basic 深色工作台](docs/images/launchflow-basic-workbench-dark.png)
 
 ## ✨ 为什么做 LaunchFlow
 
@@ -49,9 +53,11 @@ LaunchFlow 有意保持小而通用的步骤模型。Professional / 当前默认
 
 ## 🖥️ 工作台
 
-工作台由方案标题区、步骤列表、属性编辑区和运行日志组成。选中卡片后，右侧会显示当前步骤的名称与参数；新增步骤会立即进入同样的编辑状态，不需要再点一次列表。浅色主题保留相同的信息架构和操作位置。
+工作台由方案标题区、步骤列表、属性编辑区和运行日志组成。选中卡片后，右侧会显示当前步骤的名称与参数；新增步骤会立即进入同样的编辑状态，不需要再点一次列表。浅色主题保留相同的信息架构和操作位置。下图是 Professional 浅色工作台；再下一张是 Basic 浅色工作台，属性区不提供启动参数和自定义间隔。
 
-![LaunchFlow 浅色工作台](docs/images/launchflow-workbench-light.png)
+![LaunchFlow Professional 浅色工作台](docs/images/launchflow-workbench-light.png)
+
+![LaunchFlow Basic 浅色工作台](docs/images/launchflow-basic-workbench-light.png)
 
 常用键盘操作与菜单、按钮共享同一处理函数，因此不会出现“按钮能保存、快捷键却走另一套逻辑”的差异：
 
@@ -67,13 +73,13 @@ LaunchFlow 有意保持小而通用的步骤模型。Professional / 当前默认
 
 拖动步骤卡片即可改变执行顺序。拖动过程中，工作台会显示源位置占位、单一卡片预览和明确的插入线，并提示松开后将放到第几位。首位与末位也有可投放区域。排序只改变现有步骤的顺序，不会转换步骤类型，也不会修改方案 schema。
 
-![步骤拖拽排序](docs/images/launchflow-step-reorder.png)
+![Professional 步骤拖拽排序](docs/images/launchflow-step-reorder.png)
 
 ## 📜 运行与日志
 
 点击“试运行”或按 `Ctrl+R` 后，LaunchFlow 按列表顺序执行方案。日志抽屉集中显示启动、执行、输出、等待、成功和失败状态；它可以折叠、恢复和清空，并在窗口高度有限时自动收纳右侧工具。
 
-![运行与输出日志](docs/images/launchflow-log-console.png)
+![Professional 运行与输出日志](docs/images/launchflow-log-console.png)
 
 Command 在后台以无控制台窗口方式运行，界面仍会保留原始诊断信息。若 Windows 返回 `9009`，日志会在保留退出码和 stderr 的同时提示“未找到可执行命令，请检查程序是否安装或是否加入 PATH。”；找不到目标文件或权限不足时也会显示对应的友好说明。原始 `command`、`returncode`、`stdout`、`stderr` 不会被隐藏。
 
@@ -83,7 +89,7 @@ Application 步骤用于启动外部程序，本身不等待外部程序退出�
 
 方案以 JSON 文件保存，用户可以自由选择保存位置。菜单中的“最近方案”会列出最近打开或保存过的方案；单击条目即可打开，清理失效记录不会删除原始方案文件。
 
-![最近方案记录](docs/images/launchflow-plan-history.png)
+![Professional 最近方案记录](docs/images/launchflow-plan-history.png)
 
 当前产品路径（`python -m editor.main` 或 `LaunchFlow.exe`）会把应用自身的设置、日志、许可和最近记录放在 `%LOCALAPPDATA%\LaunchFlow`。Basic 入口（`python -m editor.main_basic`）使用相互隔离的 `%LOCALAPPDATA%\LaunchFlow-Basic`，不会读取或迁移 Professional 数据。测试和自动化可以通过 `LAUNCHFLOW_DATA_DIR` 指向隔离目录，但该覆盖不能用来让 Basic 写入 Professional 目录。程序不会默认在源码目录、当前工作目录、桌面或 EXE 旁边创建可变数据文件夹。
 
@@ -99,11 +105,15 @@ Application 步骤用于启动外部程序，本身不等待外部程序退出�
 
 开发模式分别使用 `tools/run_editor_dev.ps1`（`LaunchFlow-Dev`）和 `tools/run_editor_basic_dev.ps1`（`LaunchFlow-Basic-Dev`）。默认的 `python tools/build_editor_release.py` 仍然只打包 Professional；Basic 需要显式加上 `--edition basic`。在公开发布 Basic 之前，请不要把源码里的第二条入口当成已经上线的安装包。
 
+![LaunchFlow Basic 深色工作台](docs/images/launchflow-basic-workbench-dark.png)
+
+> Basic 工作台与 Professional 共用同一界面结构，但标题为 “LaunchFlow Basic 工作台”，步骤按钮只剩「+ 应用」和「+ 网页」，也没有许可证或激活界面。上文的深色和浅色对照图分别展示了两个版本。
+
 ## 📦 导出 Windows 启动器
 
 完成试运行后，可点击“导出 EXE”或按 `Ctrl+E`。导出对话框会展示输出目录、文件名、方案步骤摘要、携带文件检查以及构建状态。真正开始构建前，用户仍有机会返回编辑器修正方案。
 
-![导出工作流](docs/images/launchflow-export-workflow.png)
+![Professional 导出工作流](docs/images/launchflow-export-workflow.png)
 
 导出的启动器是针对当前方案生成的 Windows onefile 程序。它包含运行该方案所需的启动器代码和方案数据，但不会自动捆绑所有第三方运行环境。Professional 入口导出的运行器仍包含 Command 与 Wait；从 Basic 入口导出时，会改用一份不含这些能力的受限运行器：
 
@@ -199,7 +209,7 @@ python tools/validate_release_data_isolation.py
 python tools/validate_export_smoke.py
 ```
 
-真实截图可通过 `python tools/generate_readme_screenshots.py` 重新生成。该脚本实例化正式窗口和控件，使用隔离数据目录，不读取或创建许可证，并验证六个 PNG 均已成功写入。截图生成不能替代物理桌面的键盘、鼠标和缩放检查；发布检查仍应包含实际 Windows GUI 交互和打包 EXE 验证。
+真实截图可通过 `python tools/generate_readme_screenshots.py` 重新生成。该脚本实例化正式窗口和控件，使用隔离数据目录，不读取或创建许可证，并分别生成 Professional 与 Basic 工作台截图。截图生成不能替代物理桌面的键盘、鼠标和缩放检查；发布检查仍应包含实际 Windows GUI 交互和打包 EXE 验证。
 
 ## ⚠️ 当前限制
 

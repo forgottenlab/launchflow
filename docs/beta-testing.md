@@ -35,8 +35,8 @@
 2. 点击 **复制申请码**
 3. 将申请码通过邮件发送给作者
 
-![激活页面](images/activation-window.png)
-> 当前授权生成流程以申请码为准，申请码中已经包含设备绑定信息。
+![Professional 离线激活页面](images/activation-window.png)
+> 这是 Professional / 当前公开 Beta 路径的离线激活页。Basic 启动时不显示该窗口，也不要求许可证。当前授权生成流程以申请码为准，申请码中已经包含设备绑定信息。
 
 当前申请码以 `LFREQ1.` 开头，自动包含客户端版本和唯一申请 ID。它使用 Base64URL 方便复制并带校验和识别文本损坏，但不是加密；申请码中不包含私钥或 license 签名。
 ---
@@ -85,7 +85,7 @@ TEST-0001.lic
 授权有效，可进入工作台
 ```
 
-![激活成功状态页](images/activation-success.png)
+![Professional 激活成功状态页](images/activation-success.png)
 
 此时点击 **进入工作台** 即可开始使用。
 
@@ -292,7 +292,7 @@ TEST-0001.lic
 
 - `README.md` 是完整简体中文入口，`README_EN.md` 是独立英文入口；两者均在首行区域提供语言切换。
 - 文档明确区分已验证检查点 `v0.1.0-beta.2` 与程序内部版本 `0.1.0-beta`，不把 Beta 描述为稳定版。
-- 六张公开截图由 `tools/generate_readme_screenshots.py` 实例化正式窗口和控件生成，使用隔离数据目录且不读取或创建许可证。
+- 公开 README 截图由 `tools/generate_readme_screenshots.py` 实例化正式窗口和控件生成，使用隔离数据目录且不读取或创建许可证，并同时覆盖 Professional 与 Basic 工作台。
 - `tools/check_readme_docs_smoke.py` 检查截图尺寸与唯一性、双语引用、本地链接、公开路径、敏感请求内容和残留占位文案。
 - 截图脚本使用真实 Windows 中文字体渲染；它用于可重复文档采集，不替代物理鼠标、键盘、系统主题和打包 EXE 验证。
 
