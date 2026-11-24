@@ -1,0 +1,17 @@
+{
+  "plan_name": "Phase0 Basic Valid Single EXE",
+  "version": "1.0.0",
+  "steps": [
+    {
+      "id": "step-bvs001",
+      "type": "app",
+      "name": "Synthetic Editor",
+      "enabled": true,
+      "delay_after": 1.0,
+      "path": "C:\\LaunchFlow-Synthetic\\Apps\\Editor.exe",
+      "args": [],
+      "working_dir": "",
+      "start_minimized": false
+    }
+  ]
+}

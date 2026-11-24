@@ -1,0 +1,17 @@
+{
+  "plan_name": "Phase0 Basic Invalid LNK",
+  "version": "1.0.0",
+  "steps": [
+    {
+      "id": "step-bil001",
+      "type": "app",
+      "name": "Broken Shortcut",
+      "enabled": true,
+      "delay_after": 1.0,
+      "path": "C:\\LaunchFlow-Synthetic\\Shortcuts\\Broken.lnk",
+      "args": [],
+      "working_dir": "",
+      "start_minimized": false
+    }
+  ]
+}

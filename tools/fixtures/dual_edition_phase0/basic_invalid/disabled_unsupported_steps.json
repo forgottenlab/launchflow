@@ -1,0 +1,36 @@
+{
+  "plan_name": "Phase0 Basic Invalid Disabled Unsupported Steps",
+  "version": "1.0.0",
+  "steps": [
+    {
+      "id": "step-bdu001",
+      "type": "app",
+      "name": "Synthetic Editor",
+      "enabled": true,
+      "delay_after": 1.0,
+      "path": "C:\\LaunchFlow-Synthetic\\Apps\\Editor.exe",
+      "args": [],
+      "working_dir": "",
+      "start_minimized": false
+    },
+    {
+      "id": "step-bdu002",
+      "type": "command",
+      "name": "Disabled Command",
+      "enabled": false,
+      "delay_after": 1.0,
+      "command": "echo hidden",
+      "shell": "cmd",
+      "working_dir": "",
+      "new_window": true
+    },
+    {
+      "id": "step-bdu003",
+      "type": "wait",
+      "name": "Disabled Wait",
+      "enabled": false,
+      "delay_after": 0.0,
+      "seconds": 5.0
+    }
+  ]
+}

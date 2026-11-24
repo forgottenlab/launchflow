@@ -1,0 +1,28 @@
+{
+  "plan_name": "Phase0 Basic Invalid Command Step",
+  "version": "1.0.0",
+  "steps": [
+    {
+      "id": "step-bic001",
+      "type": "app",
+      "name": "Synthetic Editor",
+      "enabled": true,
+      "delay_after": 1.0,
+      "path": "C:\\LaunchFlow-Synthetic\\Apps\\Editor.exe",
+      "args": [],
+      "working_dir": "",
+      "start_minimized": false
+    },
+    {
+      "id": "step-bic002",
+      "type": "command",
+      "name": "Synthetic Command",
+      "enabled": true,
+      "delay_after": 1.0,
+      "command": "echo launchflow-phase0-synthetic",
+      "shell": "cmd",
+      "working_dir": "",
+      "new_window": true
+    }
+  ]
+}

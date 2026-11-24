@@ -1,0 +1,28 @@
+{
+  "plan_name": "Phase0 Professional Existing Command Configuration",
+  "version": "1.0.0",
+  "steps": [
+    {
+      "id": "step-pcc001",
+      "type": "command",
+      "name": "CMD Status",
+      "enabled": true,
+      "delay_after": 1.0,
+      "command": "echo cmd-ok",
+      "shell": "cmd",
+      "working_dir": "C:\\LaunchFlow-Synthetic\\Work",
+      "new_window": true
+    },
+    {
+      "id": "step-pcc002",
+      "type": "command",
+      "name": "PowerShell Status",
+      "enabled": true,
+      "delay_after": 0.5,
+      "command": "Write-Output 'ps-ok'",
+      "shell": "powershell",
+      "working_dir": "",
+      "new_window": false
+    }
+  ]
+}

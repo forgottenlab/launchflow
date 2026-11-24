@@ -1,0 +1,48 @@
+{
+  "plan_name": "Phase0 Professional Existing Plan Round Trip",
+  "version": "1.0.0",
+  "steps": [
+    {
+      "id": "step-prt001",
+      "type": "app",
+      "name": "Roundtrip EXE",
+      "enabled": true,
+      "delay_after": 2.5,
+      "path": "C:\\LaunchFlow-Synthetic\\Apps\\Editor.exe",
+      "args": [
+        "a",
+        "b"
+      ],
+      "working_dir": "C:\\LaunchFlow-Synthetic\\Work",
+      "start_minimized": true
+    },
+    {
+      "id": "step-prt002",
+      "type": "url",
+      "name": "Roundtrip URL",
+      "enabled": true,
+      "delay_after": 0.0,
+      "url": "https://example.com/professional-roundtrip",
+      "browser_path": "C:\\LaunchFlow-Synthetic\\Browsers\\FakeBrowser.exe"
+    },
+    {
+      "id": "step-prt003",
+      "type": "command",
+      "name": "Roundtrip PowerShell",
+      "enabled": true,
+      "delay_after": 3.0,
+      "command": "Get-Location",
+      "shell": "powershell",
+      "working_dir": "C:\\LaunchFlow-Synthetic\\Work",
+      "new_window": false
+    },
+    {
+      "id": "step-prt004",
+      "type": "wait",
+      "name": "Roundtrip Wait",
+      "enabled": true,
+      "delay_after": 0.0,
+      "seconds": 0.0
+    }
+  ]
+}

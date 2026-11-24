@@ -1,0 +1,34 @@
+{
+  "plan_name": "Phase0 Professional Existing Wait Behavior",
+  "version": "1.0.0",
+  "steps": [
+    {
+      "id": "step-pwb001",
+      "type": "app",
+      "name": "Synthetic Editor",
+      "enabled": true,
+      "delay_after": 0.25,
+      "path": "C:\\LaunchFlow-Synthetic\\Apps\\Editor.exe",
+      "args": [],
+      "working_dir": "",
+      "start_minimized": false
+    },
+    {
+      "id": "step-pwb002",
+      "type": "wait",
+      "name": "Hold",
+      "enabled": true,
+      "delay_after": 0.0,
+      "seconds": 4.5
+    },
+    {
+      "id": "step-pwb003",
+      "type": "url",
+      "name": "Synthetic HTTPS Site",
+      "enabled": true,
+      "delay_after": 0.0,
+      "url": "https://example.com/launchflow-basic",
+      "browser_path": ""
+    }
+  ]
+}

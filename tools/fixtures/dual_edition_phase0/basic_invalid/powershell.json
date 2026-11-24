@@ -1,0 +1,17 @@
+{
+  "plan_name": "Phase0 Basic Invalid PowerShell",
+  "version": "1.0.0",
+  "steps": [
+    {
+      "id": "step-bip001",
+      "type": "command",
+      "name": "Synthetic PowerShell",
+      "enabled": true,
+      "delay_after": 1.0,
+      "command": "Get-Date",
+      "shell": "powershell",
+      "working_dir": "",
+      "new_window": true
+    }
+  ]
+}

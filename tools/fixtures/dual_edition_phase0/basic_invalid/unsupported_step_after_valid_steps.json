@@ -1,0 +1,34 @@
+{
+  "plan_name": "Phase0 Basic Invalid Unsupported Step After Valid Steps",
+  "version": "1.0.0",
+  "steps": [
+    {
+      "id": "step-bua001",
+      "type": "app",
+      "name": "Synthetic Editor",
+      "enabled": true,
+      "delay_after": 1.0,
+      "path": "C:\\LaunchFlow-Synthetic\\Apps\\Editor.exe",
+      "args": [],
+      "working_dir": "",
+      "start_minimized": false
+    },
+    {
+      "id": "step-bua002",
+      "type": "url",
+      "name": "Synthetic HTTPS Site",
+      "enabled": true,
+      "delay_after": 1.0,
+      "url": "https://example.com/launchflow-basic",
+      "browser_path": ""
+    },
+    {
+      "id": "step-bua003",
+      "type": "wait",
+      "name": "Trailing Wait",
+      "enabled": true,
+      "delay_after": 0.0,
+      "seconds": 1.0
+    }
+  ]
+}

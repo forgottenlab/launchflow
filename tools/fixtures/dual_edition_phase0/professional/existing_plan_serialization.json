@@ -1,0 +1,47 @@
+{
+  "plan_name": "Phase0 Professional Existing Plan Serialization",
+  "version": "1.0.0",
+  "steps": [
+    {
+      "id": "step-pps001",
+      "type": "app",
+      "name": "Synthetic Editor",
+      "enabled": true,
+      "delay_after": 1.0,
+      "path": "C:\\LaunchFlow-Synthetic\\Apps\\Editor.exe",
+      "args": [
+        "--serialize"
+      ],
+      "working_dir": "C:\\LaunchFlow-Synthetic\\Work",
+      "start_minimized": false
+    },
+    {
+      "id": "step-pps002",
+      "type": "url",
+      "name": "Synthetic HTTP Site",
+      "enabled": true,
+      "delay_after": 1.0,
+      "url": "http://example.com/launchflow-basic",
+      "browser_path": ""
+    },
+    {
+      "id": "step-pps003",
+      "type": "command",
+      "name": "CMD Serialize",
+      "enabled": true,
+      "delay_after": 1.0,
+      "command": "echo serialize",
+      "shell": "cmd",
+      "working_dir": "",
+      "new_window": true
+    },
+    {
+      "id": "step-pps004",
+      "type": "wait",
+      "name": "Wait Serialize",
+      "enabled": true,
+      "delay_after": 0.0,
+      "seconds": 1.0
+    }
+  ]
+}

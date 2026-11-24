@@ -1,0 +1,48 @@
+{
+  "plan_name": "Phase0 Professional Four Step Plan",
+  "version": "1.0.0",
+  "steps": [
+    {
+      "id": "step-p4s001",
+      "type": "app",
+      "name": "Advanced Editor",
+      "enabled": true,
+      "delay_after": 0.5,
+      "path": "C:\\LaunchFlow-Synthetic\\Apps\\Editor.exe",
+      "args": [
+        "--profile",
+        "synth"
+      ],
+      "working_dir": "C:\\LaunchFlow-Synthetic\\Work",
+      "start_minimized": true
+    },
+    {
+      "id": "step-p4s002",
+      "type": "url",
+      "name": "Custom Browser Site",
+      "enabled": true,
+      "delay_after": 2.0,
+      "url": "https://example.com/launchflow-basic",
+      "browser_path": "C:\\LaunchFlow-Synthetic\\Browsers\\FakeBrowser.exe"
+    },
+    {
+      "id": "step-p4s003",
+      "type": "command",
+      "name": "CMD Listing",
+      "enabled": true,
+      "delay_after": 1.5,
+      "command": "echo professional-four-step",
+      "shell": "cmd",
+      "working_dir": "C:\\LaunchFlow-Synthetic\\Work",
+      "new_window": true
+    },
+    {
+      "id": "step-p4s004",
+      "type": "wait",
+      "name": "Pause",
+      "enabled": true,
+      "delay_after": 0.0,
+      "seconds": 3.0
+    }
+  ]
+}

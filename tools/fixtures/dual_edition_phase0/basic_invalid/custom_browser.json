@@ -1,0 +1,15 @@
+{
+  "plan_name": "Phase0 Basic Invalid Custom Browser",
+  "version": "1.0.0",
+  "steps": [
+    {
+      "id": "step-bib001",
+      "type": "url",
+      "name": "Synthetic HTTPS Site",
+      "enabled": true,
+      "delay_after": 1.0,
+      "url": "https://example.com/launchflow-basic",
+      "browser_path": "C:\\LaunchFlow-Synthetic\\Browsers\\FakeBrowser.exe"
+    }
+  ]
+}

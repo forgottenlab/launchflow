@@ -1,0 +1,17 @@
+{
+  "plan_name": "Phase0 Basic Invalid Non Empty Working Directory",
+  "version": "1.0.0",
+  "steps": [
+    {
+      "id": "step-biwd01",
+      "type": "app",
+      "name": "Synthetic Editor",
+      "enabled": true,
+      "delay_after": 1.0,
+      "path": "C:\\LaunchFlow-Synthetic\\Apps\\Editor.exe",
+      "args": [],
+      "working_dir": "C:\\LaunchFlow-Synthetic\\Work",
+      "start_minimized": false
+    }
+  ]
+}

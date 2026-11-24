@@ -1,0 +1,58 @@
+{
+  "description": "Synthetic LNK resolution table for Phase 0 contract tests only. Not a production schema and not a real user shortcut database.",
+  "paths": {
+    "C:\\LaunchFlow-Synthetic\\Shortcuts\\Editor.lnk": {
+      "status": "resolved",
+      "target": "C:\\LaunchFlow-Synthetic\\Apps\\Editor.exe",
+      "target_exists": true,
+      "target_kind": "executable",
+      "arguments": [],
+      "working_dir": "",
+      "is_network_target": false,
+      "is_local_exe": true
+    },
+    "C:\\LaunchFlow-Synthetic\\Shortcuts\\Broken.lnk": {
+      "status": "unresolved",
+      "reason": "shortcut_target_missing",
+      "target": "",
+      "target_exists": false,
+      "target_kind": "missing",
+      "arguments": [],
+      "working_dir": "",
+      "is_network_target": false,
+      "is_local_exe": false
+    },
+    "C:\\LaunchFlow-Synthetic\\Shortcuts\\EditorWithArgs.lnk": {
+      "status": "resolved",
+      "target": "C:\\LaunchFlow-Synthetic\\Apps\\Editor.exe",
+      "target_exists": true,
+      "target_kind": "executable",
+      "arguments": [
+        "--synthetic-flag"
+      ],
+      "working_dir": "",
+      "is_network_target": false,
+      "is_local_exe": true
+    },
+    "C:\\LaunchFlow-Synthetic\\Shortcuts\\RunScript.lnk": {
+      "status": "resolved",
+      "target": "C:\\LaunchFlow-Synthetic\\Apps\\bootstrap.ps1",
+      "target_exists": true,
+      "target_kind": "powershell_script",
+      "arguments": [],
+      "working_dir": "",
+      "is_network_target": false,
+      "is_local_exe": false
+    },
+    "C:\\LaunchFlow-Synthetic\\Shortcuts\\NetworkApp.lnk": {
+      "status": "resolved",
+      "target": "\\\\fileserver.example.test\\share\\Tools\\Editor.exe",
+      "target_exists": true,
+      "target_kind": "executable",
+      "arguments": [],
+      "working_dir": "",
+      "is_network_target": true,
+      "is_local_exe": false
+    }
+  }
+}
