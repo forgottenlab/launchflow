@@ -14,6 +14,8 @@ LaunchFlow 的核心目标是：
 - 在需要时导出为独立启动程序
 - 通过离线激活机制控制测试版分发
 
+产品现为同一代码库上的两个独立分发版本：Basic 与 Professional，二者都可以导出独立 exe。上面的离线激活适用于 Professional / 当前默认产品入口；Basic 启动时不要求激活。默认未设置的 edition context 仍然走 Professional / 单一产品路径。细节见第 29 节。
+
 ---
 
 ## 2. 总体架构
@@ -47,6 +49,11 @@ LaunchFlow 的核心目标是：
 - `editor/ui/main_window.py`
 - `editor/ui/activation_window.py`
 - `editor/services/plan_service.py`
+- `editor/main_basic.py`
+- `editor/launch.py`
+- `editor/edition_ui.py`
+
+Professional 与 Basic 共用 `MainWindow`；Basic 只按版本隐藏或拒绝 Professional-only 能力，见第 29 节。
 
 ---
 
@@ -67,6 +74,8 @@ LaunchFlow 的核心目标是：
 - `shared/plan_schema.py`
 - `shared/utils.py`
 - `shared/app_info.py`
+- `shared/edition_policy.py`
+- `shared/basic_policy.py`
 
 ---
 
@@ -131,6 +140,10 @@ LaunchFlow 的核心目标是：
 - `tools/build_single_exe.py`
 - `tools/generate_keys.py`
 - `tools/license_generator.py`
+- `tools/basic_embedded_runner.py`
+- `tools/run_editor_basic_dev.ps1`
+
+默认编辑器打包入口仍是 `LaunchFlow.exe` / `editor/main.py`；Basic 需要显式 `--edition basic`。
 
 ---
 
@@ -156,6 +169,8 @@ LaunchFlow 的核心目标是：
 - `UrlStep`
 - `CommandStep`
 - `WaitStep`
+
+这四类步骤都属于 Professional / 当前默认入口的能力集。Basic 工作台只提供 Application 与 http/https URL，见第 29 节。
 
 公共字段：
 
@@ -210,6 +225,8 @@ LaunchFlow 的核心目标是：
 - 发布版编辑器内导出依赖目标机器存在可用的 PyInstaller 构建器
 - 便于分发与使用
 
+Professional 与 Basic 都可以导出独立 exe。上面关于 `.bat` / `.cmd` / `.ps1` 随包携带以及既有 `.lnk` 处理的说明，描述的是 Professional 不变的 `EMBEDDED_TEMPLATE`。Basic 使用受限运行器：只打包本地 `.exe`，并把经过校验的 `.lnk` 解析为本地 exe 进程启动，不会嵌入 Command、Wait、脚本应用或未校验的快捷方式 shell-open 行为。编辑器启动时会检查 Professional 许可证，但 `build_single_file_exe()` 仍可在不再次检查许可证的情况下被直接调用；是否应补上导出授权闸门仍是未决问题，不能把导出 exe 写成 Professional 独有能力。
+
 ---
 
 ### 5.4 激活流程
@@ -222,6 +239,8 @@ LaunchFlow 的核心目标是：
 6. 程序验证签名、机器码和到期时间
 7. 校验通过后进入工作台
 
+上述激活流程适用于 `python -m editor.main` / `LaunchFlow.exe`。`python -m editor.main_basic` / `LaunchFlow-Basic.exe` 启动时不检查许可证，也不运行面向 Professional 数据的旧版迁移。
+
 ---
 
 ## 6. 路径策略
@@ -230,6 +249,7 @@ LaunchFlow 的核心目标是：
 
 - `shared/app_paths.py` 是可变路径的单一来源。
 - Windows 默认根目录为 `%LOCALAPPDATA%\LaunchFlow`。
+- 该默认根属于 Professional / 当前产品入口；开发模式为 `%LOCALAPPDATA%\LaunchFlow-Dev`。Basic 使用 `%LOCALAPPDATA%\LaunchFlow-Basic`（开发模式为 `LaunchFlow-Basic-Dev`），不得探测、迁移或回退到 Professional 数据。若 Basic 的覆盖目录解析到 Professional 默认根，必须失败关闭。
 - `config/` 保存现有主题与偏好；`data/` 保存可写模板副本；`licenses/` 保存固定的 `license.lic`；`plans/` 保存方案；`logs/` 保存有界滚动日志；`cache/` 与 `temp/` 保存构建缓存和临时数据。
 - 源码与 PyInstaller onefile 使用相同的可变数据根；cwd、`sys.executable` 所在位置和 `_MEIPASS` 都不能成为可变数据根。
 - `LAUNCHFLOW_DATA_DIR` 仅用于开发与自动测试隔离，必须是绝对路径。
@@ -238,6 +258,7 @@ LaunchFlow 的核心目标是：
 旧版便携数据迁移由 `shared/data_migration.py` 处理：只检查项目根、EXE 目录或可识别 cwd 等明确位置；只复制新目录中不存在的目标；不覆盖、不删除、不扫描整盘；拒绝 `private/`、`private_key.pem` 和 `generated_licenses/`。迁移 marker 与结果写入 `config/` 和 `logs/migration.log`，失败不会阻止应用继续启动。
 
 导出启动器是自包含代码，无法导入编辑器的 `shared` 包，但遵循同一根目录契约；其日志位于 `%LOCALAPPDATA%\LaunchFlow\logs\launchers/<launcher-name>/`，目标 EXE 位置仍由用户选择。
+Basic 导出启动器的日志写在 `%LOCALAPPDATA%\LaunchFlow-Basic` 下。
 
 ---
 
@@ -340,6 +361,8 @@ LaunchFlow 的核心目标是：
 - 自动化测试使用独立临时数据根、临时测试密钥和临时测试 license；GUI component smoke 可直接实例化 `MainWindow` 作为明确的 mock-authorized 路径，但不会创建 license。
 - 正式 EXE、源码入口和 `LicenseManager` 都不存在 `--skip-license`，普通环境变量只能改变可写数据目录，不能改变授权结论。
 - 未来在线登录的客户端/服务端边界见 `docs/online-auth-design.md`；当前 Beta 不实现服务器。
+- Basic 正式数据根为 `%LOCALAPPDATA%\LaunchFlow-Basic`；`tools/run_editor_basic_dev.ps1` 把开发模式指向 `%LOCALAPPDATA%\LaunchFlow-Basic-Dev`，同样不修改 User/Machine 环境变量。
+- Basic 启动入口不经过 `LicenseManager`，也不存在把 Basic 指到 Professional 数据根的回退。许可证字段里的 `edition=developer` 与产品版本 Basic / Professional 不是同一概念。
 
 ## 14. 编辑器草稿提交与执行快照
 
@@ -468,12 +491,57 @@ LaunchFlow 的核心目标是：
 - 唯一推荐权威状态是 stdlib `sqlite3`：request claim、authorization reservation、operation 创建与 audit event 在同一 `BEGIN IMMEDIATE` transaction；JSONL 只可作为脱敏非权威导出。SQLite 与 filesystem 不能伪装成一个事务，未来 artifact 使用 operation-scoped temp、digest、atomic replace 和显式 recovery/quarantine 状态。
 - Phase 1n/1o/1p/1q 必须分别实施 value/schema、inspect/replay transaction、synthetic signer seam/artifact recovery、显式 LFLIC2 mode。Phase 1m 本身没有实施 admin infrastructure、replay protection、signing、trusted registry、LFLIC2 issuance、migration 或 HWID v2。
 
-## 28. Phase 2a1 macOS arm64 CI bootstrap
+## 28. Phase 2a1/2a2 macOS arm64 automated evidence boundary
 
-- `.github/workflows/macos-arm64-ci.yml` 只在 GitHub-hosted `macos-15` 上准备 Darwin/arm64 证据，仓库权限仅为 `contents: read`，不使用 secret、证书、Apple API 或 Release 写入。
-- Windows 侧只运行标准库 AST/YAML 文本门禁、文档与既有静态检查；macOS `.app` 只能由目标 OS 上的 `sys.executable -m PyInstaller` 生成，输出限定到 `$RUNNER_TEMP`。
-- macOS full smoke 在进程、URL、网络、host/user identity、敏感文件和 key loader guard 下导入源码；Qt offscreen 直接构造 `MainWindow`，Application/URL 只消费 injected LaunchSpec，计划数据只写隔离目录。
-- 实验 builder 只允许 Darwin arm64，输出 `onedir`、unsigned、`notarized=false`、`production=false` 的 `LaunchFlow.app`；bundle probe 只读取 Info.plist、文件类型和文件名，不执行代码或解析许可材料。
-- 当前无 identity-free startup ready marker。空许可入口会构造激活窗口并立即读取 identity/生成 request，因此 launch probe 必须报告 `BLOCKED` 且不启动进程；不得为 CI 修改 licensing 或伪造成功。
-- `tools/macos_ci_report.py` 只保存 coupling summary，并在上传前验证精确 evidence allowlist、文本敏感模式、PNG header 与 ZIP entry 名称；raw coupling finding、runner temp 全目录和环境 dump 不进入 artifact。
-- 这只是 `macOS arm64 CI bootstrap prepared`。真实 workflow、人工 Apple Silicon GUI、稳定 identity、签名、公证、Gatekeeper、清洁用户与 Release 证据均不存在，macOS 继续为 Planned。
+- Phase 2a1 系列已经建立首个成功的自动化 macOS arm64 实验基线。GitHub-hosted Run #4（ID `31788202143`，commit `c96ff2cfbd56b9a2c09ccc7746cc355540af813a`）在 macOS 15.7.7 / Darwin arm64、Apple M1 (Virtual) runner 上完成；这不是实体 Mac 证据。
+- Full smoke 证明受保护的 10 个 source import、Qt bootstrap 归因、Qt offscreen `MainWindow`、截图安全扫描、线程清理、synthetic Plan 往返和 injected runtime fixtures 通过。Qt 首次导入只新增 key `PYSIDE6_OPTION_PYTHON_ENUM`；不记录 value。bootstrap 后 `shared.app_icon` 的 added/changed/removed key 均为零。
+- 目标 runner 上的 PyInstaller 6.20.0 成功生成 `$RUNNER_TEMP/launchflow-dist/LaunchFlow.app`。该 onedir bundle 为 arm64 Mach-O，包含 Qt Cocoa plugin，97 个 Mach-O dependencies 已被静态检查，bundle identifier 为 `io.github.forgottenlab.launchflow`，敏感文件名为零，且没有 Windows EXE 主产物。
+- 该 bundle 是 unsigned for distribution / no Developer ID、not notarized、non-production。PyInstaller 可能产生的 ad-hoc 状态不等于 Developer ID signing，也不构成 Release。
+- launch-boundary step 的 PASS 只表示安全策略正确执行。真实结果仍为 `bundle_launch_probe=BLOCKED`、`process_started=false`、`identity_read=false`、`request_generated=false`，原因是尚无获批的 identity-free ready marker；不得描述为 bundle launch 成功。
+- Run #4 上传了经过 allowlist 与敏感扫描的实验 evidence artifact；它只属于 CI 证据，不进入 Git、`dist/`、`build/` 或 `releases/`。
+
+跨平台证据必须按以下层次解释，不能用较低层的 PASS 推导较高层已经完成：
+
+| Layer | Evidence | Current status |
+|---|---|---|
+| 1 | Windows current production support | **PASS — Windows x86_64 Beta** |
+| 2 | macOS source-level automated compatibility | **PASS — Run #4** |
+| 3 | macOS Qt offscreen GUI automated compatibility | **PASS — Run #4** |
+| 4 | macOS frozen bundle build and static inspection | **PASS — unsigned experimental bundle** |
+| 5 | frozen process startup | **NOT YET PROVEN / intentionally BLOCKED** |
+| 6 | physical Mac UX | **NOT YET PROVEN** |
+| 7 | signed/notarized distribution | **NOT YET PROVEN** |
+
+因此 Windows x86_64 仍是唯一受支持的 Beta release platform；macOS arm64 只能表述为 **Experimental CI evidence passed / not a supported public release platform**。下一阶段只能是 Phase 2b identity-free frozen startup probe readiness/design review，不得在本阶段实现 startup seam、许可绕过或 Release。
+
+
+---
+
+## 29. 双版本架构（Phase 0–2）
+
+LaunchFlow 现在是同一产品的两个独立分发版本：Basic 与 Professional。两套入口都可以导出独立 exe。这是已经落入 `main` 的仓库内实现，不是新的公开 Beta；最近的公开检查点仍是 `v0.1.0-beta.2`。默认未设置的 edition context 仍然走 Professional / 单一产品路径，没有把默认入口改成 Basic。Windows x86_64 仍是唯一受支持的 Beta 发布平台。
+
+更完整的合同与实现说明见 `docs/dual-edition-phase0-contract.md`、`docs/dual-edition-phase1a-basic-policy.md`、`docs/dual-edition-phase1b-windows-adapters.md` 和 `docs/dual-edition-phase2-launch-isolation.md`。面向用户的入口说明以 `README.md`、`README_EN.md`、`docs/beta-testing.md` 和 `docs/gui-smoke-checklist.md` 为准。
+
+### Professional / 当前默认产品入口
+
+- 启动 `python -m editor.main`，或打包 `LaunchFlow.exe`。
+- 保留 Command、Wait、应用启动参数、自定义延迟以及现有快捷方式打开方式；工作台界面保持原样。
+- 启动时检查离线许可；数据目录为 `%LOCALAPPDATA%\LaunchFlow`，开发模式为 `LaunchFlow-Dev`（`tools/run_editor_dev.ps1`）。
+- Professional 导出继续使用既有 `EMBEDDED_TEMPLATE`，其内容保持不变。
+- 编辑器启动时会检查许可证，但 `build_single_file_exe()` 仍可在不再次检查许可证的情况下被直接调用。Professional 导出授权审计仍是未决问题，本文不把“打包时的许可证闸门”写成既定行为，也不把导出 exe 写成 Professional 独有能力。
+
+### Basic
+
+- 启动 `python -m editor.main_basic`，或打包 `LaunchFlow-Basic.exe`。默认的 `python tools/build_editor_release.py` 仍然只打包 Professional；Basic 需要显式加上 `--edition basic`。
+- 免费，启动时不要求激活；不运行面向 Professional 数据的旧版迁移，也不探测或回退到 Professional 数据目录。
+- 只接受本地 EXE、经过严格校验的指向本地 EXE 的 `.lnk`，以及 http/https URL。间隔固定为 1 秒。不提供 Command、Wait，也不提供自定义启动参数、工作目录或浏览器路径。
+- 数据目录为 `%LOCALAPPDATA%\LaunchFlow-Basic`，开发模式为 `LaunchFlow-Basic-Dev`（`tools/run_editor_basic_dev.ps1`）。
+- 工作台复用同一套 `MainWindow`，但会隐藏 Professional-only 的模板与高级应用配置；导出使用受限 Basic 运行器，不会嵌入 Command、Wait、脚本应用或未校验的快捷方式 shell-open 行为，日志写在 LaunchFlow-Basic 下。
+- 仓库中的 Basic 入口还不是已经公开发布的安装包或 GitHub Release。
+
+### 上下文与隔离
+
+- `shared/edition_policy.py` 只在显式 Basic 上下文中强制 Basic 校验；未设置或 Professional 时保持现有单一产品行为。
+- Basic 若将数据目录解析到 Professional 的默认根（`LaunchFlow` / `LaunchFlow-Dev`）必须失败关闭。
+- 许可证里的 `edition=developer` 是授权字段，与产品版本 Basic / Professional 不是同一概念。
