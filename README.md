@@ -85,9 +85,19 @@ Application 步骤用于启动外部程序，本身不等待外部程序退出�
 
 ![最近方案记录](docs/images/launchflow-plan-history.png)
 
-应用自身的设置、日志、许可和最近记录默认位于 `%LOCALAPPDATA%\LaunchFlow`。测试和自动化可以通过 `LAUNCHFLOW_DATA_DIR` 指向隔离目录。程序不会默认在源码目录、当前工作目录、桌面或 EXE 旁边创建可变数据文件夹。
+当前产品路径（`python -m editor.main` 或 `LaunchFlow.exe`）会把应用自身的设置、日志、许可和最近记录放在 `%LOCALAPPDATA%\LaunchFlow`。Basic 入口（`python -m editor.main_basic`）使用相互隔离的 `%LOCALAPPDATA%\LaunchFlow-Basic`，不会读取或迁移 Professional 数据。测试和自动化可以通过 `LAUNCHFLOW_DATA_DIR` 指向隔离目录，但该覆盖不能用来让 Basic 写入 Professional 目录。程序不会默认在源码目录、当前工作目录、桌面或 EXE 旁边创建可变数据文件夹。
 
 升级前建议备份自己保存的方案 JSON 和 `%LOCALAPPDATA%\LaunchFlow` 中需要保留的数据。LaunchFlow 的迁移策略以保守复制为主，不应覆盖更新的数据；显式选择的方案保存位置和导出位置始终由用户决定。
+
+
+## 🧱 两个版本
+
+仓库现在包含 Professional 与 Basic 两套实现路径，但这并不是说已经同时存在两个公开发布包。最近的公开检查点仍是 `v0.1.0-beta.2`，对应当前这条单一产品 / Professional 路径。
+
+- Professional：启动 `python -m editor.main`，或打包 `LaunchFlow.exe`。它保留 Command、Wait、高级 Application 配置、现有快捷方式打开方式，以及离线许可。用户数据位于 `%LOCALAPPDATA%\LaunchFlow`。
+- Basic：启动 `python -m editor.main_basic`，或打包 `LaunchFlow-Basic.exe`。它只接受 Application 与 http/https URL，启动时不要求许可证，数据位于 `%LOCALAPPDATA%\LaunchFlow-Basic`。工作台不会提供 Command、Wait、应用启动参数或自定义间隔，导出的独立启动器也使用不含这些能力的受限运行器。
+
+开发模式分别使用 `tools/run_editor_dev.ps1`（`LaunchFlow-Dev`）和 `tools/run_editor_basic_dev.ps1`（`LaunchFlow-Basic-Dev`）。默认的 `python tools/build_editor_release.py` 仍然只打包 Professional；Basic 需要显式加上 `--edition basic`。在公开发布 Basic 之前，请不要把源码里的第二条入口当成已经上线的安装包。
 
 ## 📦 导出 Windows 启动器
 
@@ -95,7 +105,7 @@ Application 步骤用于启动外部程序，本身不等待外部程序退出�
 
 ![导出工作流](docs/images/launchflow-export-workflow.png)
 
-导出的启动器是针对当前方案生成的 Windows onefile 程序。它包含 LaunchFlow 运行方案所需的启动器代码和方案数据，但不会自动捆绑所有第三方运行环境：
+导出的启动器是针对当前方案生成的 Windows onefile 程序。它包含运行该方案所需的启动器代码和方案数据，但不会自动捆绑所有第三方运行环境。Professional 入口导出的运行器仍包含 Command 与 Wait；从 Basic 入口导出时，会改用一份不含这些能力的受限运行器：
 
 - URL 仍依赖目标电脑的默认浏览器和网络条件。
 - Command 仍依赖目标电脑已安装的命令、Shell、PATH 和相关文件。
@@ -131,6 +141,8 @@ python -m venv .venv
 python -m pip install "PySide6==6.9.3" "PyInstaller==6.20.0" cryptography
 python -m editor.main
 ```
+
+当前这条命令启动的是 Professional / 现有产品路径。若要在源码模式下启动 Basic（不要求许可证，数据写入 `LaunchFlow-Basic`），使用 `python -m editor.main_basic`。
 
 若 PowerShell 的执行策略阻止激活脚本，可以直接调用虚拟环境中的 Python，而不修改系统策略：
 
@@ -178,6 +190,7 @@ data/          源码模式使用的只读默认资源
 
 ```powershell
 python tools/check_readme_docs_smoke.py
+python tools/check_dual_edition_phase2_smoke.py
 python tools/check_editor_gui_smoke.py
 python tools/check_step_reorder_smoke.py
 python tools/check_log_presentation_smoke.py

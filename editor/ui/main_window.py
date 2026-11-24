@@ -113,6 +113,17 @@ from shared.app_logging import get_app_logger
 from shared.app_icon import apply_window_icon, load_app_icon
 from shared.diagnostics import collect_diagnostics, open_logs_directory
 from shared.platform.shortcuts import get_shortcut_policy
+from editor.edition_ui import (
+    application_file_dialog_filter,
+    application_path_placeholder,
+    brand_title,
+    empty_steps_hint,
+    log_hint_text,
+    shows_professional_editor_controls,
+    trial_run_confirm_message,
+    visible_editor_step_types,
+    workbench_title,
+)
 from editor.services.plan_service import PlanService
 from editor.ui.log_console import LogConsole, LogKind, infer_log_kind
 from tools.build_single_exe import PACKABLE_APP_SUFFIXES, build_single_file_exe
@@ -1938,11 +1949,11 @@ class MainWindow(QMainWindow):
         text_col.setContentsMargins(0, 0, 0, 0)
         text_col.setSpacing(0)
 
-        brand_title = self._make_label("Launch Flow", "brand_title")
+        self.brand_title_label = self._make_label(brand_title(), "brand_title")
         brand_subtitle = self._make_label("快捷封装工作台", "brand_subtitle")
 
         text_col.addStretch()
-        text_col.addWidget(brand_title)
+        text_col.addWidget(self.brand_title_label)
         text_col.addWidget(brand_subtitle)
         text_col.addStretch()
 
@@ -2158,7 +2169,7 @@ class MainWindow(QMainWindow):
         log_main_layout.addWidget(self.log_header)
 
         self.log_hint = self._make_label(
-            "后台 Command 的标准输出、错误和退出码集中显示在这里。",
+            log_hint_text(),
             "panel_hint",
         )
         log_main_layout.addWidget(self.log_hint)
@@ -2215,6 +2226,32 @@ class MainWindow(QMainWindow):
 
         right_layout.addWidget(self.main_splitter)
         content_layout.addWidget(right_container, 1)
+        self._apply_edition_presentation()
+
+    def _set_form_row_visible(self, form: QFormLayout, field, visible: bool) -> None:
+        """Show or hide a form row without rebuilding the Professional layout."""
+
+        label = form.labelForField(field)
+        if label is not None:
+            label.setVisible(visible)
+        field.setVisible(visible)
+
+    def _apply_edition_presentation(self) -> None:
+        """Trim Professional-only controls in Basic; leave the current entry unchanged."""
+
+        professional = shows_professional_editor_controls()
+        self.btn_add_cmd.setVisible(professional)
+        self.btn_add_wait.setVisible(professional)
+        self.btn_add_cmd.setEnabled(professional)
+        self.btn_add_wait.setEnabled(professional)
+        self._set_form_row_visible(self.app_form, self.app_args_in, professional)
+        self._set_form_row_visible(self.app_form, self.app_delay_in, professional)
+        self._set_form_row_visible(self.url_form, self.url_delay_in, professional)
+        self.title_bar.title_label.setText(workbench_title())
+        self.brand_title_label.setText(brand_title())
+        self.empty_steps_subtitle.setText(empty_steps_hint())
+        self.app_path_in.setPlaceholderText(application_path_placeholder())
+        self.log_hint.setText(log_hint_text())
 
     def _build_menu_bar(self) -> QMenuBar:
         """Build menus whose actions share the toolbar handlers."""
@@ -2296,10 +2333,11 @@ class MainWindow(QMainWindow):
         """
         self.page_app = QWidget()
         app_form = QFormLayout(self.page_app)
+        self.app_form = app_form
         self.app_name_in = QLineEdit()
         self.app_path_in = QLineEdit()
         self.app_args_in = QTextEdit()
-        self.app_path_in.setPlaceholderText("选择或粘贴 .exe / .bat / .cmd / .ps1 路径")
+        self.app_path_in.setPlaceholderText(application_path_placeholder())
         self.app_args_in.setPlaceholderText("可选：按空格分隔启动参数")
         self.app_args_in.setMaximumHeight(82)
         self.app_delay_in = ThemedDoubleSpinBox()
@@ -2312,6 +2350,7 @@ class MainWindow(QMainWindow):
 
         self.page_url = QWidget()
         url_form = QFormLayout(self.page_url)
+        self.url_form = url_form
         self.url_name_in = QLineEdit()
         self.url_in = QLineEdit()
         self.url_delay_in = ThemedDoubleSpinBox()
@@ -2351,7 +2390,8 @@ class MainWindow(QMainWindow):
         no_steps_layout.addStretch()
 
         title1 = self._make_label("当前方案还没有步骤", "empty_title")
-        sub1 = self._make_label("请先在左侧点击“+ 应用 / + 网页 / + 命令 / + 等待”来添加步骤。", "empty_subtitle")
+        sub1 = self._make_label(empty_steps_hint(), "empty_subtitle")
+        self.empty_steps_subtitle = sub1
         title1.setAlignment(Qt.AlignmentFlag.AlignCenter)
         sub1.setAlignment(Qt.AlignmentFlag.AlignCenter)
         sub1.setWordWrap(True)
@@ -3362,12 +3402,19 @@ class MainWindow(QMainWindow):
             if isinstance(step, AppStep):
                 step.name = self.app_name_in.text().strip()
                 step.path = self.app_path_in.text().strip()
-                step.args = self.app_args_in.toPlainText().split()
-                step.delay_after = self.app_delay_in.value()
+                if shows_professional_editor_controls():
+                    step.args = self.app_args_in.toPlainText().split()
+                    step.delay_after = self.app_delay_in.value()
+                else:
+                    step.args = []
+                    step.delay_after = 1.0
             elif isinstance(step, UrlStep):
                 step.name = self.url_name_in.text().strip()
                 step.url = self.url_in.text().strip()
-                step.delay_after = self.url_delay_in.value()
+                if shows_professional_editor_controls():
+                    step.delay_after = self.url_delay_in.value()
+                else:
+                    step.delay_after = 1.0
             elif isinstance(step, CommandStep):
                 step.name = self.cmd_name_in.text().strip()
                 # Preserve the command exactly. Whitespace is only stripped by preflight checks.
@@ -3418,14 +3465,15 @@ class MainWindow(QMainWindow):
         通过文件选择框添加一个应用步骤。
 
         说明：
-        - 当前支持 exe / bat / cmd / ps1 / lnk 等常见启动入口；
+        - Professional 支持 exe / bat / cmd / ps1 / lnk 等常见启动入口；
+        - Basic 只提供本地 .exe / .lnk 选择；
         - 选择成功后会立即将步骤加入当前方案并刷新界面。
         """
         file_path, _ = QFileDialog.getOpenFileName(
             self,
             "选择应用程序",
             "",
-            "Applications (*.exe *.bat *.cmd *.ps1 *.lnk)"
+            application_file_dialog_filter(),
         )
         if not file_path:
             return
@@ -3460,6 +3508,9 @@ class MainWindow(QMainWindow):
         template = fresh_templates.get(step_type)
         if template is None:
             raise ValueError(f"不支持的步骤类型: {step_type}")
+        if step_type not in visible_editor_step_types():
+            self._error("无法新增步骤", "当前版本不支持该步骤类型。")
+            return
         if not self._commit_before_editor_boundary("无法新增步骤"):
             return
 
@@ -3780,7 +3831,7 @@ class MainWindow(QMainWindow):
 
         if not self._confirm(
                 "确认试运行",
-                "试运行会真实打开应用、网址和命令窗口。\n确定继续吗？",
+                trial_run_confirm_message(),
                 "开始试运行",
         ):
             return

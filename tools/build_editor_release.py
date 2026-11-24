@@ -82,9 +82,18 @@ def clean_old_build(base_dir: Path, exe_name: str) -> None:
                 print(f"[清理] 已删除文件: {path}")
 
 
-def build_editor_command(project_root: Path, exe_name: str = "LaunchFlow") -> list[str]:
-    """Build the authoritative PyInstaller command for the editor release."""
-    entry_script = project_root / "editor" / "main.py"
+def build_editor_command(
+    project_root: Path,
+    exe_name: str = "LaunchFlow",
+    *,
+    entry_script: Path | None = None,
+) -> list[str]:
+    """Build the authoritative PyInstaller command for the editor release.
+
+    The default remains the current Professional / single-product entry.
+    Basic packaging must pass the Basic entry script explicitly.
+    """
+    entry_script = Path(entry_script) if entry_script is not None else project_root / "editor" / "main.py"
     icon_path = project_root / "assets" / "launchflow.ico"
     public_key_path = project_root / "data" / "public_key.pem"
     if not entry_script.exists():
@@ -125,19 +134,25 @@ def build_editor_command(project_root: Path, exe_name: str = "LaunchFlow") -> li
     return command
 
 
-def build_editor_release(project_root: Path, exe_name: str = "LaunchFlow") -> Path:
+def build_editor_release(
+    project_root: Path,
+    exe_name: str = "LaunchFlow",
+    *,
+    entry_script: Path | None = None,
+) -> Path:
     """
     打包编辑器发布版。
 
     参数：
     - project_root: 项目根目录；
     - exe_name: 生成的 exe 名称。
+    - entry_script: 可选入口脚本；默认仍是 editor/main.py。
 
     返回值：
     - 生成后的 exe 文件路径。
     """
     dist_dir = project_root / "dist"
-    command = build_editor_command(project_root, exe_name)
+    command = build_editor_command(project_root, exe_name, entry_script=entry_script)
 
     run_command(command, cwd=project_root)
 
@@ -148,10 +163,32 @@ def build_editor_release(project_root: Path, exe_name: str = "LaunchFlow") -> Pa
     return exe_path
 
 
-def ensure_runtime_data(project_root: Path) -> None:
+def basic_editor_entry_script(project_root: Path) -> Path:
+    return project_root / "editor" / "main_basic.py"
+
+
+def build_basic_editor_command(project_root: Path, exe_name: str = "LaunchFlow-Basic") -> list[str]:
+    """Build the PyInstaller command for the Basic editor entry."""
+    return build_editor_command(
+        project_root,
+        exe_name,
+        entry_script=basic_editor_entry_script(project_root),
+    )
+
+
+def build_basic_editor_release(project_root: Path, exe_name: str = "LaunchFlow-Basic") -> Path:
+    """Package the Basic editor entry as a separate executable."""
+    return build_editor_release(
+        project_root,
+        exe_name,
+        entry_script=basic_editor_entry_script(project_root),
+    )
+
+
+def ensure_runtime_data(project_root: Path, *, entry_script: Path | None = None) -> None:
     """Validate read-only release inputs without creating user data in source."""
     required = [
-        project_root / "editor" / "main.py",
+        entry_script or (project_root / "editor" / "main.py"),
         project_root / "assets" / "launchflow.ico",
     ]
     missing = [path for path in required if not path.is_file()]
@@ -159,23 +196,44 @@ def ensure_runtime_data(project_root: Path) -> None:
         raise FileNotFoundError("发布资源缺失: " + ", ".join(str(path) for path in missing))
 
 
+def _requested_edition(argv: list[str]) -> str:
+    """Keep the default build on the current Professional entry."""
+
+    if not argv:
+        return "professional"
+    if argv == ["--edition", "basic"]:
+        return "basic"
+    if argv in (["--edition", "professional"], ["--edition", "current"]):
+        return "professional"
+    raise SystemExit("用法: python tools/build_editor_release.py [--edition professional|basic]")
+
+
 def main() -> None:
     """
     打包脚本主入口。
     """
     project_root = Path(__file__).resolve().parent.parent
-    exe_name = "LaunchFlow"
+    edition = _requested_edition(sys.argv[1:])
+    if edition == "basic":
+        exe_name = "LaunchFlow-Basic"
+        entry_script = basic_editor_entry_script(project_root)
+        heading = "开始打包 LaunchFlow-Basic.exe"
+    else:
+        exe_name = "LaunchFlow"
+        entry_script = project_root / "editor" / "main.py"
+        heading = "开始打包 LaunchFlow.exe"
 
     print("=" * 60)
-    print("开始打包 LaunchFlow.exe")
+    print(heading)
     print("=" * 60)
     print(f"[项目目录] {project_root}")
+    print(f"[入口] {entry_script}")
 
     try:
         ensure_pyinstaller()
         clean_old_build(project_root, exe_name)
-        ensure_runtime_data(project_root)
-        exe_path = build_editor_release(project_root, exe_name)
+        ensure_runtime_data(project_root, entry_script=entry_script)
+        exe_path = build_editor_release(project_root, exe_name, entry_script=entry_script)
 
         print("\n" + "=" * 60)
         print("[成功] 打包完成")

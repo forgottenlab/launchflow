@@ -34,7 +34,8 @@ from shared.models import (
     WaitStep,
     plan_from_dict,
 )
-from shared.edition_policy import enforce_basic_policy_on_ingress
+from editor.edition_ui import filter_templates_for_current_edition
+from shared.edition_policy import enforce_basic_policy_on_ingress, is_basic_edition_active
 from shared.utils import (
     read_json,
     write_json,
@@ -125,11 +126,12 @@ class PlanService:
         """
         确保模板文件存在。
 
-        若模板文件不存在，则写入一份默认模板集合，
-        以保证首次启动时即可创建网页、命令和等待步骤。
+        若模板文件不存在，则写入当前版本可用的默认模板。
+        Professional 仍包含网页、命令和等待模板；Basic 只写入兼容模板，
+        避免把 Command / Wait 写入 LaunchFlow-Basic 数据目录。
         """
         if not self.templates_path.exists():
-            write_json(self.templates_path, DEFAULT_TEMPLATES)
+            write_json(self.templates_path, filter_templates_for_current_edition(DEFAULT_TEMPLATES))
 
     def _ensure_default_settings(self) -> None:
         """
@@ -160,11 +162,14 @@ class PlanService:
         - 模板字典列表。
 
         边界行为：
-        - 若模板文件不存在，则直接返回内置默认模板。
+        - 若模板文件不存在，则直接返回当前版本可用的内置默认模板。
+        - Basic 会过滤掉 Command / Wait 模板，即使数据文件里仍有这些条目。
         """
         if not self.templates_path.exists():
-            return DEFAULT_TEMPLATES
-        return read_json(self.templates_path)
+            templates = DEFAULT_TEMPLATES
+        else:
+            templates = read_json(self.templates_path)
+        return filter_templates_for_current_edition(templates)
 
     def load_settings(self) -> Dict[str, Any]:
         """
@@ -272,6 +277,15 @@ class PlanService:
         else:
             raise ValueError(f"不支持的模板类型: {step_type}")
 
+        # A blank URL is a legitimate in-editor draft. Completeness is still
+        # enforced when the plan is loaded, trial-run, or exported.
+        if (
+            is_basic_edition_active()
+            and isinstance(step, UrlStep)
+            and not str(step.url or "").strip()
+        ):
+            step.delay_after = 1.0
+            return step
         enforce_basic_policy_on_ingress(Plan(plan_name="template-step", steps=[step]))
         return step
 

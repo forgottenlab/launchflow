@@ -303,7 +303,21 @@ python tools/generate_readme_screenshots.py
 python tools/check_readme_docs_smoke.py
 ```
 
-## 10. 免责声明
+## 10. 双版本实现说明（2026-11-24）
+
+当前对外测试流程仍然对应 Professional / 现有单一产品路径：启动 `LaunchFlow.exe` 或 `python -m editor.main`，走离线授权，数据位于 `%LOCALAPPDATA%\LaunchFlow`。最近公开检查点仍是 `v0.1.0-beta.2`。
+
+仓库里已经增加 Basic 实现入口，但这不是新的公开 Beta 包：
+
+- 源码启动：`python -m editor.main_basic`
+- 开发数据目录：`tools/run_editor_basic_dev.ps1` 指向 `%LOCALAPPDATA%\LaunchFlow-Basic-Dev`
+- 正式数据目录：`%LOCALAPPDATA%\LaunchFlow-Basic`
+- Basic 不读取、不迁移 Professional 数据，启动时也不要求许可证
+- Basic 只接受 Application 与 http/https URL；工作台不提供 Command、Wait、应用启动参数或自定义间隔；导出使用受限运行器
+
+如果当前测试任务是验证已发布的 Beta 体验，请继续使用 Professional 入口和本文件前面的授权流程。不要把源码中的 Basic 入口误认为已经随 `v0.1.0-beta.2` 一起发布。
+
+## 11. 免责声明
 
 当前版本仍属于 Beta 测试版。
 
