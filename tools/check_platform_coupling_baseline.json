@@ -793,16 +793,6 @@
       "allowed_to_remain": true
     },
     {
-      "fingerprint": "9c830d0481d886de9b47",
-      "path": "tools/build_editor_release.py",
-      "rule_id": "WIN-ASSET-001",
-      "area": "artifacts",
-      "classification": "allowed_windows_boundary",
-      "reason": "Windows artifact or script suffix",
-      "future_target": "ApplicationLauncher or PackagingBackend",
-      "allowed_to_remain": true
-    },
-    {
       "fingerprint": "f46435558acb51db574f",
       "path": "tools/build_single_exe.py",
       "rule_id": "WIN-ASSET-001",
@@ -1110,6 +1100,166 @@
       "classification": "platform_adapter_candidate",
       "reason": "Windows artifact or script suffix",
       "future_target": "ApplicationLauncher or PackagingBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "a2e69162f22baebedcca",
+      "path": "tools/basic_embedded_runner.py",
+      "rule_id": "PACK-ONEFILE-001",
+      "area": "packaging",
+      "classification": "allowed_windows_boundary",
+      "reason": "PyInstaller onefile packaging contract",
+      "future_target": "PackagingBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "c1e78078019db20aded8",
+      "path": "tools/basic_embedded_runner.py",
+      "rule_id": "PACK-ONEFILE-001",
+      "area": "packaging",
+      "classification": "allowed_windows_boundary",
+      "reason": "PyInstaller onefile packaging contract",
+      "future_target": "PackagingBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "9e5b48cfe74b39b45fdb",
+      "path": "tools/basic_embedded_runner.py",
+      "rule_id": "WIN-PATH-001",
+      "area": "paths",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows user-data path or environment variable",
+      "future_target": "PlatformPaths",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "b716dd5dc771e3afbf94",
+      "path": "tools/basic_embedded_runner.py",
+      "rule_id": "WIN-BRANCH-001",
+      "area": "platform-branch",
+      "classification": "allowed_windows_boundary",
+      "reason": "Explicit Windows platform branch",
+      "future_target": "shared/platform/detection.py",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "abd87b6a972ab6e41bdb",
+      "path": "tools/basic_embedded_runner.py",
+      "rule_id": "WIN-API-001",
+      "area": "windows-api",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows-only API",
+      "future_target": "DesktopIntegration",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "abf79db3ae6e2bac0d6c",
+      "path": "tools/basic_embedded_runner.py",
+      "rule_id": "WIN-API-001",
+      "area": "windows-api",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows-only API",
+      "future_target": "DesktopIntegration",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "2c8e0997a8f6e52accaf",
+      "path": "tools/basic_embedded_runner.py",
+      "rule_id": "WIN-ASSET-001",
+      "area": "artifacts",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows artifact or script suffix",
+      "future_target": "ApplicationLauncher or PackagingBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "01831f958db375813997",
+      "path": "tools/basic_embedded_runner.py",
+      "rule_id": "WIN-ASSET-001",
+      "area": "artifacts",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows artifact or script suffix",
+      "future_target": "ApplicationLauncher or PackagingBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "4a9e569e4dba4f050eb8",
+      "path": "tools/basic_embedded_runner.py",
+      "rule_id": "WIN-API-001",
+      "area": "windows-api",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows-only API",
+      "future_target": "UrlOpener",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "9f74018f6c42e1a591e7",
+      "path": "tools/build_editor_release.py",
+      "rule_id": "WIN-ASSET-001",
+      "area": "artifacts",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows artifact or script suffix",
+      "future_target": "ApplicationLauncher or PackagingBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "c6fb3a1c0e5a1b4a0487",
+      "path": "tools/build_editor_release.py",
+      "rule_id": "WIN-ASSET-001",
+      "area": "artifacts",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows artifact or script suffix",
+      "future_target": "ApplicationLauncher or PackagingBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "3c46ccd6a9c2290548a1",
+      "path": "tools/build_single_exe.py",
+      "rule_id": "WIN-ASSET-001",
+      "area": "artifacts",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows artifact or script suffix",
+      "future_target": "ApplicationLauncher or PackagingBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "1ee9b3328f7ae39cac96",
+      "path": "tools/build_single_exe.py",
+      "rule_id": "WIN-ASSET-001",
+      "area": "artifacts",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows artifact or script suffix",
+      "future_target": "ApplicationLauncher or PackagingBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "10c503b787274c6364dc",
+      "path": "tools/build_single_exe.py",
+      "rule_id": "WIN-ASSET-001",
+      "area": "artifacts",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows artifact or script suffix",
+      "future_target": "ApplicationLauncher or PackagingBackend",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "1aeb890415940e3db581",
+      "path": "tools/run_editor_basic_dev.ps1",
+      "rule_id": "WIN-PATH-001",
+      "area": "paths",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows user-data path or environment variable",
+      "future_target": "PlatformPaths",
+      "allowed_to_remain": true
+    },
+    {
+      "fingerprint": "6024d97b3f383f4e7153",
+      "path": "tools/run_editor_basic_dev.ps1",
+      "rule_id": "WIN-PATH-001",
+      "area": "paths",
+      "classification": "allowed_windows_boundary",
+      "reason": "Windows user-data path or environment variable",
+      "future_target": "PlatformPaths",
       "allowed_to_remain": true
     }
   ]
