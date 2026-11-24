@@ -180,6 +180,8 @@ def _future_target(finding: Finding) -> str:
         return "DiagnosticsPresentation"
     if finding.path == "shared/platform/desktop.py" and finding.category == "windows-api":
         return "DesktopIntegration"
+    if finding.path == "shared/platform/application_lookup.py":
+        return "ApplicationLookup"
     if finding.path == "runtime/launcher_runtime.py" and finding.category == "windows-api":
         if "open_spec.url" in finding.evidence:
             return "UrlOpener"

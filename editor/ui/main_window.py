@@ -115,6 +115,7 @@ from shared.diagnostics import collect_diagnostics, open_logs_directory
 from shared.platform.shortcuts import get_shortcut_policy
 from editor.edition_ui import (
     application_file_dialog_filter,
+    application_lookup_suffixes,
     application_path_placeholder,
     brand_title,
     empty_steps_hint,
@@ -125,6 +126,10 @@ from editor.edition_ui import (
     workbench_title,
 )
 from editor.services.plan_service import PlanService
+from shared.platform.application_lookup import (
+    ApplicationLookupMatch,
+    lookup_windows_application,
+)
 from editor.ui.log_console import LogConsole, LogKind, infer_log_kind
 from tools.build_single_exe import PACKABLE_APP_SUFFIXES, build_single_file_exe
 
@@ -1624,6 +1629,79 @@ class FancyDialog(QDialog):
         self.accept()
 
 
+class ApplicationMatchDialog(QDialog):
+    """Let the user pick one keyword-lookup match."""
+
+    def __init__(
+        self,
+        parent: QWidget,
+        matches: tuple[ApplicationLookupMatch, ...],
+        is_dark: bool = True,
+    ) -> None:
+        super().__init__(parent)
+        self.selected_match: ApplicationLookupMatch | None = None
+        self.setWindowFlag(Qt.WindowType.FramelessWindowHint, True)
+        self.setModal(True)
+        self.setFixedWidth(560)
+        self.setStyleSheet(ThemeManager.DIALOG_DARK if is_dark else ThemeManager.DIALOG_LIGHT)
+
+        root = QVBoxLayout(self)
+        root.setContentsMargins(22, 20, 22, 20)
+        root.setSpacing(12)
+
+        title_label = QLabel("找到多个匹配项")
+        title_label.setObjectName("DialogTitle")
+        title_label.setWordWrap(True)
+        title_label.setStyleSheet("background: transparent; border: none;")
+
+        text_label = QLabel("请选择要写入程序路径的项目。查找不会自动决定有歧义的结果。")
+        text_label.setObjectName("DialogText")
+        text_label.setWordWrap(True)
+        text_label.setStyleSheet("background: transparent; border: none;")
+
+        self.list_widget = QListWidget()
+        self.list_widget.setMinimumHeight(180)
+        for match in matches:
+            item = QListWidgetItem(f"{match.display_name}\n{match.path}")
+            item.setData(Qt.ItemDataRole.UserRole, match)
+            detail = match.detail or match.source
+            item.setToolTip(f"{detail}\n{match.path}")
+            self.list_widget.addItem(item)
+        if self.list_widget.count() > 0:
+            self.list_widget.setCurrentRow(0)
+        self.list_widget.itemDoubleClicked.connect(self._accept_current)
+
+        root.addWidget(title_label)
+        root.addWidget(text_label)
+        root.addWidget(self.list_widget)
+
+        btn_row = QHBoxLayout()
+        btn_row.setContentsMargins(0, 8, 0, 0)
+        btn_row.setSpacing(10)
+        btn_row.addStretch()
+
+        btn_cancel = QPushButton("取消")
+        btn_cancel.setObjectName("DialogGhostBtn")
+        btn_cancel.clicked.connect(self.reject)
+        btn_row.addWidget(btn_cancel)
+
+        btn_ok = QPushButton("使用此路径")
+        btn_ok.setObjectName("DialogPrimaryBtn")
+        btn_ok.clicked.connect(self._accept_current)
+        btn_row.addWidget(btn_ok)
+        root.addLayout(btn_row)
+
+    def _accept_current(self) -> None:
+        item = self.list_widget.currentItem()
+        if item is None:
+            return
+        match = item.data(Qt.ItemDataRole.UserRole)
+        if not isinstance(match, ApplicationLookupMatch):
+            return
+        self.selected_match = match
+        self.accept()
+
+
 class BuildWorker(QThread):
     """
     后台导出线程。
@@ -2346,8 +2424,24 @@ class MainWindow(QMainWindow):
         self.app_args_in.setMaximumHeight(82)
         self.app_delay_in = ThemedDoubleSpinBox()
         self._configure_seconds_spinbox(self.app_delay_in)
+        self.btn_browse_app_path = QPushButton("浏览…")
+        self.btn_find_app_path = QPushButton("查找")
+        self.btn_browse_app_path.setObjectName("AppPathBrowseButton")
+        self.btn_find_app_path.setObjectName("AppPathFindButton")
+        self.btn_browse_app_path.setToolTip("打开文件对话框，选择要启动的程序")
+        self.btn_find_app_path.setToolTip("根据输入的关键词在本机查找程序，例如 steam")
+        self.application_lookup = lookup_windows_application
+        path_row = QWidget()
+        path_layout = QHBoxLayout(path_row)
+        path_layout.setContentsMargins(0, 0, 0, 0)
+        path_layout.setSpacing(8)
+        path_layout.addWidget(self.app_path_in, 1)
+        path_layout.addWidget(self.btn_browse_app_path)
+        path_layout.addWidget(self.btn_find_app_path)
         app_form.addRow("步骤名称", self.app_name_in)
-        app_form.addRow("程序路径", self.app_path_in)
+        app_form.addRow("程序路径", path_row)
+        self.btn_browse_app_path.clicked.connect(self._on_browse_app_path)
+        self.btn_find_app_path.clicked.connect(self._on_find_app_path)
         app_form.addRow("启动参数", self.app_args_in)
         app_form.addRow("后续延迟(秒)", self.app_delay_in)
         self.editor_stack.addWidget(self.page_app)
@@ -3473,12 +3567,7 @@ class MainWindow(QMainWindow):
         - Basic 只提供本地 .exe / .lnk 选择；
         - 选择成功后会立即将步骤加入当前方案并刷新界面。
         """
-        file_path, _ = QFileDialog.getOpenFileName(
-            self,
-            "选择应用程序",
-            "",
-            application_file_dialog_filter(),
-        )
+        file_path = self._choose_application_file(start_dir="")
         if not file_path:
             return
         if not self._commit_before_editor_boundary("无法新增步骤"):
@@ -3490,6 +3579,70 @@ class MainWindow(QMainWindow):
         self._refresh_flow_list()
         self._mark_plan_changed()
         self._select_new_step(len(self.current_plan.steps) - 1)
+
+    def _application_file_dialog_start_dir(self) -> str:
+        current = self.app_path_in.text().strip().strip('"')
+        if not current:
+            return ""
+        path = Path(current)
+        if path.is_file():
+            return str(path.parent)
+        if path.is_dir():
+            return str(path)
+        if path.parent.is_dir():
+            return str(path.parent)
+        return ""
+
+    def _choose_application_file(self, *, title: str = "选择应用程序", start_dir: str | None = None) -> str:
+        if start_dir is None:
+            start_dir = self._application_file_dialog_start_dir()
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            title,
+            start_dir,
+            application_file_dialog_filter(),
+        )
+        return file_path or ""
+
+    def _on_browse_app_path(self) -> None:
+        file_path = self._choose_application_file()
+        if not file_path:
+            return
+        self._apply_application_path(file_path)
+
+    def _on_find_app_path(self) -> None:
+        keyword = self.app_path_in.text().strip()
+        result = self.application_lookup(
+            keyword,
+            allowed_suffixes=application_lookup_suffixes(),
+        )
+        if result.status in {"invalid", "unsupported", "not_found"}:
+            self._error("未找到程序", result.message)
+            return
+        if result.status == "found" and result.matches:
+            self._apply_application_path(result.matches[0].path, display_name=result.matches[0].display_name)
+            return
+        if result.status == "ambiguous" and result.matches:
+            selected = self._pick_application_lookup_match(result.matches)
+            if selected is None:
+                return
+            self._apply_application_path(selected.path, display_name=selected.display_name)
+            return
+        self._error("未找到程序", result.message or "没有可用的查找结果。")
+
+    def _pick_application_lookup_match(
+        self, matches: tuple[ApplicationLookupMatch, ...]
+    ) -> ApplicationLookupMatch | None:
+        dialog = ApplicationMatchDialog(self, matches, is_dark=self.is_dark_theme)
+        if dialog.exec() and dialog.selected_match is not None:
+            return dialog.selected_match
+        return None
+
+    def _apply_application_path(self, file_path: str, display_name: str = "") -> None:
+        self.app_path_in.setText(file_path)
+        current_name = self.app_name_in.text().strip()
+        if current_name in {"", "新应用"}:
+            self.app_name_in.setText(display_name or Path(file_path).stem or "新应用")
 
     def _on_add_template_step(self, step_type: str) -> None:
         """

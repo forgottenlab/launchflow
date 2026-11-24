@@ -28,6 +28,11 @@ from shared.platform.applications import (
     WindowsApplicationLauncher,
     get_application_launcher,
 )
+from shared.platform.application_lookup import (
+    ApplicationLookupMatch,
+    ApplicationLookupResult,
+    lookup_windows_application,
+)
 from shared.platform.process import (
     CommandBackend,
     CommandLaunchSpec,
@@ -68,6 +73,8 @@ from shared.platform.identity import (
 __all__ = (
     "ApplicationLauncher",
     "ApplicationLaunchSpec",
+    "ApplicationLookupMatch",
+    "ApplicationLookupResult",
     "LegacyFallbackPlatformPaths",
     "LegacyPosixApplicationLauncher",
     "LegacyPosixCommandBackend",
@@ -106,6 +113,7 @@ __all__ = (
     "get_platform_path_provider",
     "get_shortcut_policy",
     "get_application_launcher",
+    "lookup_windows_application",
     "get_command_backend",
     "get_desktop_integration",
     "get_diagnostics_presentation_provider",
