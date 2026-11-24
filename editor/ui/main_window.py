@@ -1930,7 +1930,11 @@ class MainWindow(QMainWindow):
 
         sidebar = QFrame()
         sidebar.setObjectName("Sidebar")
-        sidebar.setFixedWidth(245)
+        # 245px leaves only 149px for the 20px/800 brand title after 18px
+        # margins, a 48px icon, and 12px spacing. That fits Professional
+        # "Launch Flow" (117px) but clips "LaunchFlow Basic" (166px) to
+        # "LaunchFlow Bas". 270px leaves 174px so both titles stay whole.
+        sidebar.setFixedWidth(270)
 
         sidebar_layout = QVBoxLayout(sidebar)
         sidebar_layout.setContentsMargins(18, 18, 18, 18)

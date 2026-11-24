@@ -474,6 +474,7 @@ def check_basic_template_isolation() -> None:
 
 def check_editor_ui_trimming() -> None:
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    from PySide6.QtGui import QFontDatabase, QFontInfo
     from PySide6.QtWidgets import QApplication
 
     from editor.edition_ui import (
@@ -495,6 +496,15 @@ def check_editor_ui_trimming() -> None:
     from shared.models import AppStep, CommandStep, UrlStep
 
     app = QApplication.instance() or QApplication([])
+    if sys.platform == "win32":
+        for font_path in (
+            Path(r"C:\Windows\Fonts\segoeui.ttf"),
+            Path(r"C:\Windows\Fonts\segoeuib.ttf"),
+            Path(r"C:\Windows\Fonts\msyh.ttc"),
+            Path(r"C:\Windows\Fonts\msyhbd.ttc"),
+        ):
+            if font_path.is_file():
+                QFontDatabase.addApplicationFont(str(font_path))
     temp_root = Path(tempfile.gettempdir()) / f"launchflow-phase2-ui-{os.getpid()}-{uuid.uuid4().hex}"
     old_override = os.environ.get(APP_DATA_ENV)
     previous = set_process_edition_context(EditionContext())
@@ -510,6 +520,28 @@ def check_editor_ui_trimming() -> None:
             window._select_new_step(len(window.current_plan.steps) - 1)
             app.processEvents()
             return step
+
+
+        def require_brand_title_unclipped(window: MainWindow, expected: str, label: str) -> None:
+            require(window.brand_title_label.text() == expected, f"{label} brand title is wrong")
+            for width, height in ((1280, 800), (1440, 900)):
+                window.resize(width, height)
+                app.processEvents()
+                title = window.brand_title_label
+                title.ensurePolished()
+                info = QFontInfo(title.font())
+                # Offscreen Qt can leave font metrics unresolved (empty family,
+                # 20px dummy advances). Only assert layout width when the
+                # workbench font actually resolved.
+                if info.pixelSize() <= 0 or not info.family():
+                    continue
+                available = title.contentsRect().width()
+                needed = title.fontMetrics().horizontalAdvance(title.text())
+                require(
+                    available >= needed,
+                    f"{label} sidebar brand is clipped at {width}x{height}: "
+                    f"available={available}px, needed={needed}px, text={title.text()!r}",
+                )
 
         professional = MainWindow(PROJECT_ROOT)
         windows.append(professional)
@@ -530,7 +562,7 @@ def check_editor_ui_trimming() -> None:
         require(professional.app_args_in.isVisible() and professional.app_delay_in.isVisible(), "Professional app inspector lost its advanced fields")
         require(professional.empty_steps_subtitle.text() == PROFESSIONAL_EMPTY_STEPS_HINT, "Professional empty-state hint changed")
         require(professional.title_bar.title_label.text() == PROFESSIONAL_WORKBENCH_TITLE, "Professional workbench title changed")
-        require(professional.brand_title_label.text() == PROFESSIONAL_BRAND_TITLE, "Professional brand title changed")
+        require_brand_title_unclipped(professional, PROFESSIONAL_BRAND_TITLE, "Professional")
         require(professional.app_path_in.placeholderText() == PROFESSIONAL_APP_PATH_PLACEHOLDER, "Professional path placeholder changed")
         require(application_file_dialog_filter() == PROFESSIONAL_APP_DIALOG_FILTER, "Professional file-dialog filter changed")
         require(professional.log_hint.text() == PROFESSIONAL_LOG_HINT, "Professional log hint changed")
@@ -547,7 +579,7 @@ def check_editor_ui_trimming() -> None:
         require(basic.empty_steps_subtitle.text() == BASIC_EMPTY_STEPS_HINT, "Basic empty-state hint is wrong")
         require("命令" not in basic.empty_steps_subtitle.text() and "等待" not in basic.empty_steps_subtitle.text(), "Basic empty-state still advertises Professional steps")
         require(basic.title_bar.title_label.text() == BASIC_WORKBENCH_TITLE, "Basic workbench title is wrong")
-        require(basic.brand_title_label.text() == BASIC_BRAND_TITLE, "Basic brand title is wrong")
+        require_brand_title_unclipped(basic, BASIC_BRAND_TITLE, "Basic")
         require(basic.app_path_in.placeholderText() == BASIC_APP_PATH_PLACEHOLDER, "Basic path placeholder is wrong")
         require(application_file_dialog_filter() == BASIC_APP_DIALOG_FILTER, "Basic file-dialog filter still includes scripts")
         require("Command" not in basic.log_hint.text() and "命令" not in basic.log_hint.text(), "Basic log hint still describes Command")
