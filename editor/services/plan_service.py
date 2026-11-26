@@ -35,6 +35,7 @@ from shared.models import (
     plan_from_dict,
 )
 from editor.edition_ui import filter_templates_for_current_edition
+from shared.url_normalization import normalize_plan_url_schemes
 from shared.edition_policy import enforce_basic_policy_on_ingress, is_basic_edition_active
 from shared.utils import (
     read_json,
@@ -318,6 +319,7 @@ class PlanService:
         - plan: 当前方案对象；
         - file_path: 目标文件路径。
         """
+        normalize_plan_url_schemes(plan.steps)
         write_json(file_path, plan.to_dict())
 
     def load_plan(self, file_path: Path) -> Plan:
@@ -331,6 +333,8 @@ class PlanService:
         - Plan 实例。
         """
         data = read_json(file_path)
+        if isinstance(data, dict) and isinstance(data.get("steps"), list):
+            normalize_plan_url_schemes(data["steps"])
         enforce_basic_policy_on_ingress(data)
         return plan_from_dict(data)
 

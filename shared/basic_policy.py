@@ -29,6 +29,8 @@ from enum import Enum
 from typing import Any, Callable, Iterable, Mapping, Protocol, runtime_checkable
 from urllib.parse import urlparse
 
+from shared.url_normalization import normalize_missing_url_scheme
+
 from shared.models import Plan
 
 
@@ -714,7 +716,7 @@ def _validate_url_step(index: int, step: Mapping[str, Any]) -> list[BasicPolicyI
             )
         )
     else:
-        parsed = urlparse(url.strip())
+        parsed = urlparse(normalize_missing_url_scheme(url))
         scheme = (parsed.scheme or "").lower()
         if scheme not in BASIC_ALLOWED_URL_SCHEMES or not parsed.netloc:
             issues.append(

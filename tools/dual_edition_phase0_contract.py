@@ -19,6 +19,8 @@ from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping
 from urllib.parse import urlparse
 
+from shared.url_normalization import normalize_missing_url_scheme
+
 
 PHASE = "0"
 BASIC_FIXED_DELAY_SECONDS = 1.0
@@ -276,7 +278,7 @@ def _basic_url_issues(index: int, step: Mapping[str, Any]) -> list[ContractIssue
     if not isinstance(url, str) or not url.strip():
         issues.append(ContractIssue("basic_url_required", f"{label} is missing a URL", index))
         return issues
-    parsed = urlparse(url.strip())
+    parsed = urlparse(normalize_missing_url_scheme(url))
     scheme = (parsed.scheme or "").lower()
     if scheme not in BASIC_ALLOWED_URL_SCHEMES or not parsed.netloc:
         issues.append(ContractIssue(

@@ -279,12 +279,12 @@ def main() -> None:
         ]:
             raise AssertionError("Embedded PowerShell argv does not match CommandBackend")
         for launch in (cmd_launch, powershell_launch):
-            if not launch.get("creationflags", 0) & subprocess.CREATE_NO_WINDOW:
-                raise AssertionError("Embedded Command is missing CREATE_NO_WINDOW")
-            if not launch.get("startupinfo_dw_flags", 0) & subprocess.STARTF_USESHOWWINDOW:
-                raise AssertionError("Embedded Command is missing STARTF_USESHOWWINDOW")
-            if launch.get("startupinfo_show_window") != subprocess.SW_HIDE:
-                raise AssertionError("Embedded Command is missing SW_HIDE")
+            if not launch.get("creationflags", 0) & subprocess.CREATE_NEW_CONSOLE:
+                raise AssertionError("Embedded Command is missing CREATE_NEW_CONSOLE")
+            if launch.get("use_startupinfo"):
+                raise AssertionError("Embedded Command should not hide the console with STARTUPINFO")
+            if launch.get("inherit_stdio") is not True:
+                raise AssertionError("Embedded Command should inherit stdio for an interactive console")
 
         url_steps = [step for step in embedded_plan.get("steps", []) if step.get("type") == "url"]
         if len(url_steps) != 2:

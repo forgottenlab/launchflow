@@ -263,8 +263,12 @@ def _assert_export_contract() -> None:
         require(isinstance(launch, dict), "exported Command did not receive shared LaunchSpec")
         expected = build_command_args(source_step["command"].strip(), source_step["shell"])
         require(launch["command_args"] == expected, "exported argv diverged from runtime backend")
-        require(launch["creationflags"] & getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000), "export hidden flag missing")
-        require(launch["use_startupinfo"], "export startupinfo contract missing")
+        require(
+            launch["creationflags"] & getattr(subprocess, "CREATE_NEW_CONSOLE", 0x00000010),
+            "export visible console flag missing",
+        )
+        require(not launch["use_startupinfo"], "export should not hide the command console with STARTUPINFO")
+        require(launch.get("inherit_stdio") is True, "export should inherit stdio for an interactive console")
 
 
 def _assert_public_api() -> None:

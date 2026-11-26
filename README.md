@@ -14,7 +14,7 @@ LaunchFlow 为每天都要重复执行的一组启动操作提供一个直观的
 
 ![LaunchFlow Professional 深色工作台](docs/images/launchflow-workbench-dark.png)
 
-> 上图为 Professional 工作台，包含应用、网页、命令和等待四种步骤。下图是同样布局的 Basic 工作台：只保留应用和网页步骤，启动时不出现激活页。
+> 上图为 Professional 工作台，可用「+ 应用 / + 网页 / + 命令」添加步骤。等待步骤仍可加载和运行，步骤间隔请使用“后续延迟”。下图是同样布局的 Basic 工作台：只保留应用和网页步骤，启动时不出现激活页。
 
 ![LaunchFlow Basic 深色工作台](docs/images/launchflow-basic-workbench-dark.png)
 

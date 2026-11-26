@@ -41,6 +41,7 @@ from shared.edition_policy import (
 from shared.platform.applications import get_application_launcher
 from shared.platform.process import get_command_backend
 from shared.platform.urls import get_url_opener
+from shared.url_normalization import normalize_missing_url_scheme
 from tools.basic_embedded_runner import BASIC_EMBEDDED_TEMPLATE
 
 
@@ -51,6 +52,7 @@ APPLICATION_LAUNCH_SCHEMA = 1
 URL_OPEN_SCHEMA = 1
 APPLICATION_ASSET_PREFIX = "__LAUNCHFLOW_ASSET__/"
 APPLICATION_ASSET_DIR = "__LAUNCHFLOW_ASSET_DIR__"
+CREATE_NEW_CONSOLE = getattr(subprocess, "CREATE_NEW_CONSOLE", 0x00000010)
 
 
 @contextmanager
@@ -315,19 +317,29 @@ def run_command_step(step: dict) -> None:
     if isinstance(environment_overrides, dict) and environment_overrides:
         process_env = os.environ.copy()
         process_env.update({str(key): str(value) for key, value in environment_overrides.items()})
+    inherit_stdio = bool(launch.get("inherit_stdio", True))
+    popen_stdio = {}
+    if not inherit_stdio:
+        popen_stdio = dict(
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
     try:
         process = subprocess.Popen(
             process_args,
             cwd=working_dir,
             env=process_env,
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
             shell=False,
+            **popen_stdio,
             **process_options,
         )
-        stdout_bytes, stderr_bytes = process.communicate()
-        returncode = process.returncode
+        if inherit_stdio:
+            returncode = process.wait()
+            stdout_bytes, stderr_bytes = b"", b""
+        else:
+            stdout_bytes, stderr_bytes = process.communicate()
+            returncode = process.returncode
     except FileNotFoundError as exc:
         log(f"[错误] 无法启动命令: {exc}")
         log("[退出码] -1")
@@ -485,10 +497,11 @@ def _serialized_command_launch(command: str, shell: str) -> dict:
         "command_args": list(spec.command_args),
         "process_args": list(spec.process_args),
         "environment_overrides": dict(spec.environment_overrides),
-        "creationflags": spec.creationflags,
-        "use_startupinfo": startupinfo is not None,
-        "startupinfo_dw_flags": int(getattr(startupinfo, "dwFlags", 0)),
-        "startupinfo_show_window": int(getattr(startupinfo, "wShowWindow", 0)),
+        "creationflags": CREATE_NEW_CONSOLE,
+        "use_startupinfo": False,
+        "startupinfo_dw_flags": 0,
+        "startupinfo_show_window": 0,
+        "inherit_stdio": True,
         "fallback_encodings": list(spec.fallback_encodings),
         "returncode_9009_hint": backend.explain_failure(9009, None),
         "not_found_hint": backend.explain_failure(-1, "not_found"),
@@ -578,7 +591,8 @@ def _prepare_embedded_plan_and_assets(plan_dict: dict) -> tuple[dict, list[tuple
             continue
 
         if step.get("type") == "url":
-            url = str(step.get("url", "")).strip()
+            url = normalize_missing_url_scheme(str(step.get("url", "")))
+            step["url"] = url
             browser_path = str(step.get("browser_path", "")).strip()
             step["_url_open"] = _serialized_url_open(url, browser_path)
             continue

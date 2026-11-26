@@ -22,6 +22,7 @@ import subprocess
 from pathlib import Path
 from datetime import datetime
 from urllib.parse import urlparse
+import re
 
 
 EMBEDDED_PLAN = __PLAN_DATA__
@@ -214,12 +215,23 @@ def url_process_options(launch: dict) -> dict:
     return options
 
 
+def _normalize_missing_url_scheme(url: str) -> str:
+    text = str(url).strip()
+    if not text:
+        return text
+    if re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*://", text) or re.match(
+        r"^(mailto|data|about|javascript|tel|sms|file):", text, re.IGNORECASE
+    ):
+        return text
+    return "https://" + text
+
+
 def run_url_step(step: dict) -> None:
     launch = step.get("_url_open")
     if not isinstance(launch, dict) or launch.get("schema") != URL_OPEN_SCHEMA:
         raise ValueError("URL 打开合同缺失或版本不受支持")
 
-    url = str(launch.get("url", ""))
+    url = _normalize_missing_url_scheme(str(launch.get("url", "")))
     if not url:
         log("[失败] URL 为空")
         return

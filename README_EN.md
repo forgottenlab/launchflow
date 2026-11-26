@@ -14,7 +14,7 @@ The project is currently in **Beta**. The latest completed verification checkpoi
 
 ![LaunchFlow Professional dark workbench](docs/images/launchflow-workbench-dark.png)
 
-> The screenshot above is the Professional workbench, with Application, URL, Command, and Wait steps. The next image is the Basic workbench in the same layout: only Application and URL steps, and no activation window at startup.
+> The screenshot above is the Professional workbench. You can add Application, URL, and Command steps; existing Wait steps still load and run, and the per-step delay covers pauses between steps. The next image is the Basic workbench in the same layout: only Application and URL steps, and no activation window at startup.
 
 ![LaunchFlow Basic dark workbench](docs/images/launchflow-basic-workbench-dark.png)
 
