@@ -7,6 +7,15 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Changed / 变更
+- Professional 工作台不再提供“+ 等待”按钮。等待步骤仍可加载、编辑和运行；步骤之间的间隔请使用各步骤的“后续延迟(秒)”。
+- 从 Professional 导出的独立启动器在执行命令步骤时会弹出可交互的控制台窗口（`CREATE_NEW_CONSOLE` 并继承标准输入输出），便于查看输出和交互。编辑器内试运行仍将输出捕获到日志面板。短命令结束时控制台可能很快关闭。
+
+### Fixed / 修复
+- 当日志抽屉被拖到最小高度时，“运行与输出日志”标题不再与状态文本重叠，“恢复高度”按钮保持完整可见且可点击。最小高度以标题行为准，不再被日志正文的最小高度挤扁。
+- 网址若未写 scheme（例如 `www.baidu.com`），会在输入、保存、预检、试运行和导出时统一补上 `https://`。已显式写出的 scheme（包括 http、https 以及其他 scheme）不会被改写。Basic 仍拒绝非 HTTP/HTTPS。
+- 修复 Professional“执行命令”多行输入框在获得焦点时出现模糊/双层蓝框的问题（去掉 QTextEdit 原生边框，只保留样式表描边）。
+
 ### Added / 新增
 - 应用步骤的程序路径现支持三种设置方式：直接输入绝对路径、浏览选择程序，以及按名称在本机查找（例如输入 steam）。查找使用注册表 App Paths / 卸载项、开始菜单与桌面快捷方式、常见安装目录和 Steam 等已知布局，不递归扫描整个磁盘；唯一结果直接填入已有绝对路径，多个匹配由用户选择，找不到则明确提示。Professional 与 Basic 共用该能力，Basic 仍只接受本地 .exe / .lnk。
 - 落地双版本架构 Phase 0–2：同一产品提供独立分发的 Professional 与 Basic 入口，二者都可以导出独立 exe。Professional / 默认入口仍是 `python -m editor.main` 与 `LaunchFlow.exe`，保留 Command、Wait、高级 Application 配置、离线许可以及不变的 `EMBEDDED_TEMPLATE`，数据位于 `%LOCALAPPDATA%\LaunchFlow`。Basic 入口为 `python -m editor.main_basic` 与 `LaunchFlow-Basic.exe`，启动时不要求激活，数据位于 `%LOCALAPPDATA%\LaunchFlow-Basic`，工作台与受限运行器只接受本地 EXE / 经校验的本地 EXE 快捷方式 / http(s) URL，并固定 1 秒间隔。默认未设置的 edition context 仍走 Professional / 单一产品路径。这是仓库内实现，不是新的公开 Basic 安装包或 GitHub Release；最近的公开检查点仍是 `v0.1.0-beta.2`。Professional 导出授权（直接调用 `build_single_file_exe()` 是否应再次检查许可证）仍待单独审计。说明见 `docs/architecture.md` 第 29 节与 `docs/dual-edition-phase2-launch-isolation.md`。

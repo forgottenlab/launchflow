@@ -70,7 +70,7 @@ from tools.dual_edition_phase0_contract import (
 
 
 FROZEN_PROFESSIONAL_TEMPLATE_SHA256 = (
-    "3ba5e0ea8727b8b88644d072cf746602f8d25a93861a1d29e17e165d0c047e35"
+    "b071c4a1ef26f3ab0d93c153c9986941a288e295dfe704d18ccd09f48b854a91"
 )
 
 BASIC_COMPATIBLE_PLAN = {
@@ -548,8 +548,9 @@ def check_editor_ui_trimming() -> None:
         professional.show()
         app.processEvents()
         require(professional.btn_add_app.isVisible() and professional.btn_add_url.isVisible(), "Professional add-step buttons missing")
-        require(professional.btn_add_cmd.isVisible() and professional.btn_add_wait.isVisible(), "Professional Command/Wait buttons were hidden")
-        require(professional.btn_add_cmd.isEnabled() and professional.btn_add_wait.isEnabled(), "Professional Command/Wait buttons were disabled")
+        require(professional.btn_add_cmd.isVisible() and professional.btn_add_cmd.isEnabled(), "Professional Command button was hidden")
+        require(not professional.btn_add_wait.isVisible(), "Professional Wait add button should be removed")
+        require(not professional.btn_add_wait.isEnabled(), "Professional Wait add button should stay disabled")
         add_app_and_select(professional)
         require(professional.app_args_in.isVisible(), "Professional app args field was hidden")
         require(professional.app_delay_in.isVisible(), "Professional app delay field was hidden")

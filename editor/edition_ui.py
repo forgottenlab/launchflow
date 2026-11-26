@@ -1,7 +1,8 @@
 """Edition-aware editor presentation helpers.
 
 Professional / the current product entry keeps the full existing workbench:
-Command, Wait, application arguments, and custom delay_after. Basic hides or
+Command, application arguments, and custom delay_after. Wait steps still
+load and run, but are no longer offered as an add-step button. Basic hides or
 withholds those Professional-only capabilities so the in-app UI matches the
 already-enforced plan contract.
 """
@@ -28,7 +29,7 @@ BASIC_WORKBENCH_TITLE = "LaunchFlow Basic 工作台"
 PROFESSIONAL_BRAND_TITLE = "Launch Flow"
 BASIC_BRAND_TITLE = "LaunchFlow Basic"
 
-PROFESSIONAL_EMPTY_STEPS_HINT = "请先在左侧点击“+ 应用 / + 网页 / + 命令 / + 等待”来添加步骤。"
+PROFESSIONAL_EMPTY_STEPS_HINT = "请先在左侧点击“+ 应用 / + 网页 / + 命令”来添加步骤。步骤之间的间隔请使用“后续延迟”。"
 BASIC_EMPTY_STEPS_HINT = "请先在左侧点击“+ 应用 / + 网页”来添加步骤。"
 
 PROFESSIONAL_APP_PATH_PLACEHOLDER = "输入绝对路径，或浏览 / 按名称查找 .exe / .bat / .cmd / .ps1"

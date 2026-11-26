@@ -103,6 +103,7 @@ from PySide6.QtWidgets import (
 )
 
 from shared.models import Plan, AppStep, UrlStep, CommandStep, WaitStep
+from shared.url_normalization import normalize_missing_url_scheme, normalize_plan_url_schemes
 from shared.plan_schema import validate_plan_dict
 from shared.edition_policy import (
     BasicPolicyViolation,
@@ -520,6 +521,8 @@ def validate_plan_for_execution(plan: Plan, action_label: str) -> Optional[PlanV
     if not plan.steps:
         return PlanValidationIssue(f"当前没有任何步骤，无法{action_label}。")
 
+    normalize_plan_url_schemes(plan.steps)
+
     if is_basic_edition_active():
         try:
             enforce_basic_policy_on_ingress(plan)
@@ -662,7 +665,12 @@ def _field_control_qss(tokens: FieldThemeTokens) -> str:
 
     QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus, QSpinBox:focus,
     QComboBox:focus, QDoubleSpinBox:focus {{
-        border-color: {tokens.field_border_focus};
+        border: 1px solid {tokens.field_border_focus};
+        outline: none;
+    }}
+
+    QTextEdit, QPlainTextEdit {{
+        outline: none;
     }}
 
     QLineEdit:disabled, QTextEdit:disabled, QPlainTextEdit:disabled, QSpinBox:disabled,
@@ -2166,8 +2174,13 @@ class MainWindow(QMainWindow):
         self.btn_add_url = QPushButton("+ 网页")
         self.btn_add_cmd = QPushButton("+ 命令")
         self.btn_add_wait = QPushButton("+ 等待")
+        # Wait remains a supported plan step, but the add button is removed:
+        # each step already has a post-step delay. The widget is kept hidden
+        # so existing tests and saved wait steps still have a stable object.
+        self.btn_add_wait.setVisible(False)
+        self.btn_add_wait.setEnabled(False)
 
-        for btn in [self.btn_add_app, self.btn_add_url, self.btn_add_cmd, self.btn_add_wait]:
+        for btn in [self.btn_add_app, self.btn_add_url, self.btn_add_cmd]:
             btn.setObjectName("SecondaryBtn")
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
             action_bar.addWidget(btn, 1)
@@ -2175,7 +2188,6 @@ class MainWindow(QMainWindow):
         self.btn_add_app.clicked.connect(self._on_add_app_step)
         self.btn_add_url.clicked.connect(lambda: self._on_add_template_step("url"))
         self.btn_add_cmd.clicked.connect(lambda: self._on_add_template_step("command"))
-        self.btn_add_wait.clicked.connect(lambda: self._on_add_template_step("wait"))
 
         flow_layout.addLayout(action_bar)
 
@@ -2209,7 +2221,6 @@ class MainWindow(QMainWindow):
 
         self.log_drawer = QFrame()
         self.log_drawer.setObjectName("LogDrawer")
-        self.log_drawer.setMinimumHeight(44)
         drawer_layout = QHBoxLayout(self.log_drawer)
         drawer_layout.setContentsMargins(10, 7, 7, 8)
         drawer_layout.setSpacing(7)
@@ -2221,11 +2232,14 @@ class MainWindow(QMainWindow):
 
         self.log_header = QFrame()
         self.log_header.setObjectName("LogHeader")
-        self.log_header.setMinimumHeight(29)
+        self.log_header.setFixedHeight(32)
+        self.log_header.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         log_header = QHBoxLayout(self.log_header)
-        log_header.setContentsMargins(0, 0, 0, 0)
+        log_header.setContentsMargins(0, 2, 0, 2)
         log_header.setSpacing(8)
         self.log_title_label = self._make_label("🛠️ 运行与输出日志", "panel_title")
+        self.log_title_label.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
+        self.log_title_label.setWordWrap(False)
         log_header.addWidget(self.log_title_label)
 
         self.status_label = ElidedLabel("状态：准备就绪")
@@ -2242,8 +2256,9 @@ class MainWindow(QMainWindow):
         self.btn_open_log = QPushButton("隐藏日志")
         self.btn_open_log.setObjectName("LogHeaderButton")
         self.btn_open_log.setFixedHeight(28)
-        self.btn_open_log.setMinimumWidth(86)
-        self.btn_open_log.setMaximumWidth(104)
+        self.btn_open_log.setMinimumWidth(96)
+        self.btn_open_log.setMaximumWidth(120)
+        self.btn_open_log.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self.btn_open_log.setIconSize(QSize(14, 14))
         self.btn_open_log.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_open_log.clicked.connect(self._toggle_log_drawer)
@@ -2258,10 +2273,11 @@ class MainWindow(QMainWindow):
 
         self.log_text = LogConsole(max_blocks=4000)
         self.log_text.setObjectName("LogConsole")
-        self.log_text.setMinimumHeight(148)
+        self.log_text.setMinimumHeight(0)
         self.log_text.unseenOutputChanged.connect(self._on_log_unseen_output_changed)
         log_main_layout.addWidget(self.log_text, 1)
         drawer_layout.addWidget(self.log_main, 1)
+        self._apply_log_drawer_minimum_height()
 
         self.log_toolbar = QFrame()
         self.log_toolbar.setObjectName("LogToolbar")
@@ -2323,9 +2339,9 @@ class MainWindow(QMainWindow):
 
         professional = shows_professional_editor_controls()
         self.btn_add_cmd.setVisible(professional)
-        self.btn_add_wait.setVisible(professional)
         self.btn_add_cmd.setEnabled(professional)
-        self.btn_add_wait.setEnabled(professional)
+        self.btn_add_wait.setVisible(False)
+        self.btn_add_wait.setEnabled(False)
         self._set_form_row_visible(self.app_form, self.app_args_in, professional)
         self._set_form_row_visible(self.app_form, self.app_delay_in, professional)
         self._set_form_row_visible(self.url_form, self.url_delay_in, professional)
@@ -2462,6 +2478,8 @@ class MainWindow(QMainWindow):
         cmd_form = QFormLayout(self.page_cmd)
         self.cmd_name_in = QLineEdit()
         self.cmd_in = QTextEdit()
+        self.cmd_in.setFrameShape(QFrame.Shape.NoFrame)
+        self.cmd_in.setFrameShadow(QFrame.Shadow.Plain)
         self.cmd_in.setMaximumHeight(120)
         self.cmd_shell_in = ThemedComboBox()
         self.cmd_shell_in.addItems(["cmd", "powershell"])
@@ -2731,7 +2749,7 @@ class MainWindow(QMainWindow):
         self.btn_add_app.setToolTip("添加一个应用启动步骤")
         self.btn_add_url.setToolTip("添加一个网页打开步骤")
         self.btn_add_cmd.setToolTip("添加一个后台命令步骤，输出显示在日志区")
-        self.btn_add_wait.setToolTip("添加一个等待步骤")
+        self.btn_add_wait.setToolTip("等待步骤仍可加载和运行，请使用各步骤的后续延迟。")
         self.btn_open_log.setToolTip("隐藏或显示 LaunchFlow 内置运行日志区域")
         self.btn_log_expand.setToolTip("放大日志区域；放大后再次点击恢复正常大小")
         self.btn_clear_log.setToolTip("只清空当前显示，不删除磁盘日志")
@@ -3000,10 +3018,33 @@ class MainWindow(QMainWindow):
         full += layout.spacing() * max(0, len(button_heights) - 1)
         return one, full
 
+    def _apply_log_drawer_minimum_height(self) -> None:
+        # Keep the drawer shrinkable to the header only, without clipping it.
+
+        layout = self.log_drawer.layout()
+        margins = layout.contentsMargins() if layout is not None else self.log_drawer.contentsMargins()
+        self.log_drawer.setMinimumHeight(
+            margins.top() + margins.bottom() + self.log_header.minimumHeight()
+        )
+
+    def _sync_log_body_compact(self) -> None:
+        # Hide the log body when the splitter leaves only enough room for the header.
+
+        if not hasattr(self, "log_text"):
+            return
+        layout = self.log_drawer.layout()
+        margins = layout.contentsMargins() if layout is not None else self.log_drawer.contentsMargins()
+        available = self.log_drawer.contentsRect().height() - margins.top() - margins.bottom()
+        body = available - self.log_header.minimumHeight()
+        show_body = body >= 24
+        self.log_hint.setVisible(show_body)
+        self.log_text.setVisible(show_body)
+
     def update_log_toolbar_visibility(self, available_height: Optional[int] = None) -> str:
         """Show five, one, or zero complete tool buttons based on real height."""
 
         self._log_toolbar_update_pending = False
+        self._sync_log_body_compact()
         if self.log_layout_state == "collapsed":
             mode = "hidden"
         else:
@@ -3056,7 +3097,7 @@ class MainWindow(QMainWindow):
         sizes = self.main_splitter.sizes()
         total = max(sum(sizes), self.main_splitter.height(), 570)
         if state == "collapsed":
-            desired = 44
+            desired = self.log_drawer.minimumHeight()
         elif state == "expanded":
             desired = min(max(260, round(total * 0.5)), max(220, total - 320))
         else:
@@ -3508,7 +3549,9 @@ class MainWindow(QMainWindow):
                     step.delay_after = 1.0
             elif isinstance(step, UrlStep):
                 step.name = self.url_name_in.text().strip()
-                step.url = self.url_in.text().strip()
+                step.url = normalize_missing_url_scheme(self.url_in.text())
+                if self.url_in.text() != step.url:
+                    self.url_in.setText(step.url)
                 if shows_professional_editor_controls():
                     step.delay_after = self.url_delay_in.value()
                 else:
@@ -3864,6 +3907,7 @@ class MainWindow(QMainWindow):
             elif isinstance(step, UrlStep):
                 self.editor_stack.setCurrentWidget(self.page_url)
                 self.url_name_in.setText(step.name)
+                step.url = normalize_missing_url_scheme(step.url)
                 self.url_in.setText(step.url)
                 self.url_delay_in.setValue(step.delay_after)
 
